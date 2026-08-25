@@ -678,3 +678,36 @@ body.is-touch .hud .meters { bottom: calc(var(--u) * 10.5); }
   .hud .toast { animation: none; }
   .hud .fragment, .hud .dialogue, .hud .hint { transition: none; }
 }
+
+/* --- the audio toggles ---------------------------------------------------- */
+
+.sound {
+  position: absolute;
+  right: calc(var(--u) * 1.1);
+  bottom: calc(var(--u) * 4.6);
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: calc(var(--u) * 0.24);
+  pointer-events: auto;
+}
+.sound-btn {
+  font: inherit;
+  font-size: calc(var(--u) * 0.6);
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--cream);
+  background: none;
+  border: 0;
+  padding: calc(var(--u) * 0.18) 0 calc(var(--u) * 0.18) calc(var(--u) * 0.5);
+  cursor: pointer;
+  /* The rule on the left IS the indicator. A word that dims when it is off and
+     keeps its rule when it is on needs no second element to say so. */
+  border-left: 2px solid var(--stone-lit);
+  opacity: 0.72;
+  transition: opacity 0.12s, border-color 0.12s;
+}
+.sound-btn:hover { opacity: 1; }
+.sound-btn.is-off { opacity: 0.3; border-left-color: transparent; text-decoration: line-through; }
+.sound-btn:focus-visible { outline: 1px solid var(--cream-deep); outline-offset: 2px; }
+@media (max-width: 720px) { .sound { bottom: calc(var(--u) * 6.4); } }

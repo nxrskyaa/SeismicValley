@@ -2,6 +2,7 @@ import * as THREE from 'three'
 import './ui/ui.css'
 
 import { audio } from './core/audio.js'
+import { Music } from './core/music.js'
 import { Input } from './core/input.js'
 import { hashSeed } from './core/rng.js'
 import { LEVEL, N, P } from './world/grid.js'
@@ -257,7 +258,25 @@ function runGame() {
   const root = document.getElementById('app')
   const { state, input, control } = app
 
-  app.hud = new HUD(root, state, { onSelect: () => audio.ui() })
+  // Audio preferences live outside the save: they are about the room the player
+  // is in, not about the valley.
+  const PREF = 'seismic-valley.audio'
+  const prefs = (() => {
+    try { return { sound: true, music: true, ...JSON.parse(localStorage.getItem(PREF) ?? '{}') } } catch { return { sound: true, music: true } }
+  })()
+  const savePrefs = () => { try { localStorage.setItem(PREF, JSON.stringify(prefs)) } catch { /* private mode */ } }
+
+  app.music = new Music(audio)
+  audio.setMuted(!prefs.sound)
+
+  app.hud = new HUD(root, state, {
+    onSelect: () => audio.ui(),
+    sound: prefs.sound,
+    music: prefs.music,
+    onSound: (on) => { prefs.sound = on; audio.setMuted(!on); savePrefs(); if (on) audio.ui() },
+    onMusic: (on) => { prefs.music = on; savePrefs(); on ? app.music.start() : app.music.stop() },
+  })
+  app.audioPrefs = prefs
   app.panels = new Panels(root, state, {
     onOpen: () => { input.captured = true },
     onClose: () => { input.captured = false },
@@ -282,6 +301,7 @@ function runGame() {
       seed: app.seedText,
       onStart: ({ load, seed, appearance }) => {
         audio.unlock()
+        if (app.audioPrefs.music) app.music.start()
         if (appearance) {
           app.appearance = appearance
           const look = lookFrom(appearance)
@@ -302,9 +322,31 @@ function runGame() {
     })
   } else {
     audio.unlock()
+    if (app.audioPrefs.music) app.music.start()
   }
-  addEventListener('pointerdown', () => audio.unlock(), { once: true })
-  addEventListener('keydown', () => audio.unlock(), { once: true })
+  if (params.get('audiotest')) {
+    // Every sound in the game, fired once, plus the score. `npm run shoot audio`
+    // turns a typo in the audio graph into a failing capture.
+    audio.unlock()
+    app.music.start()
+    for (const k of ['till', 'sow', 'water', 'chop', 'mine', 'harvest', 'pickup', 'coin', 'build',
+      'deny', 'ui', 'chime', 'prune', 'golem', 'pebble', 'cast', 'splash', 'nibble', 'bite', 'reel', 'landed']) {
+      audio[k]()
+    }
+    // A score that throws is caught by the console listener; a score that
+    // quietly books nothing is not, and that is the more likely failure.
+    setTimeout(() => {
+      if (app.music.step < 3) console.error(`the score booked ${app.music.step} beats in three seconds`)
+    }, 3000)
+  }
+  // The context is suspended until a real gesture, so the score has to be told
+  // to start again on whichever of these actually lands first.
+  const kick = () => {
+    audio.unlock()
+    if (app.audioPrefs.music) app.music.start()
+  }
+  addEventListener('pointerdown', kick, { once: true })
+  addEventListener('keydown', kick, { once: true })
 
   const clock = new THREE.Clock()
   const focus = new THREE.Vector3()
@@ -347,6 +389,7 @@ function runGame() {
     app.fishing.update(dt, control.pos, control.facing, state.hour)
     app.pruning.update(dt)
     app.flag.update(dt)
+    app.music.setHour(state.hour)
 
     const rebuild = state.drainRebuilds()
     if (rebuild.props) app.props.dirty = true

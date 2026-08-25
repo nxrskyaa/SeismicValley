@@ -28,7 +28,7 @@ const OUT = path.join(ROOT, 'shots')
 const W = 1440
 const H = 900
 
-const ALL = ['valley', 'home', 'gate', 'rocky', 'sheet', 'rig', 'pond', 'lake', 'dawn', 'dusk', 'night', 'pruning', 'pebble', 'play', 'menu']
+const ALL = ['valley', 'home', 'gate', 'rocky', 'sheet', 'rig', 'pond', 'lake', 'dawn', 'dusk', 'night', 'pruning', 'pebble', 'play', 'menu', 'hud', 'audio']
 
 /**
  * Poses that are INTERFACE rather than camera.
@@ -40,6 +40,11 @@ const ALL = ['valley', 'home', 'gate', 'rocky', 'sheet', 'rig', 'pond', 'lake', 
  */
 const DOM_POSES = {
   menu: { query: '', wait: '.title-card', settle: 1400 },
+  hud: { query: '?nomenu=1', wait: '.hotbar', settle: 2200 },
+  // Not a picture — a smoke test. The score builds its whole WebAudio graph and
+  // books several phrases of notes; anything wrong in it throws, and the harness
+  // already fails on a console error.
+  audio: { query: '?nomenu=1&audiotest=1', wait: '.hotbar', settle: 4000 },
 }
 
 const argv = process.argv.slice(2)
@@ -112,6 +117,9 @@ async function main() {
       '--use-angle=swiftshader',
       '--enable-unsafe-swiftshader',
       '--hide-scrollbars',
+      // Without this the AudioContext stays suspended and the score smoke test
+      // books nothing at all.
+      '--autoplay-policy=no-user-gesture-required',
       `--window-size=${width},${height}`,
     ],
   })

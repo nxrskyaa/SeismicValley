@@ -180,7 +180,7 @@ export const M = {
 const SKY = [
   { t: 0.0, top: '#1d2733', hor: '#2b3540', fog: '#2c3742', sun: '#5d6f8f', energy: 0.16, amb: '#46566e', ambE: 0.62 },
   { t: 4.4, top: '#243046', hor: '#3d4356', fog: '#3a3f52', sun: '#6a7396', energy: 0.22, amb: '#4d5a78', ambE: 0.64 },
-  { t: 6.0, top: '#6d7ba0', hor: '#e0a583', fog: '#c8a496', sun: '#ffb887', energy: 0.72, amb: '#8c8298', ambE: 0.62 },
+  { t: 6.0, top: '#6d7ba0', hor: '#e0a583', fog: '#c8a496', sun: '#ffb887', energy: 0.82, amb: '#9a90a8', ambE: 0.76 },
   { t: 8.0, top: '#b9c2dc', hor: '#e8d9c4', fog: '#d9d2e0', sun: '#ffe6c8', energy: 0.96, amb: '#bcb6d2', ambE: 0.9 },
   { t: 12.0, top: '#c7c6e2', hor: '#e9e2ea', fog: '#d6cfe4', sun: '#fff4e2', energy: 1.06, amb: '#c4bcda', ambE: 0.98 },
   { t: 16.0, top: '#c2c0dd', hor: '#ecdfd6', fog: '#d3cade', sun: '#ffeeda', energy: 1.0, amb: '#c2b8d4', ambE: 0.94 },

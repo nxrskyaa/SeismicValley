@@ -104,7 +104,22 @@ export class HUD {
 
     this.mark = el('div', 'corner', markSvg({ className: 'corner-mark' }))
 
-    this.node.append(this.log, this.meters, this.hotbar, this.hint, this.toasts, this.dialogue, this.fragment, this.mark)
+    // --- audio ---------------------------------------------------------------
+    // Two words, no icons. A speaker glyph at this size is four grey pixels and
+    // a guess; the interface is already set in small letter-spaced caps, so the
+    // control that turns the music off may as well say so.
+    this.sound = el('div', 'sound')
+    this.sfxBtn = el('button', 'sound-btn', 'Sound')
+    this.musBtn = el('button', 'sound-btn', 'Music')
+    this.sfxBtn.type = this.musBtn.type = 'button'
+    this.sfxBtn.addEventListener('click', () => this.setSound(!this.sfxOn))
+    this.musBtn.addEventListener('click', () => this.setMusic(!this.musOn))
+    this.sound.append(this.sfxBtn, this.musBtn)
+    this.sfxOn = opts.sound ?? true
+    this.musOn = opts.music ?? true
+    this.paintAudio()
+
+    this.node.append(this.log, this.meters, this.hotbar, this.hint, this.toasts, this.dialogue, this.fragment, this.sound, this.mark)
 
     state.on('bag', () => this.drawHotbar())
     state.on('hotbar', () => this.drawHotbar())
@@ -116,6 +131,23 @@ export class HUD {
     state.on('pruning', (p) => this.onPruning(p))
 
     this.drawAll()
+  }
+
+  paintAudio() {
+    this.sfxBtn.classList.toggle('is-off', !this.sfxOn)
+    this.musBtn.classList.toggle('is-off', !this.musOn)
+  }
+
+  setSound(on) {
+    this.sfxOn = on
+    this.paintAudio()
+    this.opts.onSound?.(on)
+  }
+
+  setMusic(on) {
+    this.musOn = on
+    this.paintAudio()
+    this.opts.onMusic?.(on)
   }
 
   meter(label) {
