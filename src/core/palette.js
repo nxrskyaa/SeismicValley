@@ -59,17 +59,17 @@ export const C = {
   // Sampled off the reference: a genuinely saturated blue-violet in the deep,
   // going pale lilac at the shallows. Not a desaturated slate — the water is the
   // one place the world is allowed to be a colour.
-  waterDeep: '#6a58ac', waterShallow: '#a294c4', waterFoam: '#ddd6ee',
+  waterDeep: '#4a3d84', waterShallow: '#7a6d9e', waterFoam: '#b8b0d0',
 
   // -------------------------------------------------------------- foliage --
   // Trunks are dark plum, near-aubergine. Against a lilac cliff a brown trunk
   // reads as a mistake; the plum is what ties the trees into the ground.
-  trunk: '#5a3550', trunkDark: '#482940',
-  canopyA: '#cdc9e4', canopyB: '#dcd0e4', canopyC: '#c2c6e2', canopyDead: '#b3a8b8',
-  shrub: '#9aa878', shrubDeep: '#7c8a5e', grass: '#bdb694', grassDry: '#cfc7a8',
+  trunk: '#4a2c42', trunkDark: '#3a2034',
+  canopyA: '#a8a4c4', canopyB: '#bcaec6', canopyC: '#a0a4c4', canopyDead: '#948a9c',
+  shrub: '#68703a', shrubDeep: '#525a2c', grass: '#767e4a', grassDry: '#928c68',
 
   // ---------------------------------------------------------------- props --
-  stoneProp: '#bdb8a4', stonePropDark: '#a49f8e',
+  stoneProp: '#9c9888', stonePropDark: '#868276',
 
   // --------------------------------------------------------------- player --
   skin: '#e2b48f', hair: '#3a2b33',
@@ -99,18 +99,18 @@ export const C = {
 export const GROUND = {
   // Sand meadow. The one material with the full four-band read: a pale sand top,
   // a dappled olive lip, a rust band under it, and pale grey-lilac rock below.
-  MEADOW: ['#c2c3a8', '#8c9e68', '#bb6e63', '#c6c3cc'],
+  MEADOW: ['#6d7240', '#525733', '#a86657', '#8f81a6'],
   // Snow. Near-white, and NO banding — the reference's snow plateaus are one
   // white top over one faintly cooler face, and adding strata to them is what
   // makes a snowfield look like striped rock.
-  ASH: ['#eae7f0', '#e0dcea', '#d4cfe0', '#d9d5e4'],
+  ASH: ['#c8c4d6', '#bcb6cc', '#aaa2c0', '#b0a8c4'],
   // Clay. A darker version of its own top, no rust, no olive.
-  LOAM: ['#bb9c92', '#ab8c82', '#9d7f76', '#94776e'],
-  STONE: ['#c8c4cc', '#b8b3c2', '#a49eb0', '#b0aabe'],
-  SHORE: ['#d2ccb2', '#c2bb9e', '#b4a88c', '#c6c3cc'],
+  LOAM: ['#9a8078', '#8c746c', '#7e6660', '#78635c'],
+  STONE: ['#a29ab4', '#948aa8', '#847a98', '#8c82a2'],
+  SHORE: ['#c2b0a6', '#b09a90', '#9c8072', '#8f81a6'],
   TILLED: ['#8d6a55', '#7f5e4a', '#6f5140', '#6b4f42'],
   WET: ['#6b4c3e', '#604437', '#553c30', '#4e372c'],
-  SCAR: ['#c9bcc8', '#b3a2b2', '#8d6f7e', '#bdaec2'],
+  SCAR: ['#9e8f9e', '#8a788c', '#735a66', '#8a7c94'],
 }
 export const GROUND_KEYS = Object.keys(GROUND)
 export const G = Object.fromEntries(GROUND_KEYS.map((k, i) => [k, i]))
@@ -133,10 +133,13 @@ export const UI = {
   creamShade: '#dcc09a',
   parchment: '#e6d5b8',
 
-  // Seismic's shard. Nothing else in the game is allowed this hue.
-  rose: '#df9d9b',
-  roseDeep: '#b06d70',
-  roseGlow: '#f0c6c0',
+  // Seismic's crystal. Vivid magenta, not dusty rose — sampled off the
+  // reference sheet, where it is the single most saturated thing in any frame
+  // and is doing the whole job of saying "Seismic". Nothing else in the game is
+  // allowed this hue.
+  rose: '#e0479b',
+  roseDeep: '#b02f7a',
+  roseGlow: '#f487c4',
 }
 
 /** Material constants, so two things cut from the same stone cannot drift. */

@@ -77,7 +77,9 @@ console.log('\ncolourway')
   }
   // Rose is the brand mark and is the ONE hue outside the earth band. The band
   // wraps through zero: the darkest warm tones sit a few degrees into red.
-  const ROSE = ['df9d9b', 'b06d70', 'f0c6c0']
+  // Seismic's crystal. Vivid magenta, and the one hue in the interface palette
+  // that is deliberately outside the earth band — it is the brand mark.
+  const ROSE = ['e0479b', 'b02f7a', 'f487c4']
   const strays = []
   for (const hex of hexes) {
     if (ROSE.includes(hex.toLowerCase())) continue

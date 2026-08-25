@@ -40,6 +40,14 @@ import { TouchControls } from './ui/touch.js'
  * frustum.
  */
 
+/**
+ * How fast the clock runs.
+ *
+ * Velion's numbers: ten in-game minutes per tick, 6.5 real seconds per tick —
+ * so a twenty-hour day (06:00 to 02:00) takes about thirteen real minutes.
+ */
+const HOURS_PER_SECOND = 10 / 60 / 6.5
+
 const params = new URLSearchParams(location.search)
 const app = {}
 window.app = app
@@ -57,6 +65,7 @@ const POSES = {
   rocky: { at: [GATE.x, 1.2, GATE.z], size: 5.2, hour: 9.5 },
   sheet: { at: [HOME.x, 1.0, HOME.z], size: 3.6, hour: 12 },
   rig: { at: [HOME.x, 1.0, HOME.z], size: 5, hour: 12 },
+  pebble: { at: [HOME.x + 2, -0.86, HOME.z + 2], size: 1.4, hour: 12, pebble: true },
   dawn: { at: [HOME.x, 0, HOME.z], size: 26, hour: 6.2 },
   dusk: { at: [HOME.x, 0, HOME.z], size: 26, hour: 19.4 },
   night: { at: [HOME.x, 0, HOME.z], size: 26, hour: 22.5 },
@@ -183,6 +192,9 @@ function boot() {
 
 function runCapture(shot) {
   const { grid } = app
+  // Some poses need something in front of the camera that the player would
+  // normally have to earn.
+  if (shot.pebble) app.state.hatchPebble(Math.round(shot.at[0]), Math.round(shot.at[2]))
   const focus = new THREE.Vector3(
     shot.at[0],
     shot.at[1] + grid.y(Math.round(shot.at[0]), Math.round(shot.at[2])),
@@ -206,7 +218,13 @@ function runCapture(shot) {
     // The cast reacts to where the PLAYER is, and in a capture the nearest
     // thing to a player is the camera. Passing the focus point instead makes
     // anyone standing on it turn to face their own feet.
-    app.cast.update(dt, app.camera.position, shot.hour)
+    app.cast.update(dt, shot.pebble ? focus : app.camera.position, shot.hour)
+    if (shot.pebble && app.cast.pebbles[0]) {
+      // Pin it: a following pebble walks out of frame within a second.
+      app.cast.pebbles[0].pos.set(focus.x, focus.z)
+      app.cast.pebbles[0].goal.copy(app.cast.pebbles[0].pos)
+      app.cast.pebbles[0].facing = Math.PI * 0.25
+    }
     app.sky.setSpan(app.rig.size * 0.95)
     const sky = app.sky.update(shot.hour, focus)
     app.sky.follow(app.camera)
@@ -281,7 +299,11 @@ function runGame() {
       // Time only moves while the game is being played. A player who opened the
       // journal and went to lunch should not come back to a lost season.
       if (!app.panels.isOpen && !app.pruning.active) {
-        state.hour += dt * 0.28
+        // A full 06:00 -> 02:00 day in about thirteen real minutes, matching
+        // Velion's clock. At 0.28 an hour went by every three and a half
+        // seconds: the sun raced, nothing had time to read as morning or
+        // evening, and the day/night cycle turned into a strobe.
+        state.hour += dt * HOURS_PER_SECOND
         if (state.hour >= 26) doSleep(true)
       }
       control.update(dt, input, app.rig.inputYaw)

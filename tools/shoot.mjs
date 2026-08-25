@@ -28,7 +28,7 @@ const OUT = path.join(ROOT, 'shots')
 const W = 1440
 const H = 900
 
-const ALL = ['valley', 'home', 'gate', 'rocky', 'sheet', 'rig', 'dawn', 'dusk', 'night', 'pruning', 'play']
+const ALL = ['valley', 'home', 'gate', 'rocky', 'sheet', 'rig', 'dawn', 'dusk', 'night', 'pruning', 'pebble', 'play']
 
 const argv = process.argv.slice(2)
 let tag = ''

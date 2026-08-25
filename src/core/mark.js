@@ -140,11 +140,24 @@ export function markSvg({ fill = 'currentColor', className = '' } = {}) {
 }
 
 /**
- * The shard: the same six vertices the logo stone is cut from, extruded and
- * bevelled so its facets catch the key light. Centred on its own origin, one
- * unit tall.
+ * THE CRYSTAL — Seismic's pink stone.
+ *
+ * Read straight off the reference sheet: an **elongated hexagon**, pointed top
+ * and bottom, with straight parallel sides between them, and clearly taller
+ * than it is wide. It is not a rough shard and it is not a rounded gem; it is a
+ * cut stone with six flat edges, and the drawing puts one facet line down the
+ * right of it so the two halves catch different light.
+ *
+ * It is the mark Rocky wears on his chest, and the thing a geode holds.
  */
-const SHARD_PTS = [[0, 0.459], [0.306, 0.212], [0.212, -0.271], [-0.047, -0.459], [-0.294, -0.129], [-0.259, 0.235]]
+const SHARD_PTS = [
+  [0, 0.5],       // top point
+  [0.29, 0.2],    // upper right
+  [0.29, -0.17],  // lower right
+  [0, -0.5],      // bottom point
+  [-0.29, -0.17], // lower left
+  [-0.29, 0.2],   // upper left
+]
 
 export function shardShape() {
   const s = new THREE.Shape()
@@ -157,8 +170,10 @@ export function shardShape() {
 let shardGeoCache = null
 export function shardGeometry() {
   if (shardGeoCache) return shardGeoCache
+  // Bevelled hard and shallow: the reference's crystal is a flat cut stone, not
+  // a chunky prism, so the depth stays well under its width.
   const geo = new THREE.ExtrudeGeometry(shardShape(), {
-    depth: 0.42, bevelEnabled: true, bevelSize: 0.09, bevelThickness: 0.09, bevelSegments: 1, curveSegments: 1,
+    depth: 0.3, bevelEnabled: true, bevelSize: 0.07, bevelThickness: 0.07, bevelSegments: 1, curveSegments: 1,
   })
   geo.center()
   geo.computeVertexNormals()

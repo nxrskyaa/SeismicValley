@@ -62,11 +62,13 @@ export function tones(stone) {
 
 /** Named cuts. `stone` is what he is quarried from; nothing else changes. */
 export const ROCKY_CUTS = {
-  rocky: { stone: '#a4653f', trim: UI.creamDeep, eye: UI.cream },
+  // Warm tan-brown, the colour of the whole reference sheet — closer to cut
+  // sandstone than to rust. An earlier pass had him a full step too red.
+  rocky: { stone: '#a97a52', trim: UI.creamDeep, eye: UI.cream },
   cairn: { stone: '#8d6a4c', trim: UI.creamWarm, eye: UI.cream },
-  ember: { stone: '#b06a3a', trim: UI.creamDeep, eye: '#ffe6bd' },
-  sand: { stone: '#c09067', trim: UI.stoneDeep, eye: UI.cream },
-  basalt: { stone: '#6b5040', trim: UI.creamDeep, eye: UI.cream },
+  ember: { stone: '#b98a58', trim: UI.creamDeep, eye: '#ffe6bd' },
+  sand: { stone: '#c39a70', trim: UI.stoneDeep, eye: UI.cream },
+  basalt: { stone: '#7d5636', trim: UI.creamDeep, eye: UI.cream },
 }
 
 const INK = new THREE.MeshBasicMaterial({ color: new THREE.Color().setStyle(UI.ink, THREE.SRGBColorSpace), side: THREE.BackSide })

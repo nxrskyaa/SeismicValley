@@ -35,7 +35,7 @@ export const ROCKY = {
   name: 'Rocky',
   role: 'A Loom construct. Standing at the relay since before you woke up.',
   cut: 'rocky',
-  chest: 'mark',
+  chest: 'shard',
   height: 2.1,
   /** He does not wander. A landmark that moves is not a landmark. */
   at: GATE,
