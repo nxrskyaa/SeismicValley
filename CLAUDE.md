@@ -19,9 +19,11 @@ feel.
    cream). They are not interchangeable. Applying the brand colourway to the
    world is how the valley turned into sepia mud; the check asserts the UI block
    stays in Seismic's hue band **and** that the world block keeps its cool hues.
-2. **The camera is orthographic**, pitch −37°, yaws 45/135/225/315, size 17.5
-   (11–26). Perspective makes the terraces read as generic low-poly. The check
-   greps for `PerspectiveCamera` in main and fails on it.
+2. **The camera is orthographic**, pitch −37°, yaws 45/135/225/315, size **13**
+   (9–22), measured off the reference. Perspective makes the terraces read as
+   generic low-poly.
+3. **`LEVEL` is 1.0 and `shadowMap.enabled` is false.** A step is a wall, not a
+   kerb, and the reference has no cast shadows anywhere in it.
 3. **You are alone.** One human look in `actors/player.js`. No villagers, no
    market, no quest-giver — the survivors are scattered and do not know about
    each other. The check counts the entries in `LOOKS`.
@@ -30,6 +32,21 @@ feel.
 5. **The rig rule.** Three composes `T * R * S`, so scale lands before rotation.
    Slabs get a Z-axis prism (`FLAT`/`POINT`) and are never rotated; limbs get a
    Y-axis one (`COLUMN`/`TAPER`) and are never rotated.
+
+## The visual target is the reference video
+
+`C:\Users\xywal\Downloads\sssx.io_1787567672903.mp4` — the footage the user gave
+for Velion and still judges against. Velion's own `Palette.gd` is close but not
+the same thing. Sample it, do not remember it:
+
+```bash
+ffmpeg -ss 20 -i <mp4> -frames:v 1 frame.png
+```
+
+What it shows: sand tops over pale grey-lilac walls with a dappled olive lip and
+a rust band under it; thin plum trunks under flat cube-cluster canopies; tiny
+pale pebble specks, not grass tufts; deep blue-violet water; a bright violet
+fill; flat per-face shading with no cast shadows at all.
 
 ## Key modules
 

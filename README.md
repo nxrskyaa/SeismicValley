@@ -199,7 +199,7 @@ npm run dev
 |---|---|
 | `npm run dev` | the game, on `localhost:5173` |
 | `npm run build` | a static `dist/` |
-| `npm run check` | 79 assertions — the split palette, the camera, the premise, no network assets, the rig rule, the story rules, and a full headless day loop |
+| `npm run check` | 81 assertions — the split palette, the camera, the premise, no network assets, the rig rule, the story rules, and a full headless day loop |
 | `npm run lint` | eslint |
 | `npm run shoot` | headless captures of every pose into `shots/` |
 | `npm run mark` | regenerate `public/mark.svg` from `src/core/mark.js` |
@@ -255,6 +255,19 @@ stacking is the entire silhouette language of this world. The yaws are
 45/135/225/315, not 0/90/180/270 — on a square grid the diagonal yaws put the
 cell edges at 45° to the screen; the axis-aligned ones flatten every cliff into a
 horizontal band and the depth cue goes with it.
+
+**A height level is one world unit, and there are no cast shadows.** Both were
+measured off the reference rather than chosen: a single terrace step there is a
+wall about as tall as a cell is wide, and there is not one cast shadow anywhere
+in eighty seconds of footage. At half a unit every riser is a kerb and the map
+flattens into a pattern; add a directional shadow and it immediately reads as a
+heavier, more realistic game than this one is.
+
+**Trees are a slab, not a cone.** A thin rectangular plum trunk carrying a flat
+cluster of large cubes three to five cells across. They are the only vertical
+thing in a world of flat plateaus, so their silhouette sets the whole read — an
+earlier pass built them as stacked prisms narrowing to a point, and that one
+shape was doing as much damage as the palette was.
 
 **Terraces are built into the height field, not found by filtering it.** Rounding
 a smooth field to levels gives a smooth *staircase* — every cell one level off
