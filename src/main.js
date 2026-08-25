@@ -12,6 +12,7 @@ import { Props } from './world/props.js'
 import { CropView } from './world/cropView.js'
 import { Water } from './world/water.js'
 import { Water_Life } from './world/fish.js'
+import { Weather } from './world/weather.js'
 import { Sky } from './world/sky.js'
 import { CameraRig } from './world/camera.js'
 import { flagpole, placeStructure } from './world/buildings.js'
@@ -157,8 +158,9 @@ function boot() {
   app.crops = new CropView(grid)
   app.water = new Water(grid)
   app.life = new Water_Life(grid)
+  app.weather = new Weather(grid)
   app.sky = new Sky(app.scene)
-  app.scene.add(app.terrain.group, app.props.group, app.crops.group, app.water.mesh, app.life.group)
+  app.scene.add(app.terrain.group, app.props.group, app.crops.group, app.water.mesh, app.life.group, app.weather.group)
 
   app.state = new GameState(grid, seed)
   seedStructures(app.state, grid)
@@ -246,6 +248,7 @@ function runCapture(shot) {
     app.sky.follow(app.camera)
     app.water.update(dt, sky)
     app.life.update(dt, sky)
+    app.weather.update(dt, focus, SEASON_NAMES[0], sky)
     animateStructures(dt, sky)
     app.renderer.render(app.scene, app.camera)
     if (++frames > 20 && !app.grid.dirty.size) window.__shotReady = true
@@ -404,6 +407,7 @@ function runGame() {
     app.sky.follow(app.camera)
     app.water.update(dt, sky)
     app.life.update(dt, sky)
+    app.weather.update(dt, focus, SEASON_NAMES[state.season], sky)
     animateStructures(dt, sky)
 
     if (started) app.hud.tick(state.hour)

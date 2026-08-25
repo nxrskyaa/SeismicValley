@@ -3,6 +3,7 @@ import { bake, bakedMat, chamferBox, COLUMN, FLAT, POINT, shardMat, stoneLump, T
 import { C, shade, UI } from '../core/palette.js'
 import { shardGeometry } from '../core/mark.js'
 import { LEVEL, N, P } from './grid.js'
+import { applyWindSway } from './weather.js'
 
 /**
  * Everything standing on the ground that is not a crop, a building or a body.
@@ -23,6 +24,10 @@ import { LEVEL, N, P } from './grid.js'
 const TREE_KINDS = 3
 const ROCK_KINDS = 3
 const GRASS_KINDS = 4
+
+/** What the meadow flowers in. Pale and few — a saturated wildflower in a
+ *  washed-out valley is the only thing anybody would look at. */
+const FLOWER_TONES = ['#e4b6c8', '#e8dcae', '#c9b4dc', '#dc9f8c', '#f0e6d2']
 
 // A deterministic per-cell hash, so a tree keeps its rotation and its height
 // across a save, a reload and a remesh.
@@ -142,6 +147,51 @@ function grassGeometry(kind) {
       })
     }
   }
+
+  /**
+   * FLOWERS, on the odd kinds only.
+   *
+   * A quarter of the scatter carries a flower and the rest does not, which is
+   * the whole trick: a meadow where every tuft flowers is a carpet, and a
+   * carpet has no texture at all. Four petals and a centre, a centimetre and a
+   * half across — at this camera height that is three pixels of colour in an
+   * olive field, and three pixels is exactly enough.
+   *
+   * The stem is tall relative to the head on purpose. The wind sway scales with
+   * height, so a flower on a long stem is the thing in the frame that most
+   * obviously moves.
+   */
+  if (kind % 2 === 1) {
+    const heads = 1 + (kind > 1 ? 1 : 0)
+    for (let i = 0; i < heads; i++) {
+      const a = cellRand(i, kind, 41) * Math.PI * 2
+      const r = 0.08 + cellRand(kind, i, 43) * 0.26
+      const h = 0.22 + cellRand(i, kind, 47) * 0.14
+      const tone = FLOWER_TONES[Math.floor(cellRand(kind, i, 53) * FLOWER_TONES.length)]
+      const cx = Math.cos(a) * r
+      const cz = Math.sin(a) * r
+      parts.push({
+        geometry: TAPER,
+        position: [cx, h * 0.5, cz],
+        scale: [0.028, h, 0.028],
+        color: C.shrubDeep,
+      })
+      for (let k = 0; k < 4; k++) {
+        const pa = (k / 4) * Math.PI * 2 + a
+        parts.push({
+          geometry: chamferBox(0.06, 0.018, 0.038, 0.008),
+          position: [cx + Math.cos(pa) * 0.032, h + 0.01, cz + Math.sin(pa) * 0.032],
+          rotation: [0, -pa, 0.2],
+          color: tone,
+        })
+      }
+      parts.push({
+        geometry: chamferBox(0.036, 0.026, 0.036, 0.008),
+        position: [cx, h + 0.016, cz],
+        color: '#e8d27a',
+      })
+    }
+  }
   return bake(parts)
 }
 
@@ -175,7 +225,10 @@ export class Props {
     this.grid = grid
     this.group = new THREE.Group()
     this.group.name = 'props'
-    this.material = bakedMat()
+    // Everything standing in the valley bends in the same wind. One uniform,
+    // patched in — see world/weather.js for why this is a vertex shader and not
+    // thirty thousand matrices a frame.
+    this.material = applyWindSway(bakedMat(), 1)
     this.dirty = true
 
     this.meshes = KINDS.map((k) => {

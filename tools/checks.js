@@ -256,6 +256,32 @@ console.log('\nwater')
     'the water converts to the output colour space — linear straight out renders as tar')
 }
 
+// ------------------------------------------------------------ 6c. the wind --
+
+console.log('the wind')
+{
+  const { DRIFT, WIND, applyWindSway } = await import('../src/world/weather.js')
+  const { SEASON_NAMES } = await import('../src/game/crops.js')
+
+  const missing = SEASON_NAMES.filter((n) => !DRIFT[n])
+  assert(missing.length === 0, 'every season has something in the air', missing.join(', '))
+  assert(WIND.value.isVector4, 'the field is one packed vec4')
+
+  // Everything that stands in the valley has to bend in the SAME wind. Two
+  // things blowing different ways is worse than neither of them moving.
+  for (const f of ['world/props.js', 'world/cropView.js']) {
+    assert(/applyWindSway\(bakedMat\(/.test(read(path.join(SRC, f))), `${f} sways`)
+  }
+
+  // The patch is idempotent, because a material that gets it twice compiles a
+  // shader with two sway blocks and doubles the amplitude silently.
+  const mat = { userData: {}, needsUpdate: false }
+  applyWindSway(mat)
+  const first = mat.onBeforeCompile
+  applyWindSway(mat)
+  assert(mat.onBeforeCompile === first, 'the sway patch is idempotent')
+}
+
 // --------------------------------------------------------- 7. the game loop --
 
 console.log('\ngameplay')
