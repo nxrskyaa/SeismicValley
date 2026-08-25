@@ -22,9 +22,11 @@ import { damp } from '../core/rng.js'
 
 const PITCH = -37 * (Math.PI / 180)
 const YAWS = [45, 135, 225, 315].map((d) => d * (Math.PI / 180))
-const SIZE_DEFAULT = 17.5
-const SIZE_MIN = 11
-const SIZE_MAX = 26
+// Measured off the reference: the character stands about one-eighth of the
+// frame height, and at 1.72 units tall that puts the vertical span near 13.
+const SIZE_DEFAULT = 13
+const SIZE_MIN = 9
+const SIZE_MAX = 22
 /** How far back the camera sits from the player. Orthographic, so this changes
  *  nothing about the framing — it only decides how much of the world is in
  *  front of the near plane. */

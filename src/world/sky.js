@@ -94,7 +94,7 @@ export class Sky {
 
     // --- lights -----------------------------------------------------------
     this.key = new THREE.DirectionalLight('#ffe6c8', 1.6)
-    this.key.castShadow = true
+    this.key.castShadow = false
     this.key.shadow.mapSize.set(2048, 2048)
     // The shadow camera follows the player rather than covering the map. The
     // size is a real trade and it is easy to get wrong in the tight direction:

@@ -1,6 +1,6 @@
 import * as THREE from 'three'
-import { bake, bakedMat, COLUMN, FLAT, POINT, shardMat, stoneLump, TAPER } from '../core/kit.js'
-import { C, shade, UI } from '../core/palette.js'
+import { bake, bakedMat, chamferBox, COLUMN, FLAT, POINT, shardMat, stoneLump, TAPER } from '../core/kit.js'
+import { C, shade, sunlit, UI } from '../core/palette.js'
 import { shardGeometry } from '../core/mark.js'
 import { LEVEL, N, P } from './grid.js'
 
@@ -38,38 +38,51 @@ function cellRand(x, z, salt = 0) {
 /**
  * The three trees.
  *
- * Ridgepine is a spire, Bellwood is a canopy, Ironbark is a fist. They differ in
- * SILHOUETTE first and colour second — a forest whose species are told apart by
- * hue is a forest that becomes one species the moment the sun goes down.
+ * The reference's trees are one shape and it is not a cone: a **thin, tall,
+ * rectangular trunk** in plum, carrying a **flat cluster of large cubes** — a
+ * slab of canopy three to five cells across and about one cell thick, sitting
+ * on top like a table. There is nothing tapered about them, no branching, and
+ * no cone.
+ *
+ * An earlier pass built them as stacked hex prisms narrowing to a point, which
+ * is what a conifer looks like and is not what is in the footage. That single
+ * silhouette was doing as much damage as the palette was, because trees are the
+ * only vertical thing in a world of flat plateaus and they set its whole read.
+ *
+ * The three kinds differ by CANOPY PLAN and height, not by colour: a compact
+ * plus, a wide ragged blob, and a small dense square.
  */
+
+/** Cube-cluster canopy plans, on a cell grid. Offsets are in canopy cubes. */
+const CANOPY_PLANS = [
+  // Compact plus, one cube of relief.
+  [[0, 0, 0], [1, 0, 0], [-1, 0, 0], [0, 0, 1], [0, 0, -1], [0, 1, 0]],
+  // Wide and ragged, the commonest in the footage.
+  [[0, 0, 0], [1, 0, 0], [2, 0, 0], [-1, 0, 0], [0, 0, 1], [1, 0, 1], [-1, 0, -1], [0, 0, -1], [1, 1, 0], [0, 1, 1]],
+  // Small and dense.
+  [[0, 0, 0], [1, 0, 0], [0, 0, 1], [1, 0, 1], [0, 1, 0]],
+]
+
 function treeGeometry(kind) {
-  if (kind === 0) {
-    // Ridgepine — narrow, stacked, tallest thing in the valley.
-    const parts = [
-      { geometry: TAPER, position: [0, 1.1, 0], scale: [0.34, 2.2, 0.34], color: C.trunk },
-      { geometry: TAPER, position: [0, 2.0, 0], scale: [1.9, 1.5, 1.9], color: C.canopyC },
-      { geometry: TAPER, position: [0, 2.9, 0], scale: [1.5, 1.3, 1.5], color: C.canopyA },
-      { geometry: TAPER, position: [0, 3.7, 0], scale: [1.0, 1.1, 1.0], color: C.canopyB },
-    ]
-    return bake(parts)
+  const plan = CANOPY_PLANS[kind % CANOPY_PLANS.length]
+  const cube = 0.92 // one canopy cube, in world units
+  const trunkH = [3.4, 2.9, 2.4][kind % 3]
+  const tone = [C.canopyA, C.canopyB, C.canopyC][kind % 3]
+  const parts = [
+    // The trunk is a BOX and it is thin. A tapered prism reads as a conifer.
+    { geometry: chamferBox(0.42, trunkH, 0.42, 0.04), position: [0, trunkH / 2, 0], color: kind === 1 ? C.trunkDark : C.trunk },
+  ]
+  for (const [dx, dy, dz] of plan) {
+    // Two tones inside one canopy, split by height, so the slab has a lit top
+    // and a shaded underside without needing a second light.
+    const col = dy > 0 ? sunlit(tone, 0.35) : tone
+    parts.push({
+      geometry: chamferBox(cube, cube, cube, 0.05),
+      position: [dx * cube * 0.94, trunkH + cube * (0.2 + dy * 0.86), dz * cube * 0.94],
+      color: col,
+    })
   }
-  if (kind === 1) {
-    // Bellwood — a short trunk under a wide, slightly lopsided crown. The offset
-    // on the upper plate is what stops a row of them reading as a stamp.
-    return bake([
-      { geometry: COLUMN, position: [0, 0.75, 0], scale: [0.42, 1.5, 0.42], color: C.trunkDark },
-      { geometry: POINT, position: [0, 1.75, 0], scale: [2.6, 1.1, 2.6], color: C.canopyA },
-      { geometry: FLAT, position: [0.18, 2.35, -0.12], scale: [2.0, 0.8, 2.0], color: C.canopyB },
-      { geometry: FLAT, position: [-0.22, 1.5, 0.16], scale: [1.7, 0.6, 1.7], color: C.canopyC },
-    ])
-  }
-  // Ironbark — squat, thick, dark. Worth four days of felling and it looks it.
-  return bake([
-    { geometry: COLUMN, position: [0, 0.85, 0], scale: [0.62, 1.7, 0.62], color: C.trunkDark },
-    { geometry: COLUMN, position: [0.3, 1.5, 0.1], scale: [0.24, 0.9, 0.24], rotation: [0, 0, -0.5], color: C.trunkDark },
-    { geometry: POINT, position: [0, 2.1, 0], scale: [2.2, 1.3, 2.2], color: C.canopyC },
-    { geometry: POINT, position: [0.35, 1.75, 0.2], scale: [1.3, 0.8, 1.3], color: C.canopyDead },
-  ])
+  return bake(parts)
 }
 
 function rockGeometry(kind) {
@@ -96,22 +109,35 @@ function saplingGeometry() {
 }
 
 function grassGeometry(kind) {
+  // Tiny pale specks, not tufts. The footage scatters a few small stones and a
+  // couple of thin blades per cell — at any distance it reads as texture on the
+  // ground rather than as vegetation, and a field of proper grass tufts buries
+  // the flat plateaus that are the whole point of the look.
   const parts = []
-  // Six to nine blades, short and broad. The first pass used three tall thin
-  // ones and a field of them read as a field of pins rather than of grass.
-  const blades = 6 + (kind % 4)
-  for (let i = 0; i < blades; i++) {
-    const a = cellRand(kind * 13, i, 5) * Math.PI * 2
-    const r = 0.08 + cellRand(i, kind, 9) * 0.3
-    const hgt = 0.16 + cellRand(kind, i, 3) * 0.17
-    const lean = 0.24 + cellRand(i, kind, 11) * 0.3
+  const stones = 2 + (kind % 3)
+  for (let i = 0; i < stones; i++) {
+    const a = cellRand(kind * 17, i, 21) * Math.PI * 2
+    const r = 0.1 + cellRand(i, kind, 23) * 0.32
+    const sz = 0.07 + cellRand(kind, i, 29) * 0.06
     parts.push({
-      geometry: TAPER,
-      position: [Math.cos(a) * r, hgt / 2, Math.sin(a) * r],
-      scale: [0.13, hgt, 0.13],
-      rotation: [Math.sin(a) * lean, a, Math.cos(a) * lean],
-      color: i % 3 === 0 ? C.grassDry : i % 3 === 1 ? C.grass : C.shrub,
+      geometry: chamferBox(sz * 2, sz, sz * 1.7, sz * 0.3),
+      position: [Math.cos(a) * r, sz * 0.5, Math.sin(a) * r],
+      rotation: [0, a, 0],
+      color: i % 2 ? C.grassDry : C.stoneProp,
     })
+  }
+  if (kind % 2 === 0) {
+    for (let i = 0; i < 2; i++) {
+      const a = cellRand(i, kind, 31) * Math.PI * 2
+      const r = 0.06 + cellRand(kind, i, 37) * 0.2
+      parts.push({
+        geometry: TAPER,
+        position: [Math.cos(a) * r, 0.12, Math.sin(a) * r],
+        scale: [0.05, 0.24, 0.05],
+        rotation: [Math.sin(a) * 0.2, a, Math.cos(a) * 0.2],
+        color: C.grass,
+      })
+    }
   }
   return bake(parts)
 }

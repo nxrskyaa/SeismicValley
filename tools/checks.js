@@ -102,10 +102,19 @@ console.log('\ncolourway')
 console.log('\ncamera')
 {
   const src = read(path.join(SRC, 'world/camera.js'))
-  assert(/PITCH = -37/.test(src), 'the pitch is Velion\'s -37 degrees')
-  assert(/YAWS = \[45, 135, 225, 315\]/.test(src), 'the yaws are diagonal (45/135/225/315), not axis-aligned')
-  assert(/SIZE_DEFAULT = 17\.5/.test(src), 'the default orthographic size is 17.5')
   const main = read(path.join(SRC, 'main.js'))
+  const gridSrc = read(path.join(SRC, 'world/grid.js'))
+  assert(/PITCH = -37/.test(src), "the pitch is Velion's -37 degrees")
+  assert(/YAWS = \[45, 135, 225, 315\]/.test(src), 'the yaws are diagonal (45/135/225/315), not axis-aligned')
+  // Measured off the reference: the character stands about an eighth of the
+  // frame height, which at 1.72 units tall puts the vertical span near 13.
+  assert(/SIZE_DEFAULT = 13/.test(src), 'the default orthographic size is 13')
+  // A level is a WALL, not a curb. At half a unit every terrace edge is a kerb
+  // and the whole map flattens into a pattern instead of a landscape.
+  assert(/export const LEVEL = 1\.0/.test(gridSrc), 'one height level is one world unit')
+  // The reference has no cast shadows at all. A directional shadow immediately
+  // reads as a heavier, more realistic game than this one is.
+  assert(/shadowMap\.enabled = false/.test(main), 'no cast shadows')
   assert(/OrthographicCamera/.test(main), 'the game builds an orthographic camera')
   assert(!/PerspectiveCamera/.test(main), 'no perspective camera anywhere in main')
 }

@@ -67,8 +67,11 @@ function makeRenderer() {
   const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' })
   renderer.setPixelRatio(Math.min(devicePixelRatio, 2))
   renderer.setSize(innerWidth, innerHeight)
-  renderer.shadowMap.enabled = true
-  renderer.shadowMap.type = THREE.PCFSoftShadowMap
+  // NO shadow map. The reference has no cast shadows at all — not soft ones,
+  // none: the whole look is flat per-face shading under a bright violet fill,
+  // and a directional shadow immediately reads as a different, heavier game.
+  // It also buys back the entire shadow pass on a mobile GPU.
+  renderer.shadowMap.enabled = false
   // NO tone mapping. ACES is built for photographic HDR: it rolls the highlights
   // off and pulls the mid-tones down, which is precisely the range this world
   // lives in. Under it the pastel palette came out as dusty stone. The grade

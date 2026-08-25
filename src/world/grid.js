@@ -16,7 +16,15 @@ import { G } from '../core/palette.js'
  */
 
 export const N = 96 // cells per side
-export const LEVEL = 0.5 // world units per height level
+/**
+ * World units per height level.
+ *
+ * ONE, not a half. In the reference a single terrace step is a wall about as
+ * tall as a cell is wide — you read the plateau edges as real drops from across
+ * the valley. At 0.5 every riser is a curb and the whole map flattens into a
+ * pattern rather than a landscape.
+ */
+export const LEVEL = 1.0
 export const CHUNK = 16
 export const CHUNKS = N / CHUNK
 export const WATER_LEVEL = 6 // in levels, not units

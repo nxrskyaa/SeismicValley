@@ -25,12 +25,11 @@ import { GROUND, GROUND_KEYS } from '../core/palette.js'
 
 // Stratum thicknesses in world units, read down from the top of a face.
 //
-// A level is 0.5 units, so these two together take about a third of a one-level
-// riser and the body takes the rest. The rust band is the strongest colour in
-// the ground palette and it wants to be a HAIRLINE: at twice this thickness
-// every terrace edge draws itself in red and the valley reads as corduroy.
-const ACCENT = 0.07
-const RUST = 0.08
+// A level is 1.0 units, so these two together take about a third of a riser and
+// the body takes the rest — which is what the reference shows: a dappled green
+// lip, a band of rust under it, then pale rock all the way down.
+const ACCENT = 0.14
+const RUST = 0.18
 
 // Scratch colour, reused — building a THREE.Color per vertex allocates roughly
 // 200k objects for one full remesh of the valley.

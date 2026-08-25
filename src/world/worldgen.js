@@ -98,11 +98,11 @@ export function generate(seed) {
   for (let z = 0; z < N; z++) {
     rx += (land(z * 0.09, 4.5) - 0.5) * 2.2
     rx = clamp(rx, N * 0.58, N - 9)
-    const width = 2.8 + (z / N) * 5.2
+    const width = 4.5 + (z / N) * 7
     for (let x = Math.floor(rx - width - 2); x <= Math.ceil(rx + width + 2); x++) {
       if (x < 0 || x >= N) continue
       const t = 1 - clamp(Math.abs(x - rx) / (width + 2), 0, 1)
-      const cut = smoothstep(0, 1, t) * 12
+      const cut = smoothstep(0, 1, t) * 14
       const i = z * N + x
       raw[i] = Math.min(raw[i], Math.max(2.4, raw[i] - cut))
     }
@@ -112,7 +112,7 @@ export function generate(seed) {
   // a noisy floor reads as a puddle field once the water plane is drawn over it.
   for (let z = 0; z < N; z++) {
     for (let x = 0; x < N; x++) {
-      const d = Math.hypot(x - N * 0.78, z - N * 0.85) / 15
+      const d = Math.hypot(x - N * 0.76, z - N * 0.84) / 19
       if (d < 1) {
         const i = z * N + x
         raw[i] = Math.min(raw[i], 3.1 + smoothstep(0.55, 1, d) * 5)

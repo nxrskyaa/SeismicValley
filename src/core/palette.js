@@ -97,13 +97,19 @@ export const C = {
  * Sampled off the reference footage: top #c8c0a8, body #c8b8c8.
  */
 export const GROUND = {
-  MEADOW: ['#c6bfa4', '#9aa878', '#b4553c', '#c6b6c6'],
-  ASH: ['#e6e2ec', '#d2ccdc', '#a89ab0', '#d8cee0'],
-  LOAM: ['#bfa198', '#a88a84', '#8e5e4c', '#b3a0bc'],
-  STONE: ['#c2bcc8', '#aca6b6', '#8f8595', '#b6aac0'],
-  SHORE: ['#ddd4bc', '#cbc0a6', '#b7a68e', '#cdbfd0'],
-  TILLED: ['#8d6a55', '#7a5a48', '#6b4c3c', '#8a6f84'],
-  WET: ['#6b4c3e', '#5d4034', '#4f352b', '#6b5468'],
+  // Sand meadow. The one material with the full four-band read: a pale sand top,
+  // a dappled olive lip, a rust band under it, and pale grey-lilac rock below.
+  MEADOW: ['#ded0b0', '#9aa877', '#c4685c', '#c9c5cf'],
+  // Snow. Near-white, and NO banding — the reference's snow plateaus are one
+  // white top over one faintly cooler face, and adding strata to them is what
+  // makes a snowfield look like striped rock.
+  ASH: ['#eae7f0', '#e0dcea', '#d4cfe0', '#d9d5e4'],
+  // Clay. A darker version of its own top, no rust, no olive.
+  LOAM: ['#b0857a', '#a0776c', '#946e66', '#8f6a62'],
+  STONE: ['#c8c4cc', '#b8b3c2', '#a49eb0', '#b0aabe'],
+  SHORE: ['#e2d8be', '#d0c5a8', '#c0b096', '#cbc7d2'],
+  TILLED: ['#8d6a55', '#7f5e4a', '#6f5140', '#6b4f42'],
+  WET: ['#6b4c3e', '#604437', '#553c30', '#4e372c'],
   SCAR: ['#c9bcc8', '#b3a2b2', '#8d6f7e', '#bdaec2'],
 }
 export const GROUND_KEYS = Object.keys(GROUND)
