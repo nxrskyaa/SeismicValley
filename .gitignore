@@ -1,0 +1,26 @@
+node_modules
+dist
+dist-ssr
+*.local
+.vercel
+
+# Capture output. Regenerate with `npm run shoot`; the handful the README uses
+# are copied into docs/ and committed, so the repo page works without them.
+shots/
+
+logs
+*.log
+npm-debug.log*
+
+.vscode/*
+!.vscode/extensions.json
+.idea
+.DS_Store
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# local editor config
+.claude/

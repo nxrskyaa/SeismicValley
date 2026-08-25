@@ -1,0 +1,149 @@
+import * as THREE from 'three'
+import { CHUNK, Grid, LEVEL, N } from './grid.js'
+import { GROUND, GROUND_KEYS } from '../core/palette.js'
+
+/**
+ * Chunk meshing.
+ *
+ * One quad per cell top, plus a banded cliff face wherever a neighbour sits
+ * lower. The bands are the entire look of the valley: a cliff is not one colour
+ * stretched down its face, it is a thin accent stratum, a thicker rust stratum
+ * and then body rock, so a terrace reads as sedimentary rather than as a
+ * staircase somebody painted brown.
+ *
+ * Two things here are load-bearing and both were learned the hard way:
+ *
+ * 1. **Winding.** three.js treats counter-clockwise-from-the-front as the front
+ *    face. Every quad below is emitted accordingly. Get it backwards and you do
+ *    not see a culling bug, you see "the lighting is broken" — because what you
+ *    are actually looking at is the inside of the world.
+ * 2. **Vertex colour space.** THREE.Color parses a hex as sRGB and stores it
+ *    linear, and the buffer wants the linear numbers. Writing the raw hex bytes
+ *    into the attribute instead produces a valley that is correct in shape and
+ *    about 40% too bright in every mid-tone.
+ */
+
+// Stratum thicknesses in world units, read down from the top of a face.
+const ACCENT = 0.2
+const RUST = 0.26
+
+// Scratch colour, reused — building a THREE.Color per vertex allocates roughly
+// 200k objects for one full remesh of the valley.
+const col = new THREE.Color()
+const LINEAR = {}
+function linear(hex) {
+  let v = LINEAR[hex]
+  if (!v) {
+    col.setStyle(hex, THREE.SRGBColorSpace)
+    v = LINEAR[hex] = [col.r, col.g, col.b]
+  }
+  return v
+}
+
+/** Per-cell value jitter, so a flat field of one material still has grain.
+ *  Deterministic in x/z: a chunk rebuilt after a tremor must come back looking
+ *  identical everywhere the tremor did not touch. */
+function grain(x, z) {
+  let h = (Math.imul(x, 0x27d4eb2d) ^ Math.imul(z, 0x165667b1)) >>> 0
+  h = Math.imul(h ^ (h >>> 15), h | 1)
+  return 0.94 + (((h ^ (h >>> 14)) >>> 0) / 4294967296) * 0.12
+}
+
+/**
+ * Build one chunk's ground geometry. Returns a BufferGeometry positioned in
+ * world space (not chunk-local), so the chunk mesh itself sits at the origin and
+ * nothing has to keep a chunk offset in sync with the data.
+ */
+export function meshChunk(grid, cx, cz) {
+  const pos = []
+  const nor = []
+  const rgb = []
+
+  const push = (v, n, c) => {
+    for (const p of v) pos.push(p[0], p[1], p[2])
+    for (let i = 0; i < v.length; i++) nor.push(n[0], n[1], n[2])
+    for (let i = 0; i < v.length; i++) rgb.push(c[0], c[1], c[2])
+  }
+  // A quad as two triangles, in the winding its caller already chose.
+  const quad = (a, b, c, d, n, colour) => push([a, b, c, a, c, d], n, colour)
+
+  const x0 = cx * CHUNK, z0 = cz * CHUNK
+
+  for (let z = z0; z < z0 + CHUNK; z++) {
+    for (let x = x0; x < x0 + CHUNK; x++) {
+      const i = z * N + x
+      const h = grid.height[i]
+      const bands = GROUND[GROUND_KEYS[grid.ground[i]]]
+      const y = h * LEVEL
+      const g = grain(x, z)
+
+      // -- top --------------------------------------------------------------
+      // Cheap contact shading: a cell hemmed in by taller neighbours sits in a
+      // hollow and should read darker. Four samples, not eight; the diagonal
+      // pair adds a cost nobody can see at this camera distance.
+      let occ = 0
+      if (grid.h(x - 1, z) > h) occ++
+      if (grid.h(x + 1, z) > h) occ++
+      if (grid.h(x, z - 1) > h) occ++
+      if (grid.h(x, z + 1) > h) occ++
+      const k = g * (1 - occ * 0.055)
+      const top = linear(bands[0])
+      const topCol = [top[0] * k, top[1] * k, top[2] * k]
+      quad([x, y, z + 1], [x + 1, y, z + 1], [x + 1, y, z], [x, y, z], [0, 1, 0], topCol)
+
+      // -- cliff faces ------------------------------------------------------
+      // Only ever drawn on the DOWNHILL side. Emitting both sides of a seam
+      // doubles the triangle count and z-fights along every terrace edge.
+      face(-1, 0)
+      face(1, 0)
+      face(0, -1)
+      face(0, 1)
+
+      function face(dx, dz) {
+        const nx = x + dx, nz = z + dz
+        // Off the edge of the world, drop to sea floor so the valley has a rim
+        // rather than a hole you can see the skybox through.
+        const nh = Grid.inBounds(nx, nz) ? grid.height[nz * N + nx] : 0
+        if (nh >= h) return
+        const yTop = h * LEVEL
+        const yBot = nh * LEVEL
+        let cursor = yTop
+        for (let band = 1; band <= 3 && cursor > yBot + 1e-6; band++) {
+          const thick = band === 1 ? ACCENT : band === 2 ? RUST : cursor - yBot
+          const next = Math.max(yBot, cursor - thick)
+          const c = linear(bands[band])
+          const shadeK = g * (band === 3 ? 1 : 1.04)
+          const colour = [c[0] * shadeK, c[1] * shadeK, c[2] * shadeK]
+          emit(dx, dz, next, cursor, colour)
+          cursor = next
+        }
+      }
+
+      function emit(dx, dz, yb, yt, colour) {
+        if (dx === 1) quad([x + 1, yb, z + 1], [x + 1, yb, z], [x + 1, yt, z], [x + 1, yt, z + 1], [1, 0, 0], colour)
+        else if (dx === -1) quad([x, yb, z], [x, yb, z + 1], [x, yt, z + 1], [x, yt, z], [-1, 0, 0], colour)
+        else if (dz === 1) quad([x, yb, z + 1], [x + 1, yb, z + 1], [x + 1, yt, z + 1], [x, yt, z + 1], [0, 0, 1], colour)
+        else quad([x + 1, yb, z], [x, yb, z], [x, yt, z], [x + 1, yt, z], [0, 0, -1], colour)
+      }
+    }
+  }
+
+  const geo = new THREE.BufferGeometry()
+  geo.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3))
+  geo.setAttribute('normal', new THREE.Float32BufferAttribute(nor, 3))
+  geo.setAttribute('color', new THREE.Float32BufferAttribute(rgb, 3))
+  geo.computeBoundingSphere()
+  return geo
+}
+
+/**
+ * The single material every chunk shares.
+ *
+ * Flat shading is off: the normals above are already per-face constants, so
+ * flatShading would only re-derive what is already correct and cost a normal
+ * pass. Vertex colours carry the whole palette, which is why the valley is one
+ * draw call per chunk and not one per material.
+ */
+export function groundMaterial() {
+  return new THREE.MeshLambertMaterial({ vertexColors: true, dithering: true })
+}
