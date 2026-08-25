@@ -330,6 +330,77 @@ console.log('\nwater')
     'the water samples its bed from world position, not from the plane uv')
   assert(water.includes('<colorspace_fragment>'),
     'the water converts to the output colour space — linear straight out renders as tar')
+  // --- the whole loop, driven ------------------------------------------------
+  //
+  // The rod, the line and the float are three.js objects, but the state machine
+  // is not, so it can be run headless at a fixed timestep. This is the only way
+  // to prove that a cast actually reaches a fish rather than merely compiling.
+  {
+    const THREE = await import('three')
+    const { Fishing, STATE } = await import('../src/game/fishing.js')
+    const { Water_Life } = await import('../src/world/fish.js')
+    const { GameState } = await import('../src/game/state.js')
+    const { generate, HOME } = await import('../src/world/worldgen.js')
+
+    const { grid } = generate(4242)
+    const state = new GameState(grid, 4242)
+    const player = { holdR: new THREE.Group(), anim: { use: 0 } }
+    const life = new Water_Life(grid)
+    const rod = new Fishing(state, grid, player, life)
+
+    // Stand on the bank of the home pond, facing the water.
+    let stand = null
+    for (let z = HOME.z - 12; z < HOME.z + 14 && !stand; z++) {
+      for (let x = HOME.x; x < HOME.x + 26; x++) {
+        if (grid.isWater(x, z) || !grid.canStand(x, z, grid.h(x, z))) continue
+        for (const [dx, dz] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+          if (grid.isWater(x + dx * 2, z + dz * 2)) { stand = [x + 0.5, z + 0.5, Math.atan2(dx, dz)]; break }
+        }
+        if (stand) break
+      }
+    }
+    assert(!!stand, 'there is a bank to stand on at the home pond')
+
+    const pos = new THREE.Vector3(stand[0], grid.sampleY(stand[0], stand[1]), stand[1])
+    const facing = stand[2]
+    assert(!!rod.aim(pos, facing), 'the cast finds open water from the bank')
+
+    state.hotbar[state.slot] = 'rod'
+    assert(rod.press(pos, facing, 12) === 'cast', 'pressing once casts')
+
+    // Run the clock. Strike on the frame the float goes under; nine seconds is
+    // longer than the worst case wait plus the bite window.
+    let struck = false
+    let saw = new Set()
+    for (let f = 0; f < 900; f++) {
+      rod.update(1 / 60, pos, facing, 12)
+      saw.add(rod.phase)
+      if (rod.phase === STATE.BITE && !struck) {
+        struck = true
+        rod.press(pos, facing, 12)
+      }
+      if (rod.phase === STATE.LANDED) break
+    }
+    assert(saw.has(STATE.WAIT), 'the float waits')
+    assert(saw.has(STATE.NIBBLE), 'a nibble comes before the bite')
+    assert(struck, 'a bite happens inside fifteen seconds of casting')
+    assert(rod.phase === STATE.LANDED, 'striking the bite lands the fish')
+    assert(state.stats.caught === 1, 'the catch is counted')
+    assert(!!rod.lastCatch && state.has(rod.lastCatch.id, 1), 'the catch is in the pack', rod.lastCatch?.id)
+
+    // And missing it costs the fish, not the cast.
+    const rod2 = new Fishing(state, grid, player, life)
+    rod2.press(pos, facing, 12)
+    let missed = false
+    for (let f = 0; f < 1800; f++) {
+      rod2.update(1 / 60, pos, facing, 12)
+      if (rod2.phase === STATE.BITE) missed = true
+      if (missed && rod2.phase === STATE.WAIT) break
+    }
+    assert(missed && rod2.phase === STATE.WAIT, 'missing the bite loses the fish and keeps the line out')
+    assert(state.stats.caught === 1, 'a missed bite catches nothing')
+    life.dispose()
+  }
 }
 
 // ------------------------------------------------------------ 6c. the wind --

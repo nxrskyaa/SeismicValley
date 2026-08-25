@@ -48,6 +48,28 @@ a rust band under it; thin plum trunks under flat cube-cluster canopies; tiny
 pale pebble specks, not grass tufts; deep blue-violet water; a bright violet
 fill; flat per-face shading with no cast shadows at all.
 
+## The systems added after the rebuild
+
+- `world/weather.js` — one wind field, read by everything. The sway on every
+  prop is a vertex shader patched in with `applyWindSway`, not an animation; the
+  drift in the air is seasonal. Anything new that stands in the valley should be
+  patched too, and the patch is idempotent by design.
+- `world/fish.js` + `game/fishing.js` — the lake. The school is stocked pool by
+  pool after a flood fill, so a small pond is worth standing at. The whole
+  fishing state machine is driven headless in `checks.js`; if you change it,
+  that test is the one that will tell you.
+- `core/music.js` — a generative score. The hour picks mode, register and tempo
+  and the mode swaps on a phrase boundary. Notes are booked into
+  `AudioContext.currentTime`, never scheduled from a rAF callback.
+- `game/appearance.js` — colour choices, not a wardrobe. There is still exactly
+  one human look and rule 4 still holds.
+- `game/tutorial.js` — polls `state.stats`, a tally of things you have done. If
+  you add a step, `checks.js` asserts its named hotbar key is the slot the tool
+  is really in.
+- `actors/jobs.js` — what a pebble does all day. `checks.js` asserts every job
+  has somewhere in a generated valley to be done, which is what caught the
+  missing-rock bug.
+
 ## Key modules
 
 - `core/palette.js` — both palettes, and `skyAt(hour)`: a ten-key-frame 24-hour
