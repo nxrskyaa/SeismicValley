@@ -1,6 +1,6 @@
 import { CHUNKS, Grid, N, P, WATER_LEVEL } from './grid.js'
 import { G } from '../core/palette.js'
-import { chance, clamp, fbm, noise2, randInt, rng, smoothstep } from '../core/rng.js'
+import { chance, clamp, fbm, noise2, randInt, rng, smoothstep, shuffle } from '../core/rng.js'
 
 /**
  * Making a valley.
@@ -281,7 +281,7 @@ export function generate(seed) {
       if (near(HOME, 11) || near(GATE, 8)) continue
 
       const density = forest(x * 0.07, z * 0.07)
-      if ((g === G.MEADOW || g === G.LOAM) && density > 0.5 && chance(r, 0.078 + (density - 0.5) * 0.34)) {
+      if ((g === G.MEADOW || g === G.LOAM) && density > 0.42 && chance(r, 0.26 + (density - 0.42) * 0.5)) {
         grid.prop[i] = P.TREE
         grid.propData[i] = randInt(r, 0, SPECIES - 1)
       } else if (g === G.STONE && chance(r, 0.09)) {
@@ -296,6 +296,46 @@ export function generate(seed) {
         grid.propData[i] = randInt(r, 0, 3)
       }
     }
+  }
+
+  /**
+   * THINNING THE FOREST.
+   *
+   * A canopy in this game is a cluster of 1.25-unit cubes spanning three cells,
+   * so two trunks two cells apart do not read as two trees — they read as one
+   * lumpy mass with two sticks under it, and five of them together read as a
+   * hedge. The reference footage has nothing like that in it: its trees stand
+   * apart with sky between them, and the gaps are as much of the look as the
+   * trees are.
+   *
+   * Per-cell probability cannot produce that no matter what number you give it.
+   * Poisson noise clumps — that is the definition of it — so the fix is not a
+   * different density, it is a minimum distance.
+   *
+   * Dart throwing: walk the candidates in a SHUFFLED order and keep one only if
+   * nothing already kept is within `GAP`. Shuffled, because a raster scan keeps
+   * whatever is furthest north-west and lays the survivors out on a visible
+   * diagonal lattice. The result is blue noise — even spacing, no lattice, and
+   * no two canopies touching.
+   */
+  const GAP = 4
+  const candidates = []
+  for (let i = 0; i < N * N; i++) if (grid.prop[i] === P.TREE) candidates.push(i)
+  shuffle(r, candidates)
+  const kept = new Uint8Array(N * N)
+  for (const i of candidates) {
+    const x = i % N, z = (i - x) / N
+    let clear = true
+    for (let dz = -GAP; dz <= GAP && clear; dz++) {
+      for (let dx = -GAP; dx <= GAP; dx++) {
+        if (dx * dx + dz * dz > GAP * GAP) continue
+        const nx = x + dx, nz = z + dz
+        if (nx < 0 || nz < 0 || nx >= N || nz >= N) continue
+        if (kept[nz * N + nx]) { clear = false; break }
+      }
+    }
+    if (clear) kept[i] = 1
+    else grid.prop[i] = P.NONE
   }
 
   // ------------------------------------------------------------ clearings --

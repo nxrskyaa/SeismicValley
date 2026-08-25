@@ -298,6 +298,136 @@ console.log('\nthe first morning')
     'meeting Rocky is recorded, so the ridge step can complete')
 }
 
+// ---------------------------------------------------------- 6a. getting about --
+
+console.log('\nmoving')
+{
+  const THREE = await import('three')
+  const { generate, HOME } = await import('../src/world/worldgen.js')
+  const { N, WATER_LEVEL, LEVEL } = await import('../src/world/grid.js')
+  const { PlayerController, buildPlayer } = await import('../src/actors/player.js')
+
+  const { grid } = generate(31337)
+
+  /**
+   * THE ONE THAT MADE THE MAP A MAZE.
+   *
+   * worldgen terraces at STEP = 2, so an ordinary terrace face is two levels.
+   * The controller allowed a step up of one. Every terrace in the valley was
+   * therefore a wall, falling off any ledge was a one-way trip, and walking into
+   * a shelf read as broken collision rather than as a rule.
+   */
+  const gen = read(path.join(SRC, 'world/worldgen.js'))
+  const player = read(path.join(SRC, 'actors/player.js'))
+  const terraceStep = Number(/const STEP = (\d+)/.exec(gen)?.[1])
+  const stepUp = Number(/const STEP_UP = (\d+)/.exec(player)?.[1])
+  assert(terraceStep > 0 && stepUp >= terraceStep,
+    `a body can climb an ordinary terrace (terrace ${terraceStep}, step-up ${stepUp})`)
+
+  /**
+   * THE ONE THAT DROWNED PEOPLE ON DRY LAND.
+   *
+   * sampleY blends the four corners under a position. It used to anchor on the
+   * LOWEST of them, so standing on a rim four levels above a lake basin capped
+   * every corner down to the basin and put the body at the bottom of the pond.
+   * Nothing on land may ever sample below the waterline.
+   */
+  const surface = WATER_LEVEL * LEVEL + LEVEL * 0.5
+  let sunk = null
+  let worst = 0
+  for (let z = 2; z < N - 2; z++) {
+    for (let x = 2; x < N - 2; x++) {
+      const floorY = grid.h(x, z) * LEVEL
+      for (const [ox, oz] of [[0.5, 0.5], [0.05, 0.5], [0.95, 0.5], [0.5, 0.05], [0.5, 0.95], [0.95, 0.95]]) {
+        const drop = floorY - grid.sampleY(x + ox, z + oz)
+        if (drop > worst) { worst = drop; sunk = [x, z] }
+      }
+    }
+  }
+  /**
+   * The blend's whole budget is ONE level — that is the slope it exists to
+   * smooth, and approaching the lip of a single step legitimately walks you down
+   * into the cell below. Anything past that is the anchor bug: capped to the
+   * lowest of the four corners, a body on a rim above the lake was placed four
+   * levels down at the bed, on dry land, under the water plane.
+   */
+  assert(worst <= LEVEL + 0.001, 'the height blend never drops a body more than one level',
+    sunk && `cell ${sunk} drops ${worst.toFixed(2)}`)
+
+  // Wading: water is always enterable, and a low bank is always climbable out of.
+  let pond = null
+  for (let z = HOME.z - 12; z < HOME.z + 14 && !pond; z++) {
+    for (let x = HOME.x; x < HOME.x + 26; x++) if (grid.h(x, z) < WATER_LEVEL - 1) { pond = [x, z]; break }
+  }
+  assert(!!pond, 'the home pond exists to swim in')
+  assert(grid.canWade(pond[0], pond[1], WATER_LEVEL + 4, 2), 'you can get into the water from the bank')
+  assert(!grid.canStand(pond[0], pond[1], WATER_LEVEL + 4, 2), 'the dog still cannot')
+
+  /**
+   * And the loop that matters: walk off a bank, float, and get back out.
+   *
+   * A pond you can fall into and not climb out of is worse than a pond you
+   * cannot enter, so this drives the real controller until it is back on land.
+   */
+  {
+    const rig = buildPlayer('apprentice')
+    const c = new PlayerController(grid, rig, pond[0] + 0.5, pond[1] + 0.5)
+    const input = { move: new THREE.Vector3(), run: false, pressed: () => false }
+    c.update(1 / 60, input, 0)
+    assert(c.swimming, 'a body over water is swimming')
+    // It rises to the surface over about half a second rather than snapping —
+    // falling in should look like falling in.
+    for (let f = 0; f < 120; f++) c.update(1 / 60, input, 0)
+    assert(Math.abs(c.pos.y - (surface - 0.62)) < 0.12, 'it floats at the surface rather than sinking', c.pos.y.toFixed(2))
+
+    // Try every direction; at least one has to get back onto dry land.
+    let escaped = false
+    for (const [mx, mz] of [[0, -1], [0, 1], [-1, 0], [1, 0], [-0.7, -0.7], [0.7, 0.7], [-0.7, 0.7], [0.7, -0.7]]) {
+      const c2 = new PlayerController(grid, rig, pond[0] + 0.5, pond[1] + 0.5)
+      const inp = { move: new THREE.Vector3(mx, 0, mz), run: false, pressed: () => false }
+      for (let f = 0; f < 600; f++) {
+        c2.update(1 / 60, inp, 0)
+        if (!c2.swimming) { escaped = true; break }
+      }
+      if (escaped) break
+    }
+    assert(escaped, 'a body that falls in the water can get back out of it')
+  }
+
+  // Sliding: the per-axis test is what stops the player pinning against a wall.
+  assert(/_free\(nx, this\.pos\.z, fromH, 'x'\)/.test(player) && /_free\(this\.pos\.x, nz, fromH, 'z'\)/.test(player),
+    'collision is tested per axis, so a body slides along a wall instead of sticking')
+}
+
+// ----------------------------------------------------------- 6a2. the forest --
+
+console.log('\nthe forest')
+{
+  const { generate } = await import('../src/world/worldgen.js')
+  const { N, P } = await import('../src/world/grid.js')
+
+  /**
+   * A canopy spans three cells, so two trunks two cells apart are one lumpy mass
+   * with two sticks under it. Per-cell probability cannot avoid that at any
+   * density — Poisson noise clumps by definition — so the generator thins to a
+   * minimum distance. This is that distance, measured.
+   */
+  for (const seed of [1, 77, 4242]) {
+    const { grid } = generate(seed)
+    const trees = []
+    for (let i = 0; i < N * N; i++) if (grid.prop[i] === P.TREE) { const x = i % N; trees.push([x, (i - x) / N]) }
+    let closest = Infinity
+    for (let a = 0; a < trees.length; a++) {
+      for (let b = a + 1; b < trees.length; b++) {
+        const d = Math.hypot(trees[a][0] - trees[b][0], trees[a][1] - trees[b][1])
+        if (d < closest) closest = d
+      }
+    }
+    assert(trees.length > 60, `seed ${seed} still has a forest (${trees.length} trees)`)
+    assert(closest >= 3.5, `seed ${seed} has sky between its canopies (closest trunks ${closest.toFixed(1)} cells)`)
+  }
+}
+
 // ------------------------------------------------------------ 6b. the water --
 
 console.log('\nwater')
@@ -337,7 +467,7 @@ console.log('\nwater')
   // to prove that a cast actually reaches a fish rather than merely compiling.
   {
     const THREE = await import('three')
-    const { Fishing, STATE } = await import('../src/game/fishing.js')
+    const { CATCH, Fishing, STATE } = await import('../src/game/fishing.js')
     const { Water_Life } = await import('../src/world/fish.js')
     const { GameState } = await import('../src/game/state.js')
     const { generate, HOME } = await import('../src/world/worldgen.js')
@@ -399,6 +529,37 @@ console.log('\nwater')
     }
     assert(missed && rod2.phase === STATE.WAIT, 'missing the bite loses the fish and keeps the line out')
     assert(state.stats.caught === 1, 'a missed bite catches nothing')
+
+    // --- the rod left in the water -------------------------------------------
+    // It has to land fish with NO input at all, and go straight back in, or it
+    // is not unattended fishing, it is fishing with one fewer key press.
+    const rod3 = new Fishing(state, grid, player, life)
+    rod3.press(pos, facing, 12)
+    rod3.toggle()
+    assert(rod3.patient, 'E sets the rod down')
+    const before = state.stats.caught
+    let recast = 0
+    let wasLanded = false
+    for (let f = 0; f < 7200; f++) {
+      rod3.update(1 / 60, pos, facing, 12)
+      if (rod3.phase === STATE.LANDED) wasLanded = true
+      else if (wasLanded && rod3.phase === STATE.WAIT) { recast++; wasLanded = false }
+    }
+    assert(state.stats.caught - before >= 2, 'a rod left in the water keeps catching', `${state.stats.caught - before}`)
+    assert(recast >= 2, 'and casts itself again each time', `${recast}`)
+    assert(rod3.phase !== STATE.IDLE, 'and never quietly stops')
+
+    // The trade: nothing that only bites after dark bites for somebody who is
+    // not there. Rolled a few hundred times so this is a rule, not a run of luck.
+    const nocturnal = new Set(CATCH.filter((c) => c.night).map((c) => c.id))
+    let leaked = 0
+    for (let i = 0; i < 600; i++) if (nocturnal.has(rod3.roll(4, 23).id)) leaked++
+    assert(leaked === 0, 'an unattended rod never lands the rare fish', `${leaked} in 600`)
+    rod3.patient = false
+    let found = 0
+    for (let i = 0; i < 600; i++) if (nocturnal.has(rod3.roll(4, 23).id)) found++
+    assert(found > 0, 'but somebody watching the float at night does', `${found} in 600`)
+
     life.dispose()
   }
 }

@@ -85,18 +85,27 @@ export class Grid {
     this.touch(x, z)
   }
 
-  /** Bilinear surface height under a float position, so the player walks up a
-   *  terrace smoothly instead of popping half a unit at every cell boundary. */
+  /**
+   * Bilinear surface height under a float position, so a body walks up a slope
+   * smoothly instead of popping at every cell boundary.
+   *
+   * The blend is anchored on the cell the body is ACTUALLY IN. Neighbours within
+   * one level of it blend; anything further is ignored and the seam stays a hard
+   * edge.
+   *
+   * The first version anchored on the LOWEST of the four corners instead, and
+   * that is a different thing entirely: standing on a rim four levels above a
+   * lake basin, every corner capped down to the basin and the player was placed
+   * at the bottom of the pond — on dry land, under the water plane, apparently
+   * drowning. Anchoring on `here` cannot do that, because `here` is the ground
+   * they are standing on by definition.
+   */
   sampleY(fx, fz) {
     const x = Math.floor(fx), z = Math.floor(fz)
     const tx = fx - x, tz = fz - z
-    const a = this.h(x, z), b = this.h(x + 1, z), c = this.h(x, z + 1), d = this.h(x + 1, z + 1)
-    // Only blend across a seam the player could actually walk — a one-level step
-    // is a slope, a two-level step is a cliff and must stay a hard edge or the
-    // player floats up the face of it.
-    const lo = Math.min(a, b, c, d)
-    const cap = (v) => (v - lo > 1 ? lo : v)
-    const A = cap(a), B = cap(b), Cc = cap(c), D = cap(d)
+    const here = this.h(x, z)
+    const cap = (v) => (Math.abs(v - here) > 1 ? here : v)
+    const A = cap(here), B = cap(this.h(x + 1, z)), Cc = cap(this.h(x, z + 1)), D = cap(this.h(x + 1, z + 1))
     return ((A + (B - A) * tx) * (1 - tz) + (Cc + (D - Cc) * tx) * tz) * LEVEL
   }
 
@@ -148,11 +157,26 @@ export class Grid {
    *  you may step UP exactly one level, and fall as far as you like. That makes
    *  "you cannot climb that" read as a rule rather than as a collision bug, and
    *  it keeps movement free of a physics engine entirely. */
-  canStand(x, z, fromH) {
+  canStand(x, z, fromH, maxUp = 1) {
     if (!Grid.inBounds(x, z)) return false
     if (this.isWater(x, z)) return false
     if (!WALKABLE_PROP.has(this.prop[z * N + x])) return false
-    return this.height[z * N + x] - fromH <= 1
+    return this.height[z * N + x] - fromH <= maxUp
+  }
+
+  /**
+   * Like `canStand`, but for a body that can SWIM.
+   *
+   * The player can; the dog and the pebbles cannot, which is why this is a
+   * second method rather than a flag on the first one. Water is always enterable
+   * and the land rule is unchanged, so the only thing that decides whether you
+   * can haul yourself out of a pond is how high the bank is.
+   */
+  canWade(x, z, fromH, maxUp = 1) {
+    if (!Grid.inBounds(x, z)) return false
+    if (!WALKABLE_PROP.has(this.prop[z * N + x])) return false
+    if (this.height[z * N + x] < WATER_LEVEL) return true
+    return this.height[z * N + x] - fromH <= maxUp
   }
 
   /** Nearest standing cell to (x, z), spiralling out. Used to place anything the

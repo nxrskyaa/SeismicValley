@@ -528,11 +528,26 @@ function handleInteraction(talking) {
   if (held === 'rod') {
     prompt = app.fishing.hint()
       ?? (app.fishing.aim(control.pos, control.facing) ? '<b>F</b> — cast' : 'face open water to cast')
+  } else if (grid.nearWater(tx, tz, 2) && !control.swimming) {
+    // Standing at water without the rod out. Whatever else is under the cursor,
+    // say this — a fishing system nobody is told about is a fishing system
+    // nobody finds, and the rod is already in the pack.
+    const slot = state.hotbar.indexOf('rod')
+    if (slot >= 0) prompt = `<b>${slot + 1}</b> — take the rod and fish here`
   }
+  if (control.swimming) prompt = 'swimming · walk at a low bank to climb out'
   hud.setHint(prompt)
 
   // --- E: interact ---------------------------------------------------------
   if (input.pressed('interact')) {
+    // A rod in the water claims E first. Every other use of the key needs
+    // something to be standing in front of you; this one does not, and losing
+    // the cast to a well you happen to be next to is the worse outcome.
+    if (held === 'rod' && app.fishing.active) {
+      const r = app.fishing.toggle()
+      state.say(r === 'set' ? 'Set the rod down. It will fish while you do something else.' : 'Picked the rod back up.')
+      return talking
+    }
     if (near) {
       // Rocky's first line is always the forecast, because that is what the
       // relay is for; after that he cycles what he has to say.

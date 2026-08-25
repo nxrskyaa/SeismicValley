@@ -133,9 +133,26 @@ export class Fishing {
     this.tipWorld = new THREE.Vector3()
     this.bob = 0
     this.lastCatch = null
+
+    /**
+     * PATIENT MODE — the rod left in the water.
+     *
+     * Set the rod down with E and it fishes itself: it strikes for you, lands
+     * the fish, and casts again, so you can stand there while the sun moves.
+     *
+     * It is not free and it should not be. Anything rare only bites for somebody
+     * who is watching the float, so the patient table drops the top of the list
+     * and never pays the night bonus. What you get for the trade is that fishing
+     * stops being something you have to sit and click at, which is the whole
+     * reason anybody wants this.
+     */
+    this.patient = false
   }
 
   get active() { return this.phase !== STATE.IDLE }
+  /** Is there water in front worth casting at? Used for the HUD prompt, so the
+   *  player finds out fishing exists by walking to a lake. */
+  get castable() { return this.phase === STATE.IDLE }
   get holding() { return this.state.held === 'rod' }
 
   /** Where the float would land: straight ahead, out to open water. Returns null
@@ -192,17 +209,29 @@ export class Fishing {
     }
   }
 
+  /** E, while a line is out: leave the rod to fish itself, or pick it back up. */
+  toggle() {
+    if (!this.holding || this.phase === STATE.IDLE) return null
+    this.patient = !this.patient
+    this.audio?.ui?.()
+    return this.patient ? 'set' : 'held'
+  }
+
   reset() {
     this.phase = STATE.IDLE
     this.t = 0
+    this.patient = false
     this.float.visible = false
     this.line.visible = false
   }
 
   /** Draw one from the table, filtered by depth and weighted by the clock. */
   roll(depth, hour) {
-    const night = hour < 6 || hour > 19
-    const pool = CATCH.filter((c) => depth >= c.depth)
+    // Nothing rare bites for somebody who is not watching the float, and the
+    // night bonus is a reward for being out there at night rather than for
+    // having left a rod out.
+    const night = !this.patient && (hour < 6 || hour > 19)
+    const pool = CATCH.filter((c) => depth >= c.depth && !(this.patient && c.night))
     let total = 0
     for (const c of pool) total += c.weight * (c.night && night ? 2 : 1)
     let r = this.rand() * total
@@ -270,6 +299,13 @@ export class Fishing {
       case STATE.BITE:
         // Under. Not bobbing — gone.
         this.bob = -0.22 - Math.sin(this.t * 7) * 0.05
+        // A rod left in the water sets its own hook, a beat late.
+        if (this.patient && this.t >= 0.45) {
+          this.phase = STATE.REEL
+          this.t = 0
+          this.audio?.reel?.()
+          break
+        }
         if (this.t >= BITE_WINDOW) {
           // Missed it. The line stays out; only the fish is lost.
           this.phase = STATE.WAIT
@@ -297,7 +333,21 @@ export class Fishing {
         break
       }
       default:
-        if (this.t >= 0.5) this.reset()
+        // LANDED. A rod that is being watched comes out of the water; a rod that
+        // was set down goes straight back in, which is what makes it unattended
+        // rather than merely automatic.
+        if (this.t >= 0.5) {
+          if (this.patient) {
+            this.phase = STATE.WAIT
+            this.t = 0
+            this.floatPos.copy(this.target)
+            const near = this.life.densityAt(this.target.x, this.target.z, 7)
+            this.wait = randRange(this.rand, 2.4, 8) / (1 + near * 0.16)
+            this.life.splash(this.target.x, this.target.z, 0.7)
+          } else {
+            this.reset()
+          }
+        }
     }
 
     // --- the tackle, drawn ---------------------------------------------------
@@ -322,10 +372,15 @@ export class Fishing {
 
   /** What the HUD should say right now. */
   hint() {
+    if (this.patient && this.phase !== STATE.IDLE) {
+      return this.phase === STATE.LANDED
+        ? 'the rod pulls something in'
+        : 'the rod is fishing itself · <b>E</b> pick it up · <b>F</b> reel in'
+    }
     switch (this.phase) {
       case STATE.IDLE: return null
       case STATE.CAST: return null
-      case STATE.WAIT: return '<b>F</b> — reel in'
+      case STATE.WAIT: return '<b>F</b> — reel in · <b>E</b> — set the rod down and wait'
       case STATE.NIBBLE: return 'something is down there…'
       case STATE.BITE: return '<b>F</b> — strike!'
       case STATE.REEL: return 'reeling…'

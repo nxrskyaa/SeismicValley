@@ -2,7 +2,7 @@ import * as THREE from 'three'
 import { chamferBox, stoneMat } from '../core/kit.js'
 import { C, UI } from '../core/palette.js'
 import { clamp, damp } from '../core/rng.js'
-import { Grid, N } from '../world/grid.js'
+import { Grid, LEVEL, N, WATER_LEVEL } from '../world/grid.js'
 
 /**
  * The settler, and how they move.
@@ -20,16 +20,45 @@ import { Grid, N } from '../world/grid.js'
  *
  * ## The movement
  *
- * No physics engine. The body is clamped to the height grid, and a step UP is
- * legal only to the next level while a drop is unrestricted. That single rule
- * does three things: "you cannot climb that" reads as a rule rather than as a
- * collision bug, terraces become real navigation, and the whole thing costs four
- * array lookups a frame.
+ * No physics engine. The body is clamped to the height grid: a drop is
+ * unrestricted, a step up is legal to `STEP_UP` levels, and water is swum
+ * rather than blocked.
+ *
+ * Those two numbers are the whole navigation design and both were wrong. The
+ * step-up was one level against terrain terraced at two, which made every shelf
+ * in the valley a wall and every ledge a one-way drop; and water was solid, so a
+ * pond you fell into — off a rim that `sampleY` was placing you below anyway —
+ * had no way out of it. Getting stuck reads as broken collision, not as a rule,
+ * and it is the fastest way to make a player stop believing in a world.
  */
 
 const WALK = 4.2
 const RUN = 7.0
+const SWIM = 2.6
 const RADIUS = 0.3
+
+/**
+ * How far up a body can scramble in one step.
+ *
+ * **Two, and it has to be two.** The terrain is terraced at `STEP = 2` in
+ * worldgen, so every ordinary terrace in the valley is a two-level face. With
+ * this at 1 — which is what it was — the player could not climb a single one of
+ * them: the whole map was a maze of walls with a few generated ramps through it,
+ * falling off any ledge was a one-way trip, and walking into a terrace read as
+ * the collision being broken rather than as a rule.
+ *
+ * The big walls are still walls. `HARD = 8` faces are four times this and no
+ * amount of walking gets you up one.
+ */
+const STEP_UP = 2
+
+/** How fast the body is allowed to rise onto a ledge, in units per second. A
+ *  two-level scramble takes about a fifth of a second, which reads as a climb.
+ *  Snapping it instantly reads as a teleport. */
+const RISE = 11
+
+/** Where the body floats. Half-submerged, so the cap is always out of water. */
+const SWIM_DEPTH = 0.62
 
 /**
  * Wardrobe.
@@ -150,7 +179,7 @@ export function buildPlayer(lookKey = 'apprentice') {
     hold.rotation.x = -0.4
   }
 
-  const A = { t: 0, speed: 0, swing: 0, use: 0, useKind: 'swing', carry: null, rod: false }
+  const A = { t: 0, speed: 0, swing: 0, use: 0, useKind: 'swing', carry: null, rod: false, swimming: false }
   parts.anim = A
   parts.height = 1.55
 
@@ -173,7 +202,7 @@ export function buildPlayer(lookKey = 'apprentice') {
     // turns under it. It is two lines and it is most of the life in the walk.
     parts.head.rotation.y = -parts.chest.rotation.y * 0.6
     parts.head.rotation.z = Math.sin(gait) * 0.03 * s
-    parts.body.rotation.x = s * 0.05
+    parts.body.rotation.x = A.swimming ? 0.42 : s * 0.05
 
     A.use = Math.max(0, A.use - dt * 2.6)
     const u = A.use
@@ -196,7 +225,21 @@ export function buildPlayer(lookKey = 'apprentice') {
       parts.foreL.rotation.x = -0.1
       parts.foreR.rotation.x = -0.1
       parts.chest.rotation.x = 0
-      if (A.rod) {
+      if (A.swimming) {
+        // Treading water: the body tips forward, the arms sweep out of phase
+        // and the legs stop entirely. Two lines, and without them a swimming
+        // figure is a walking figure standing in a hole.
+        const stroke = A.t * 3.1
+        parts.body.rotation.x = 0.42
+        parts.armL.rotation.x = -0.9 + Math.sin(stroke) * 0.8
+        parts.armR.rotation.x = -0.9 + Math.sin(stroke + Math.PI) * 0.8
+        parts.armL.rotation.z = 0.5
+        parts.armR.rotation.z = -0.5
+        parts.foreL.rotation.x = parts.foreR.rotation.x = -0.5
+        parts.thighL.rotation.x = Math.sin(stroke * 0.8) * 0.25
+        parts.thighR.rotation.x = -Math.sin(stroke * 0.8) * 0.25
+        parts.head.rotation.x = -0.3
+      } else if (A.rod) {
         // Holding a rod is not holding a hoe. The right arm comes up and across
         // so the pole clears the shoulder, and the left comes in to steady it —
         // without the second hand the figure reads as carrying a stick.
@@ -235,6 +278,8 @@ export class PlayerController {
     this.vy = 0
     this.onGround = true
     this.speed = 0
+    this.swimming = false
+    this.swimT = 0
   }
 
   /** The cell the player is standing on. */
@@ -249,14 +294,28 @@ export class PlayerController {
     return [Math.floor(fx), Math.floor(fz)]
   }
 
-  /** Can a body of RADIUS stand centred here? Tested at four points on the
-   *  circle rather than at its centre, or the player's shoulders clip walls. */
-  _free(x, z, fromH) {
-    for (const [ox, oz] of [[RADIUS, 0], [-RADIUS, 0], [0, RADIUS], [0, -RADIUS]]) {
+  /**
+   * Can a body of RADIUS occupy this spot?
+   *
+   * Tested at points on the circle rather than at its centre, or the player's
+   * shoulders clip walls — but only at the points on the axis being MOVED
+   * along, which is the difference between sliding down a wall and sticking to
+   * it. Testing all four for both axes means that once you are within RADIUS of
+   * a wall, the offset point on the wall side fails for the x-move AND the
+   * z-move, and you are pinned in place until you back away. That is what
+   * "keeps getting stuck on walls" was.
+   */
+  _free(x, z, fromH, axis) {
+    const pts = axis === 'x'
+      ? [[RADIUS, 0], [-RADIUS, 0]]
+      : axis === 'z'
+        ? [[0, RADIUS], [0, -RADIUS]]
+        : [[RADIUS, 0], [-RADIUS, 0], [0, RADIUS], [0, -RADIUS]]
+    for (const [ox, oz] of [[0, 0], ...pts]) {
       const cx = Math.floor(x + ox)
       const cz = Math.floor(z + oz)
       if (!Grid.inBounds(cx, cz)) return false
-      if (!this.grid.canStand(cx, cz, fromH)) return false
+      if (!this.grid.canWade(cx, cz, fromH, STEP_UP)) return false
     }
     return true
   }
@@ -284,37 +343,66 @@ export class PlayerController {
     const mz = -input.move.x * sin + input.move.z * cos
     const mag = Math.hypot(mx, mz)
 
-    const speed = (input.run ? RUN : WALK) * (this.rig.anim.use > 0.15 ? 0.35 : 1)
+    const swimming = this.swimming
+    const speed = (swimming ? SWIM : input.run ? RUN : WALK) * (this.rig.anim.use > 0.15 ? 0.35 : 1)
+    // Swimming out of a basin is climbing out of it, so the height you are
+    // measuring from is the waterline and not the bed four levels down.
+    const fromH = swimming ? WATER_LEVEL : standingH
     if (mag > 0.001) {
       const nx = this.pos.x + mx * speed * dt
       const nz = this.pos.z + mz * speed * dt
       // Axis at a time, so a diagonal into a wall slides along it.
-      if (this._free(nx, this.pos.z, standingH)) this.pos.x = nx
-      if (this._free(this.pos.x, nz, standingH)) this.pos.z = nz
+      if (this._free(nx, this.pos.z, fromH, 'x')) this.pos.x = nx
+      if (this._free(this.pos.x, nz, fromH, 'z')) this.pos.z = nz
       this.facing = Math.atan2(mx, mz)
     }
     this.speed = damp(this.speed, mag, 12, dt)
 
-    // Height. Rising to a legal step is instant, falling runs under a small
-    // hand-rolled gravity so a drop off a terrace has weight to it.
-    const groundY = g.sampleY(this.pos.x, this.pos.z)
-    if (this.pos.y <= groundY + 0.02) {
-      this.pos.y = groundY
+    /**
+     * Height.
+     *
+     * Three cases: floating, climbing, falling.
+     *
+     * Floating happens whenever the cell under you is below the waterline. You
+     * bob at the surface rather than sinking, and getting out is just walking at
+     * a bank low enough to climb — there is no drowning and no timer, because
+     * this is a game about growing vegetables.
+     *
+     * Climbing is RATE LIMITED rather than instant. A two-level scramble takes
+     * about a fifth of a second and reads as hauling yourself up; snapping the
+     * same two levels in one frame reads as a teleport.
+     */
+    const [nx2, nz2] = this.cell
+    this.swimming = g.isWater(nx2, nz2)
+
+    if (this.swimming) {
+      const surface = WATER_LEVEL * LEVEL + LEVEL * 0.5
+      // A slow bob, out of phase with nothing in particular.
+      this.pos.y = damp(this.pos.y, surface - SWIM_DEPTH + Math.sin(this.swimT) * 0.035, 6, dt)
+      this.swimT = (this.swimT ?? 0) + dt * 1.6
       this.vy = 0
-      this.onGround = true
-      if (input.pressed('jump')) {
-        this.vy = 4.6
-        this.onGround = false
-      }
+      this.onGround = false
     } else {
-      this.vy -= 18 * dt
-      this.pos.y += this.vy * dt
-      if (this.pos.y < groundY) {
-        this.pos.y = groundY
+      const groundY = g.sampleY(this.pos.x, this.pos.z)
+      if (this.pos.y <= groundY + 0.02) {
+        // Rise onto the ledge at a limited rate. Falling is still free.
+        this.pos.y = Math.min(groundY, this.pos.y + RISE * dt)
         this.vy = 0
         this.onGround = true
+        if (input.pressed('jump')) {
+          this.vy = 4.6
+          this.onGround = false
+        }
+      } else {
+        this.vy -= 18 * dt
+        this.pos.y += this.vy * dt
+        if (this.pos.y < groundY) {
+          this.pos.y = groundY
+          this.vy = 0
+          this.onGround = true
+        }
+        this.onGround = false
       }
-      this.onGround = false
     }
 
     this.rig.root.position.copy(this.pos)
@@ -323,6 +411,7 @@ export class PlayerController {
     const d = this.facing - this.rig.root.rotation.y
     if (Math.abs(d) > Math.PI) this.rig.root.rotation.y += Math.sign(d) * Math.PI * 2
     this.rig.anim.speed = this.speed
+    this.rig.anim.swimming = this.swimming
     this.rig.update(dt)
   }
 
