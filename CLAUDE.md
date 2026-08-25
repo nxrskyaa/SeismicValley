@@ -8,7 +8,7 @@ setting, palette, camera and Pruning mechanic are Velion's and were ported
 deliberately. `Velion/docs/STORY.md` is the story bible and is still the
 authority on anything narrative.
 
-## The five rules that keep breaking
+## The six rules that keep breaking
 
 Each of these was broken at least once and each is now an assertion in
 `tools/checks.js`. Read this list before changing anything that touches look or
@@ -24,12 +24,12 @@ feel.
    generic low-poly.
 3. **`LEVEL` is 1.0 and `shadowMap.enabled` is false.** A step is a wall, not a
    kerb, and the reference has no cast shadows anywhere in it.
-3. **You are alone.** One human look in `actors/player.js`. No villagers, no
+4. **You are alone.** One human look in `actors/player.js`. No villagers, no
    market, no quest-giver — the survivors are scattered and do not know about
    each other. The check counts the entries in `LOOKS`.
-4. **Nothing loads over the network at runtime.** No CDN font, no `.glb`, no
+5. **Nothing loads over the network at runtime.** No CDN font, no `.glb`, no
    remote texture, no audio file.
-5. **The rig rule.** Three composes `T * R * S`, so scale lands before rotation.
+6. **The rig rule.** Three composes `T * R * S`, so scale lands before rotation.
    Slabs get a Z-axis prism (`FLAT`/`POINT`) and are never rotated; limbs get a
    Y-axis one (`COLUMN`/`TAPER`) and are never rotated.
 
