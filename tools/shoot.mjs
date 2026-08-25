@@ -28,7 +28,19 @@ const OUT = path.join(ROOT, 'shots')
 const W = 1440
 const H = 900
 
-const ALL = ['valley', 'home', 'gate', 'rocky', 'sheet', 'rig', 'pond', 'lake', 'dawn', 'dusk', 'night', 'pruning', 'pebble', 'play']
+const ALL = ['valley', 'home', 'gate', 'rocky', 'sheet', 'rig', 'pond', 'lake', 'dawn', 'dusk', 'night', 'pruning', 'pebble', 'play', 'menu']
+
+/**
+ * Poses that are INTERFACE rather than camera.
+ *
+ * These load the game the way a player does — no `?shot=`, so the title card is
+ * up and the world is live behind it — and wait on a DOM node instead of on the
+ * capture harness's ready flag. Screenshotting the menu through the capture
+ * path is impossible by construction: that path exists precisely to skip it.
+ */
+const DOM_POSES = {
+  menu: { query: '', wait: '.title-card', settle: 1400 },
+}
 
 const argv = process.argv.slice(2)
 let tag = ''
@@ -112,10 +124,19 @@ async function main() {
     page.on('console', (m) => m.type() === 'error' && errors.push(m.text()))
     page.on('pageerror', (e) => errors.push(String(e)))
 
-    await page.goto(`http://${HOST}:${PORT}/?shot=${pose}`, { waitUntil: 'load', timeout: 40000 })
+    const dom = DOM_POSES[pose]
+    await page.goto(`http://${HOST}:${PORT}/${dom ? dom.query : `?shot=${pose}`}`, { waitUntil: 'load', timeout: 40000 })
     let ok = false
     try {
-      await page.waitForFunction('window.__shotReady === true', { timeout: 30000 })
+      if (dom) {
+        await page.waitForSelector(dom.wait, { timeout: 30000 })
+        // The valley behind the card is still meshing and the preview rig is
+        // mid-turn; a frame taken the instant the node exists is a photograph
+        // of a loading state.
+        await new Promise((r) => setTimeout(r, dom.settle ?? 900))
+      } else {
+        await page.waitForFunction('window.__shotReady === true', { timeout: 30000 })
+      }
       ok = true
     } catch {
       /* fall through to the error dump below */

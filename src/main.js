@@ -24,6 +24,7 @@ import { KIND, item } from './game/items.js'
 import { HUD } from './ui/hud.js'
 import { Panels } from './ui/panels.js'
 import { showTitle } from './ui/title.js'
+import { loadAppearance, lookFrom } from './game/appearance.js'
 import { TouchControls } from './ui/touch.js'
 
 /**
@@ -170,7 +171,11 @@ function boot() {
   app.flag.group.position.set(fx + 0.5, grid.h(fx, fz) * LEVEL, fz + 0.5)
   app.scene.add(app.flag.group)
 
-  app.player = buildPlayer('settler')
+  // Who you are is chosen on the title card and kept OUT of the save file, so
+  // it survives starting a new valley. The rig is one silhouette repainted, not
+  // a wardrobe — see game/appearance.js for why that is deliberate.
+  app.appearance = loadAppearance()
+  app.player = buildPlayer(lookFrom(app.appearance))
   app.scene.add(app.player.root)
   const [sx, sz] = grid.nearestStandable(HOME.x, HOME.z + 3)
   app.control = new PlayerController(grid, app.player, sx + 0.5, sz + 0.5)
@@ -275,8 +280,15 @@ function runGame() {
   if (!started) {
     showTitle(root, {
       seed: app.seedText,
-      onStart: ({ load, seed }) => {
+      onStart: ({ load, seed, appearance }) => {
         audio.unlock()
+        if (appearance) {
+          app.appearance = appearance
+          const look = lookFrom(appearance)
+          for (const [k, hex] of Object.entries(look)) {
+            app.player.materials[k]?.color.setStyle(hex, THREE.SRGBColorSpace)
+          }
+        }
         if (seed && seed !== app.seedText) {
           // A different seed is a different valley, and regenerating in place is
           // more code than reloading, for a case that happens once a session.

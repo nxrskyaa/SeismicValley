@@ -482,21 +482,113 @@ html, body {
   z-index: 40;
   display: grid;
   place-items: center;
-  background: linear-gradient(180deg, rgba(16, 11, 9, 0.4), rgba(16, 11, 9, 0.82));
+  /* Light enough that the valley behind is still a valley. The card carries
+     the contrast; the scrim only has to stop the text fighting the terrain. */
+  background: linear-gradient(180deg, rgba(16, 11, 9, 0.14), rgba(16, 11, 9, 0.5));
+  backdrop-filter: blur(1.5px) saturate(0.92);
   transition: opacity 0.5s;
   padding: calc(var(--u) * 1.2);
 }
+/* The HUD belongs to the game, not to the menu. */
+body.is-title .hud { opacity: 0; pointer-events: none; }
+.hud { transition: opacity 0.4s; }
 .title.is-out { opacity: 0; pointer-events: none; }
 
 .title-card {
-  width: min(calc(var(--u) * 38), 94vw);
+  width: min(calc(var(--u) * 62), 96vw);
   max-height: 92vh;
   overflow-y: auto;
-  padding: calc(var(--u) * 2.4) calc(var(--u) * 2.4) calc(var(--u) * 1.6);
+  padding: calc(var(--u) * 2.2) calc(var(--u) * 2.2) calc(var(--u) * 1.4);
   background: var(--plate-solid);
   border: 1px solid var(--line-strong);
   text-align: center;
+  display: grid;
+  grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr);
+  gap: calc(var(--u) * 2.4);
+  align-items: start;
 }
+/* One column on anything narrow, and the settler goes UNDER the wordmark —
+   above it, the first thing on a phone would be a pair of trousers. */
+@media (max-width: 720px) {
+  .title-card { grid-template-columns: minmax(0, 1fr); gap: calc(var(--u) * 1.4); width: min(calc(var(--u) * 38), 94vw); }
+}
+.title-col { min-width: 0; }
+.title-col-side {
+  border-left: 1px solid var(--line);
+  padding-left: calc(var(--u) * 2.2);
+}
+@media (max-width: 720px) {
+  .title-col-side { border-left: 0; border-top: 1px solid var(--line); padding-left: 0; padding-top: calc(var(--u) * 1.2); }
+}
+.title-eyebrow {
+  font-size: calc(var(--u) * 0.66);
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--dim);
+  margin-bottom: calc(var(--u) * 0.9);
+}
+
+/* --- the dressing room ---------------------------------------------------- */
+
+.dress { display: grid; gap: calc(var(--u) * 1); }
+.dress-stage {
+  display: grid;
+  place-items: center;
+  /* The plate the figure stands on, as a soft pool of light rather than a box.
+     A hard-edged preview panel reads as a different application. */
+  background: radial-gradient(ellipse at 50% 62%, rgba(198, 155, 114, 0.16), transparent 68%);
+}
+.dress-stage canvas { width: calc(var(--u) * 17); height: calc(var(--u) * 19.6); display: block; }
+.dress-form { display: grid; gap: calc(var(--u) * 0.62); text-align: left; }
+.dress-name { display: flex; align-items: center; gap: calc(var(--u) * 0.7); }
+.dress-name span {
+  font-size: calc(var(--u) * 0.62);
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--dim);
+  width: calc(var(--u) * 4.4);
+  flex: none;
+}
+.dress-name input {
+  flex: 1;
+  min-width: 0;
+  font: inherit;
+  font-size: calc(var(--u) * 0.78);
+  color: var(--cream);
+  background: rgba(250, 244, 234, 0.05);
+  border: 1px solid var(--line);
+  padding: calc(var(--u) * 0.3) calc(var(--u) * 0.5);
+}
+.dress-name input:focus { outline: none; border-color: var(--line-strong); }
+.dress-row { display: flex; align-items: center; gap: calc(var(--u) * 0.7); }
+.dress-label {
+  font-size: calc(var(--u) * 0.62);
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--dim);
+  width: calc(var(--u) * 4.4);
+  flex: none;
+}
+.dress-strip { display: flex; flex-wrap: wrap; gap: calc(var(--u) * 0.26); }
+.swatch {
+  display: flex;
+  width: calc(var(--u) * 1.5);
+  height: calc(var(--u) * 1.5);
+  padding: 0;
+  border: 1px solid var(--line);
+  background: none;
+  cursor: pointer;
+  overflow: hidden;
+  transition: border-color 0.12s, transform 0.12s;
+}
+.swatch i { flex: 1; display: block; }
+.swatch:hover { border-color: var(--line-strong); }
+/* The chosen one gets the cream rule and a hair of scale. No checkmark: a tick
+   over a colour hides the colour, which is the one thing the control shows. */
+.swatch.is-on { border-color: var(--cream); transform: scale(1.12); }
+.swatch:focus-visible { outline: 1px solid var(--cream-deep); outline-offset: 1px; }
+.dress-dice { justify-self: start; margin-top: calc(var(--u) * 0.3); }
+.btn-sm { padding: calc(var(--u) * 0.3) calc(var(--u) * 0.72); font-size: calc(var(--u) * 0.62); }
 .title-mark-svg { width: calc(var(--u) * 2.6); height: calc(var(--u) * 2.6); color: var(--stone-lit); display: block; margin: 0 auto calc(var(--u) * 1.2); }
 .title-word { margin: 0 0 calc(var(--u) * 1.2); }
 .title-type { width: 100%; max-width: calc(var(--u) * 24); height: auto; fill: var(--cream); display: block; margin: 0 auto; }
@@ -508,6 +600,7 @@ html, body {
   color: var(--dim);
 }
 .title-actions { display: flex; gap: calc(var(--u) * 0.6); justify-content: center; flex-wrap: wrap; margin-bottom: calc(var(--u) * 1.2); }
+.title-col { text-align: center; }
 .title-seed {
   display: flex;
   align-items: center;

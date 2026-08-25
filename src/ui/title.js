@@ -1,6 +1,8 @@
 import { markSvg } from '../core/mark.js'
 import { svgWordmark } from '../core/wordmark.js'
 import { GameState } from '../game/state.js'
+import { loadAppearance, saveAppearance } from '../game/appearance.js'
+import { buildCustomizer } from './customize.js'
 
 /**
  * The title card.
@@ -13,6 +15,12 @@ import { GameState } from '../game/state.js'
  * generating and rendering behind this card; pressing a button fades the card
  * and hands the camera over. That is why there is no loading screen anywhere in
  * the game: the load is the title.
+ *
+ * Two columns, and the split is the point. The left is the game — who you are,
+ * where you woke up, and the one button that starts it. The right is the person
+ * you are about to be, turning slowly on a plate under the same sky the valley
+ * gets. A menu whose only content is a Start button is a door with a sign on
+ * it; this one has something to look at while you decide.
  */
 
 const el = (tag, cls, html) => {
@@ -24,14 +32,21 @@ const el = (tag, cls, html) => {
 
 export function showTitle(root, { onStart, seed }) {
   const node = el('div', 'title')
-
   const card = el('div', 'title-card')
-  card.append(
+  const left = el('div', 'title-col')
+  const right = el('div', 'title-col title-col-side')
+
+  left.append(
     el('div', 'title-mark', markSvg({ className: 'title-mark-svg' })),
     el('h1', 'title-word', svgWordmark('SEISMIC VALLEY', { className: 'title-type' })),
     el('p', 'title-lede', 'You were the only person underground when the world was rolled back. Forty days later a dog stands on your chest and there is a valley outside with four hundred and six species mixed into the soil of it.'),
   )
 
+  // --- who you are ---------------------------------------------------------
+  const dresser = buildCustomizer(loadAppearance())
+  right.append(el('div', 'title-eyebrow', 'The settler'), dresser.node)
+
+  // --- the actions ---------------------------------------------------------
   const save = GameState.peek()
   const actions = el('div', 'title-actions')
 
@@ -47,35 +62,43 @@ export function showTitle(root, { onStart, seed }) {
     finish({ load: null, seed: seedInput.value.trim() || undefined })
   })
   actions.append(fresh)
-  card.append(actions)
+  left.append(actions)
 
   const seedRow = el('label', 'title-seed')
   seedRow.append(el('span', null, 'Seed'))
-  const seedInput = el('input')
+  const seedInput = document.createElement('input')
   seedInput.type = 'text'
   seedInput.value = seed ?? 'seismic-valley'
   seedInput.spellcheck = false
   seedRow.append(seedInput)
-  card.append(seedRow)
+  left.append(seedRow)
 
-  card.append(el('div', 'title-keys', `
+  left.append(el('div', 'title-keys', `
     <div><kbd>WASD</kbd> walk <kbd>Shift</kbd> run <kbd>Space</kbd> jump</div>
     <div><kbd>F</kbd> use the tool in hand <kbd>E</kbd> interact, talk, harvest</div>
     <div><kbd>1</kbd>–<kbd>8</kbd> hotbar <kbd>Q</kbd> <kbd>R</kbd> turn the camera <kbd>wheel</kbd> zoom</div>
     <div><kbd>Tab</kbd> homestead <kbd>B</kbd> build and register <kbd>J</kbd> journal <kbd>F5</kbd> save</div>
   `))
-  card.append(el('div', 'title-credit', 'A procedural Three.js game by <a href="https://x.com/nxrskyaa" target="_blank" rel="noopener">Nxrskyaa</a>. Nothing in it is a downloaded asset.'))
+  left.append(el('div', 'title-credit', 'A procedural Three.js game by <a href="https://x.com/nxrskyaa" target="_blank" rel="noopener">Nxrskyaa</a>. Nothing in it is a downloaded asset.'))
 
+  card.append(left, right)
   node.append(card)
   root.append(node)
+  document.body.classList.add('is-title')
 
   // Focus something, so the very first key press is not swallowed by the body.
   requestAnimationFrame(() => (save ? actions.firstChild : fresh).focus())
 
   function finish(opts) {
+    const appearance = dresser.value
+    saveAppearance(appearance)
     node.classList.add('is-out')
-    setTimeout(() => node.remove(), 420)
-    onStart(opts)
+    document.body.classList.remove('is-title')
+    setTimeout(() => {
+      dresser.dispose()
+      node.remove()
+    }, 420)
+    onStart({ ...opts, appearance })
   }
 
   return {
