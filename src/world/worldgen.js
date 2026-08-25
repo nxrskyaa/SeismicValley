@@ -239,7 +239,7 @@ export function generate(seed) {
       else if (h === WATER_LEVEL || (h === WATER_LEVEL + 1 && grid.nearWater(x, z))) g = G.SHORE
       else if (slope >= 2) g = G.ROCK
       else if (m > 0.62 && h < 12) g = G.LOAM
-      else if (patch(x * 0.17, z * 0.17) > 0.755) g = G.ASH
+      else if (patch(x * 0.15, z * 0.15) > 0.82) g = G.ASH
       else g = G.MEADOW
       grid.ground[i] = g
       // The fault itself is scarred ground: a one-cell band of burnt rock that
@@ -270,7 +270,7 @@ export function generate(seed) {
         // Geodes seed along the fault. They are the reason to walk it.
         grid.prop[i] = P.GEODE
         grid.propData[i] = randInt(r, 0, 3)
-      } else if ((g === G.MEADOW || g === G.ASH) && chance(r, 0.16)) {
+      } else if ((g === G.MEADOW || g === G.ASH) && chance(r, 0.075)) {
         grid.prop[i] = P.GRASS
         grid.propData[i] = randInt(r, 0, 3)
       }
@@ -293,7 +293,10 @@ export function generate(seed) {
         const edge = Math.min(x - x0, x0 + w - 1 - x, z - z0, z0 + d - 1 - z)
         grid.height[i] = edge >= 1 ? h : Math.round((grid.height[i] + h) / 2)
         grid.prop[i] = P.NONE
-        if (grid.ground[i] !== G.SCAR) grid.ground[i] = edge >= 1 ? G.LOAM : grid.ground[i]
+        // The pad FLATTENS the ground; it does not repaint it. Painting twenty
+        // by eighteen cells of clay put a rose rectangle under the camera that
+        // dominated every frame of play — the reference has nothing like it, and
+        // the player is about to till whatever they want here anyway.
       }
     }
     return h

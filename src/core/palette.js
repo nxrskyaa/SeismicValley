@@ -65,11 +65,11 @@ export const C = {
   // Trunks are dark plum, near-aubergine. Against a lilac cliff a brown trunk
   // reads as a mistake; the plum is what ties the trees into the ground.
   trunk: '#5a3550', trunkDark: '#482940',
-  canopyA: '#cfc6e0', canopyB: '#e0c8d8', canopyC: '#c6c8e2', canopyDead: '#b3a8b8',
+  canopyA: '#cdc9e4', canopyB: '#dcd0e4', canopyC: '#c2c6e2', canopyDead: '#b3a8b8',
   shrub: '#9aa878', shrubDeep: '#7c8a5e', grass: '#bdb694', grassDry: '#cfc7a8',
 
   // ---------------------------------------------------------------- props --
-  stoneProp: '#c2bcc8', stonePropDark: '#a89eb2',
+  stoneProp: '#bdb8a4', stonePropDark: '#a49f8e',
 
   // --------------------------------------------------------------- player --
   skin: '#e2b48f', hair: '#3a2b33',
@@ -99,15 +99,15 @@ export const C = {
 export const GROUND = {
   // Sand meadow. The one material with the full four-band read: a pale sand top,
   // a dappled olive lip, a rust band under it, and pale grey-lilac rock below.
-  MEADOW: ['#ded0b0', '#9aa877', '#c4685c', '#c9c5cf'],
+  MEADOW: ['#cdcdb2', '#93a56f', '#c4756a', '#cbc8d0'],
   // Snow. Near-white, and NO banding — the reference's snow plateaus are one
   // white top over one faintly cooler face, and adding strata to them is what
   // makes a snowfield look like striped rock.
   ASH: ['#eae7f0', '#e0dcea', '#d4cfe0', '#d9d5e4'],
   // Clay. A darker version of its own top, no rust, no olive.
-  LOAM: ['#b0857a', '#a0776c', '#946e66', '#8f6a62'],
+  LOAM: ['#bb9c92', '#ab8c82', '#9d7f76', '#94776e'],
   STONE: ['#c8c4cc', '#b8b3c2', '#a49eb0', '#b0aabe'],
-  SHORE: ['#e2d8be', '#d0c5a8', '#c0b096', '#cbc7d2'],
+  SHORE: ['#dcd6bc', '#cbc4a6', '#bcb094', '#cbc7d2'],
   TILLED: ['#8d6a55', '#7f5e4a', '#6f5140', '#6b4f42'],
   WET: ['#6b4c3e', '#604437', '#553c30', '#4e372c'],
   SCAR: ['#c9bcc8', '#b3a2b2', '#8d6f7e', '#bdaec2'],

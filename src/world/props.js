@@ -65,17 +65,17 @@ const CANOPY_PLANS = [
 
 function treeGeometry(kind) {
   const plan = CANOPY_PLANS[kind % CANOPY_PLANS.length]
-  const cube = 0.92 // one canopy cube, in world units
-  const trunkH = [3.4, 2.9, 2.4][kind % 3]
+  const cube = 1.25 // one canopy cube, in world units — the reference's are BIG
+  const trunkH = [4.2, 3.6, 3.0][kind % 3]
   const tone = [C.canopyA, C.canopyB, C.canopyC][kind % 3]
   const parts = [
     // The trunk is a BOX and it is thin. A tapered prism reads as a conifer.
-    { geometry: chamferBox(0.42, trunkH, 0.42, 0.04), position: [0, trunkH / 2, 0], color: kind === 1 ? C.trunkDark : C.trunk },
+    { geometry: chamferBox(0.62, trunkH, 0.62, 0.05), position: [0, trunkH / 2, 0], color: kind === 1 ? C.trunkDark : C.trunk },
   ]
   for (const [dx, dy, dz] of plan) {
     // Two tones inside one canopy, split by height, so the slab has a lit top
     // and a shaded underside without needing a second light.
-    const col = dy > 0 ? sunlit(tone, 0.35) : tone
+    const col = dy > 0 ? sunlit(tone, 0.14) : tone
     parts.push({
       geometry: chamferBox(cube, cube, cube, 0.05),
       position: [dx * cube * 0.94, trunkH + cube * (0.2 + dy * 0.86), dz * cube * 0.94],
@@ -114,7 +114,7 @@ function grassGeometry(kind) {
   // ground rather than as vegetation, and a field of proper grass tufts buries
   // the flat plateaus that are the whole point of the look.
   const parts = []
-  const stones = 2 + (kind % 3)
+  const stones = 1 + (kind % 2)
   for (let i = 0; i < stones; i++) {
     const a = cellRand(kind * 17, i, 21) * Math.PI * 2
     const r = 0.1 + cellRand(i, kind, 23) * 0.32
