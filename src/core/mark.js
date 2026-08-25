@@ -1,5 +1,5 @@
 import * as THREE from 'three'
-import { C } from './palette.js'
+import { UI } from './palette.js'
 
 /**
  * The Seismic mark, and the shard.
@@ -179,7 +179,7 @@ export function shardPath2D(size = 1) {
  * non-power-of-two texture silently loses mipmaps and a flag at distance turns
  * into a shimmering smear.
  */
-export function markTexture({ ink = C.cream, ground = C.ink, glyph = 'mark', size = 256, scale = 0.62 } = {}) {
+export function markTexture({ ink = UI.cream, ground = UI.ink, glyph = 'mark', size = 256, scale = 0.62 } = {}) {
   const cv = document.createElement('canvas')
   cv.width = cv.height = size
   const ctx = cv.getContext('2d')

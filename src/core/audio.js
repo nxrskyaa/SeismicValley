@@ -153,11 +153,17 @@ export class Audio {
     src.stop(t + dur + 0.1)
   }
 
-  /** The shock itself. */
-  quake(mag = 1) {
-    this._burst({ dur: 1.6, gain: 0.42 + mag * 0.06, type: 'lowpass', freq: 320, sweep: 0.18, q: 0.6 })
-    this._tone({ freq: 62, to: 34, dur: 1.5, gain: 0.2, type: 'sine' })
-    this._tone({ freq: 46, to: 28, dur: 2.0, gain: 0.14, type: 'triangle' })
+  /**
+   * A pruning pass.
+   *
+   * Not an impact. A machine finishing a job: one descending sweep and a short
+   * mechanical click, and then it is over. It should be the least dramatic sound
+   * in the game, because what makes pruning frightening is that it is tidy.
+   */
+  prune() {
+    this._tone({ freq: 210, to: 58, dur: 1.1, gain: 0.13, type: 'sine' })
+    this._burst({ dur: 0.7, gain: 0.16, type: 'bandpass', freq: 1800, sweep: 0.12, q: 3.2 })
+    setTimeout(() => this._tone({ freq: 92, to: 74, dur: 0.34, gain: 0.09, type: 'square' }), 520)
   }
 
   /** Rocky's voice: a stone note, not a word. Pitched by how big he is. */

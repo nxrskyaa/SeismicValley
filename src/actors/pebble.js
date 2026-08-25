@@ -1,7 +1,7 @@
 import * as THREE from 'three'
 import { chamferBox, FLAT, glowMat, POINT, shardMat, stoneMat, TAPER } from '../core/kit.js'
 import { shardGeometry } from '../core/mark.js'
-import { C } from '../core/palette.js'
+import { UI } from '../core/palette.js'
 import { damp } from '../core/rng.js'
 import { tones } from './rocky.js'
 
@@ -36,7 +36,7 @@ export const PEBBLE_NAMES = [
   'Gravel', 'Dust', 'Slate', 'Basil', 'Nugget', 'Pumice', 'Clay', 'Ochre', 'Sand', 'Rubble',
 ]
 
-const INK = new THREE.MeshBasicMaterial({ color: new THREE.Color().setStyle(C.ink, THREE.SRGBColorSpace), side: THREE.BackSide })
+const INK = new THREE.MeshBasicMaterial({ color: new THREE.Color().setStyle(UI.ink, THREE.SRGBColorSpace), side: THREE.BackSide })
 
 /** A four-point sparkle, flat, facing +Z. The reference draws the eyes as stars
  *  rather than dots and that single choice is most of the charm — a dot-eyed
@@ -64,8 +64,8 @@ export function buildPebble({ trait = 'waterer', size = 0.42, outline = true, aw
     stone: stoneMat(T.stone),
     lit: stoneMat(T.lit),
     deep: stoneMat(T.deep),
-    joint: stoneMat(C.ink),
-    eye: glowMat(C.cream, 1.2),
+    joint: stoneMat(UI.ink),
+    eye: glowMat(UI.cream, 1.2),
     shard: shardMat(),
   }
 

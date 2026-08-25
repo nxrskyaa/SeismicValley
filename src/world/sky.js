@@ -1,5 +1,5 @@
 import * as THREE from 'three'
-import { C, skyAt, sunDirAt } from '../core/palette.js'
+import { skyAt, sunDirAt } from '../core/palette.js'
 import { N } from './grid.js'
 
 /**
@@ -49,9 +49,9 @@ export class Sky {
     this.group = new THREE.Group()
 
     this.uniforms = {
-      uHigh: { value: new THREE.Color(C.skyHigh) },
-      uLow: { value: new THREE.Color(C.skyLow) },
-      uSun: { value: new THREE.Color(C.sun) },
+      uHigh: { value: new THREE.Color('#c7c6e2') },
+      uLow: { value: new THREE.Color('#e9e2ea') },
+      uSun: { value: new THREE.Color('#ffe6c8') },
       uSunDir: { value: new THREE.Vector3(0.5, 0.6, 0.4) },
       uDay: { value: 1 },
     }
@@ -85,7 +85,7 @@ export class Sky {
     const starGeo = new THREE.BufferGeometry()
     starGeo.setAttribute('position', new THREE.Float32BufferAttribute(pts, 3))
     this.starMat = new THREE.PointsMaterial({
-      color: C.star, size: 0.006, sizeAttenuation: true, transparent: true, opacity: 0, depthWrite: false, fog: false,
+      color: '#e9e4ef', size: 0.006, sizeAttenuation: true, transparent: true, opacity: 0, depthWrite: false, fog: false,
     })
     this.stars = new THREE.Points(starGeo, this.starMat)
     this.stars.frustumCulled = false
@@ -93,7 +93,7 @@ export class Sky {
     this.group.add(this.stars)
 
     // --- lights -----------------------------------------------------------
-    this.key = new THREE.DirectionalLight(C.sun, 1.6)
+    this.key = new THREE.DirectionalLight('#ffe6c8', 1.6)
     this.key.castShadow = true
     this.key.shadow.mapSize.set(2048, 2048)
     // The shadow camera follows the player rather than covering the map. The
@@ -115,14 +115,38 @@ export class Sky {
     this.key.target.position.set(0, 0, 0)
     scene.add(this.key, this.key.target)
 
-    this.hemi = new THREE.HemisphereLight(C.skyLow, C.hemiGround, 0.7)
+    this.hemi = new THREE.HemisphereLight('#e9e2ea', '#8e5e4c', 0.7)
     scene.add(this.hemi)
 
-    scene.fog = new THREE.Fog(C.fog, 34, 128)
+    scene.fog = new THREE.Fog('#cfc6dc', 34, 128)
     scene.add(this.group)
 
     this._sun = new THREE.Vector3()
     this._focus = new THREE.Vector3()
+    this._span = 0
+    this.setSpan(30)
+  }
+
+  /**
+   * Size the shadow frustum to what the camera can actually see.
+   *
+   * This is the single easiest thing to get wrong in the tight direction:
+   * anything OUTSIDE the frustum samples the shadow map's border texel and
+   * comes back FULLY SHADOWED. At a wide zoom that paints the entire valley
+   * solid black — which does not look like a shadow bug, it looks like the
+   * lights are off, and there is no error anywhere.
+   */
+  setSpan(span) {
+    const s = Math.max(26, span)
+    if (Math.abs(s - this._span) < 0.5) return
+    this._span = s
+    const cam = this.key.shadow.camera
+    cam.left = -s
+    cam.right = s
+    cam.top = s
+    cam.bottom = -s
+    cam.far = s * 3 + 90
+    cam.updateProjectionMatrix()
   }
 
   /** Called every frame with the clock's hour and the point the camera is
@@ -142,12 +166,16 @@ export class Sky {
 
     this.key.color.setStyle(s.key, THREE.SRGBColorSpace)
     this.key.intensity = s.keyEnergy
-    this.hemi.intensity = s.ambient
-    this.hemi.color.setStyle(s.low, THREE.SRGBColorSpace)
+    // `ambient` is a COLOUR and `ambientEnergy` is the number. Assigning the
+    // colour to `intensity` sets it to NaN, every light goes dark, and the frame
+    // comes out solid black with no error anywhere.
+    this.hemi.intensity = s.ambientEnergy
+    this.hemi.color.setStyle(s.ambient, THREE.SRGBColorSpace)
+    this.hemi.groundColor.setStyle(s.fog, THREE.SRGBColorSpace)
 
     this._focus.copy(focus)
     this.key.target.position.copy(this._focus)
-    this.key.position.copy(this._focus).addScaledVector(this._sun, 62)
+    this.key.position.copy(this._focus).addScaledVector(this._sun, this._span + 24)
 
     this.scene.fog.color.setStyle(s.fog, THREE.SRGBColorSpace)
     this.scene.fog.near = s.fogNear

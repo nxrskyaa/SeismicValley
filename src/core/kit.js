@@ -1,6 +1,6 @@
 import * as THREE from 'three'
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js'
-import { C, M } from './palette.js'
+import { M, UI } from './palette.js'
 
 /**
  * The stone kit.
@@ -150,8 +150,8 @@ export const glowMat = (color, intensity = 1) => {
 /** The shard material: the one thing in the valley allowed to look wet. */
 export const shardMat = () =>
   new THREE.MeshStandardMaterial({
-    color: new THREE.Color().setStyle(C.rose, THREE.SRGBColorSpace),
-    emissive: new THREE.Color().setStyle(C.roseDeep, THREE.SRGBColorSpace),
+    color: new THREE.Color().setStyle(UI.rose, THREE.SRGBColorSpace),
+    emissive: new THREE.Color().setStyle(UI.roseDeep, THREE.SRGBColorSpace),
     emissiveIntensity: 0.55,
     flatShading: true,
     ...M.shard,
@@ -189,7 +189,7 @@ export function bake(parts) {
       if (key !== 'position' && key !== 'normal') g.deleteAttribute(key)
     }
     const n = g.attributes.position.count
-    col.setStyle(p.color ?? C.stone, THREE.SRGBColorSpace)
+    col.setStyle(p.color ?? UI.stone, THREE.SRGBColorSpace)
     const rgb = new Float32Array(n * 3)
     for (let i = 0; i < n; i++) {
       rgb[i * 3] = col.r

@@ -1,144 +1,184 @@
 <div align="center">
 
-<img src="public/mark.svg" width="96" height="96" alt="" />
+<img src="public/mark.svg" width="88" height="88" alt="" />
 
 # SEISMIC VALLEY
 
-**Farm a valley that will not hold still.**
+**You were the only person underground when the world was rolled back.**
 
-A procedural farming game in Three.js. Every plant, building, golem, letterform
-and sound in it is generated in code — there is not one model, texture, sprite
-or font file in this repository.
+A procedural survival-farming game in Three.js. Every plant, building, golem,
+letterform and sound in it is generated in code — there is not one model,
+texture, sprite or font file in this repository.
 
-[Play it](https://seismic-valley.vercel.app/) · [Nxrskyaa](https://x.com/nxrskyaa) · themed on [Seismic](https://seismic.systems)
+[Play it](https://seismic-valley.vercel.app/) · [Nxrskyaa](https://x.com/nxrskyaa)
 
 </div>
 
 ---
 
 <div align="center">
-<img src="docs/valley.png" width="820" alt="The valley from the north ridge, the fault running across it as a dark scar" />
+<img src="docs/valley.png" width="860" alt="The valley from above: pale terraced ground, a lavender river, a homestead and the relay on the north ridge" />
 </div>
 
 ---
 
-## What it is
+## What happened
 
-You have a plot, a hoe, a watering can, and a fault line running diagonally
-through the middle of the valley.
+EOF-001 was not found. It was **made** — ninety years of unmanned sowers
+dropping bio-crust onto dead rock until something took. Under the valley there
+is a lattice the colonists called **the Loom**, and almost nobody thought about
+it, the way almost nobody thinks about plumbing. It regulated soil chemistry,
+rainfall, and the length of the seasons, which is why the seasons are named
+after entries in an operations calendar: **Thaw, Longlight, Rust, Still.**
 
-Every few days the fault moves. A band of ground along it lifts or drops a
-level, scars over, cracks open, and pushes geodes up out of the dirt. Anything
-you planted in that band is gone.
+The Loom keeps checkpoints. It has always kept checkpoints. Nobody read the
+manual.
 
-Unless it was standing behind a **cairn**.
+Forty days ago it executed a rollback to a checkpoint dated seventy-one years
+earlier. It took nine seconds. Anything the checkpoint had no record of came
+apart into the raw blocks the Loom builds with — houses folded down into their
+components, fences unravelled into fibre, the grain silo went back to being
+sand.
 
-That is the whole game, and it is deliberately one idea rather than twelve:
+You were behind three metres of packed clay filing returns in the seed archive.
+You wake up because a dog is standing on your chest.
+
+In your pocket is the **Manifest Chip**: the Vault's index, listing four hundred
+and six species. The Vault holds none of them. They are in the valley now, mixed
+into the soil in pieces small enough that the Loom did not think them worth
+deleting.
+
+**So you plant.** Every species you carry through to a harvest writes one line
+back onto the chip. That is the progress bar, and it is the whole point:
+*farming here is not commerce, it is recovery.*
+
+<div align="center">
+<img src="docs/play.png" width="860" alt="The game running: the settler on the homestead plot, the field log top-left, the hotbar below" />
+</div>
+
+---
+
+## Pruning
+
+The Loom did not finish. It rebooted into a partial state and it is **still
+working the rollback**, slowly, at the pace of a machine with no deadline. Every
+few nights it does a pass and takes apart whatever it finds that it has no
+record of.
+
+The first time it happens to something you built, it happens without warning,
+and you wake up to a rectangle of neatly stacked components where your shed was.
+
+That is why registration exists, and why the house tiers are not cosmetic:
 
 | | |
 |---|---|
-| **Near the fault** | the best soil, the geodes, the shards — and a tremor every four to seven days |
-| **Far from the fault** | perfectly safe, and perfectly poor |
-| **A cairn** | holds its own patch of ground steady, and doubles the growth rate inside it |
+| **A stake** | four wood and three fibre, driven at a corner. The structure is now in the record and a pass goes around it. |
+| **Unregistered** | comes apart. You get most of the components back, stacked, which is somehow worse. |
+| **The homestead** | never pruned. It is where you sleep. |
 
-So the game is a long negotiation with the ground. You quarry stone, square it
-at the kiln, raise a cairn, and push your fields a little closer to the scar.
-Then the fault gets stronger, and you do it again.
-
-<div align="center">
-<img src="docs/tremor.png" width="820" alt="The ground after a tremor: a scarred band, fissures, and geodes pushed up along it" />
-<br /><sub>Four seconds after the fault moved. The dark rectangles are fissures; the lumps along them are geodes.</sub>
-</div>
+The cost of a stake is trivial. The cost is **remembering**.
 
 ---
 
 ## Rocky
 
-Seismic's mascot is a stone golem, and he is the reason this valley has people
-in it at all.
+<div align="center">
+<img src="docs/rocky.png" width="600" alt="Rocky, a stone construct, standing under the relay arch" />
+</div>
 
-He was rebuilt here from a sheet of six reference drawings using the
-[img2threejs](https://github.com/img2threejs/img2threejs) method —
-reconstruction **by code**, from primitives, with no mesh anywhere in the
-pipeline. Read as a set rather than one at a time, the drawings agree on a small
-number of things, and those things are what the rig holds to:
+There is one other thing in the valley that walks, and it is not a person.
 
-- a stocky four-and-a-half-head silhouette with a wide chest and a pinched waist
+Rocky is a **Loom construct** — stone the lattice assembled, still standing
+because unlike everything the colony built, he was *in the checkpoint*. He holds
+the relay on the north ridge, he does not leave it, and he will tell you how many
+nights until the next pass.
+
+He is Seismic's mascot, and he was rebuilt here from a sheet of six reference
+drawings by the [img2threejs](https://github.com/img2threejs/img2threejs)
+method: reconstruction **by code**, from primitives, with no mesh anywhere in the
+pipeline. What the rig holds to, read off the whole sheet rather than any one
+drawing:
+
+- a stocky four-and-a-half-head silhouette, wide chest, pinched waist
 - **a brow that projects forward like a visor, with the eyes set back under it** —
   the single most identifying feature he has
 - two ivory eyes that emit rather than reflect, always wider than tall
 - near-black joint bands at neck, waist, shoulders, elbows and knees
-- an inset chest panel carrying the brand — and **both** versions in the
-  reference are canon, so `chest` is a parameter: the incised double-crescent
-  mark, or the rose shard set into a recess
+- an inset chest panel carrying the mark
 - a heavy drawn outline, reproduced as an inverted hull rather than faked with a
   rim term, because it is a drawing convention and not lighting
 
-Rather than pick one drawing and discard the rest, each became a member of his
-family with a job in the valley — same rig, different cut, different chest mark,
-different idle:
-
-| | | |
-|---|---|---|
-| **Rocky** | Keeper of the Ridge Gate | tells you how many days until the fault moves |
-| **Cairn** | his sister | teaches you to raise stones, and what they hold |
-| **Flint** | works the bag at the yard | counting, all day, every day |
-| **Bloom** | carries flowers | to people who did not ask for them |
-
-<div align="center">
-<img src="docs/rocky.png" width="820" alt="Rocky standing under the Ridge Gate, the Seismic mark on the lintel above him" />
-</div>
-
-### Pebbles
-
-The sixth drawing is a tiny one: a rounded stone in a lotus, two sparkles for
-eyes, one small smile. That is a **pebble** — Rocky reduced until only the head
-is left, which is exactly what makes it read as his young rather than as a
-different creature. It is built from Rocky's own head numbers, scaled, with the
-brow kept and everything below the collar thrown away.
-
-They hatch out of geodes, follow you home, sleep where they stand at night, and
-each does one job at dawn:
-
-- **Waterer** — waters four tiles
-- **Harvester** — lifts one ripe crop
-- **Forager** — brings back whatever the valley dropped
-- **Surveyor** — reads the fault three days out instead of one
+**Pebbles** are the same construct reduced until only the head is left — the
+tiny one in the lotus, from the sixth drawing. They come sealed inside geodes.
+Break one open and it wakes up, follows you home, and does one job at dawn.
 
 ---
 
-## The architecture
+## Sixteen
 
-Every door, window and gate in the valley is the same shape: **the lune arch**.
+Her collar tag is worn down to two characters.
 
-Seismic's mark is two crescents pinched at a narrow waist, and the negative
-space between them — a tall opening that comes to a point — is a doorway. So the
-buildings belong to the mark without ever having the mark stamped on them.
+She is a survey dog — one of the line bred to walk ahead of the sowers and smell
+whether the crust had taken — which is why she still digs things up and drops
+them at your feet without being asked. She keeps a loose distance, sits when you
+stop, and will not go near the south jetty.
 
-<div align="center">
-<img src="docs/home.png" width="820" alt="The homestead: coursed masonry, a lune-arched door, cream shutters, and the shipping crate" />
-</div>
-
-The kit: homestead (four tiers), Ridge Gate, kiln, quarry shed, vault, well,
-shipping crate, and the cairn itself.
+There were forty of her.
 
 ---
 
-## One colourway
+## The story is found, never given
 
-Seismic is brown stone and cream paper, and this game holds to it everywhere —
-world, characters, buildings and interface. There is no second palette and no
-"just this one accent" escape hatch, because **a farming game is a colour-sorting
-game**: the moment a crop is allowed to be blue so you can tell it from a green
-one, the valley stops being a quarry and starts being a fruit bowl.
+No quest-giver explains any of the above. You hoe a square of dirt and a piece
+of fired clay comes up.
 
-So every colour lives in one narrow band of hue — roughly 352° through 64°,
-rust to ochre — and things separate by **value** and by **silhouette** instead.
-The single exception is the rose shard, and it is not an exception at all: it is
-Seismic's own mark, and it appears only where that mark appears.
+**Soil-tags** are Marit Flavyn's lab notebook. She was the soil chemist whose
+seed lines finally made the substrate hold, she hated writing, and she used
+twelve-second voice markers instead. She never came here — she died on the
+transit station sixty-one years before you woke up. The colony never bothered to
+collect them.
 
-`npm run check` parses `src/core/palette.js` and fails the build if any colour in
-it falls outside the band. The rule is enforced, not remembered.
+> *"Row four. The clay is too heavy here, I keep saying it, and somebody keeps
+> planting row four anyway."*
+
+That is the tone, and the first six tags are all like that. The scale is earned
+by starting at ankle height. **Odenne Var**'s logs come off the relay, numbered,
+and out of order — you will find log 31 before log 6, and that is correct.
+
+Four lines on screen at once, maximum. `npm run check` fails the build if a
+fragment runs longer.
+
+---
+
+## Two palettes, and they are not interchangeable
+
+<div align="center">
+<img src="docs/dusk.png" width="430" alt="The valley at dusk, gone cool mauve" />
+<img src="docs/dawn.png" width="430" alt="The valley at dawn, apricot horizon light and long shadows" />
+</div>
+
+**The world** is graded by a machine that has stopped maintaining it: nothing is
+fully saturated and everything is pulled a few degrees toward lavender. Meadow
+tops are pale cream, cliffs band into rust, ash flats go lilac, the water is
+blue-violet and the canopies are pink and powder blue. The day runs on a
+ten-key-frame table, placed by eye — the horizon goes apricot at 06:00 while the
+zenith is still blue, noon is faintly lilac, and 19:36 has a rose band that lasts
+about twenty minutes and is the best-looking part of the day.
+
+**The interface** is Seismic's: warm stone, cream, ink, and the rose mark. It
+covers the HUD, the panels, the title, and the two things in the world that
+belong to Seismic rather than to the valley — Rocky, and the stone the Loom
+builds with.
+
+The rule that keeps them apart: **the interface has to be quieter than the
+world.** The world is washed out; a HUD of bright rounded cards on top of it
+takes the frame and the game becomes the background to a dashboard. So the HUD
+is one dark plate, hairline rules, small letter-spaced caps, tabular figures, and
+one accent used for one thing at a time.
+
+`npm run check` asserts that the interface block stays in Seismic's hue band,
+**and** that the world block still has its cool hues. Both directions, because
+both have been broken.
 
 ---
 
@@ -153,7 +193,7 @@ npm run dev
 |---|---|
 | `npm run dev` | the game, on `localhost:5173` |
 | `npm run build` | a static `dist/` |
-| `npm run check` | 58 assertions — the colourway, the rig rule, the whole day loop, save round-trip, and the mark's geometry |
+| `npm run check` | 78 assertions — the split palette, the camera, the premise, no network assets, the rig rule, the story rules, and a full headless day loop |
 | `npm run lint` | eslint |
 | `npm run shoot` | headless captures of every pose into `shots/` |
 | `npm run mark` | regenerate `public/mark.svg` from `src/core/mark.js` |
@@ -170,41 +210,51 @@ npm run dev
 | `1`–`8` | hotbar |
 | `Q` / `R` | turn the camera 90° |
 | wheel | zoom |
-| `Tab` | homestead — upgrade, sleep, fill requests |
-| `B` | raise a cairn or a building on the ground in front of you |
+| `Tab` | homestead — upgrade, sleep, drive stakes |
+| `B` | build on the ground in front of you |
 | `J` | field journal |
 | `F5` | save |
 
-On a touch device the left half of the screen is a thumbstick and the right half
-acts. The split is by screen half rather than by a drawn control, so it works at
-any aspect without a layout pass.
+On a touch device you get a virtual stick and a pad cluster, both **hit-tested
+by hand** against regions drawn into their own canvas. That is not a detail: a
+pad built out of `<button>` elements stops responding the moment the other thumb
+is holding the stick, which is exactly when you need it.
 
 ---
 
 ## How it is built
 
-Vanilla **Three.js** and Vite. No React here, on purpose: the terrain is a
-96×96 integer height grid remeshed in 16×16 chunks whenever a cell changes, and
-characters are eleven boxes on pivot nodes animated by arithmetic. A reconciler
-adds nothing to either and would fight the imperative chunk rebuilds.
+Vanilla **Three.js** and Vite. No React: the terrain is a 96×96 integer height
+grid remeshed in 16×16 chunks whenever a cell changes, and characters are eleven
+boxes on pivot nodes animated by arithmetic. A reconciler adds nothing to either
+and would fight the imperative chunk rebuilds.
 
 ```
 src/
-  core/      palette, the mark, the letterforms, the primitive kit, noise, input, audio
-  world/     the height grid, generation, the chunk mesher, water, sky, props, crops,
-             buildings, the camera rig
-  actors/    Rocky, the pebbles, the settler, the cast
-  game/      items, crops, state, the tremor
-  ui/        HUD, panels, icons, the title card, one stylesheet
+  core/      the split palette, the mark, the letterforms, the primitive kit,
+             noise, input, audio
+  world/     the height grid, generation, the chunk mesher, water, sky, props,
+             crops, buildings, the orthographic camera rig
+  actors/    Rocky, the pebbles, Sixteen, the settler, the cast
+  game/      items, crops, state, story, pruning
+  ui/        HUD, panels, icons, touch controls, the title card, one stylesheet
 tools/       checks.js (self-test), shoot.mjs (headless captures), mark.mjs
 ```
 
-### Four things worth knowing
+### Five things worth knowing
 
-**The terrain is quantised once, at the very end.** Heights are built as floats,
-blurred, and only then rounded to integer levels. Blurring integer levels only
-ever produces more integer levels; blurring the float field is what turns a
-fizzing surface into terraces you can actually plant on.
+**The camera is orthographic, and that is not a style choice.** With no
+perspective divergence the terraces line up into clean stacked slabs, and that
+stacking is the entire silhouette language of this world. The yaws are
+45/135/225/315, not 0/90/180/270 — on a square grid the diagonal yaws put the
+cell edges at 45° to the screen; the axis-aligned ones flatten every cliff into a
+horizontal band and the depth cue goes with it.
+
+**Terrain is quantised once, at the very end.** Heights are built as floats,
+blurred three times, and only then rounded to levels. Blurring integer levels
+only ever produces more integer levels. The river is carved *after* the blur, or
+three passes of smoothing fill the channel back in and the map comes out with a
+damp streak instead of a river.
 
 **Winding matters.** Three.js treats counter-clockwise-from-the-front as the
 front face. Get a chunk's quads backwards and you do not see a culling bug, you
@@ -214,15 +264,14 @@ the world.
 **Scale is applied before rotation.** Three composes `T * R * S`, so a prism
 whose axis is Z takes its length from `scale.z` no matter how it is rotated
 afterwards. Rotate one upright, pass it `[width, length, depth]`, and the length
-silently lands in `depth` — a squat puck where you asked for a limb, with no
-error anywhere. The kit therefore ships prisms in both orientations and nothing
-in a rig is ever given a rotation. `npm run check` fails the build if one
-appears.
+silently lands in `depth`. The kit ships prisms in both orientations and nothing
+in a rig is ever given a rotation; `npm run check` fails the build if one appears.
 
-**The shadow frustum is easy to get wrong in the tight direction.** Anything
-outside it samples the shadow map's border texel and comes back shadowed, so a
-frustum sized to the player's immediate surroundings paints the entire far half
-of the valley black.
+**The shadow frustum has to track the zoom.** Anything outside it samples the
+shadow map's border texel and comes back *fully shadowed*. Size it to the
+player's immediate surroundings and a wide zoom paints the entire valley solid
+black — which does not look like a shadow bug, it looks like the lights are off,
+and there is no error anywhere.
 
 ### Nothing loads over the network at runtime
 
@@ -236,19 +285,18 @@ binary asset, and fails if it finds one.
 
 ## Where this came from
 
-Seismic Valley is a ground-up rebuild of an earlier Godot prototype of mine,
-Velion, in Three.js — new engine, new art direction, new mascot, and a new
-central mechanic. The farming loop is the part that survived; the tremor, the
-cairns, the pebbles, the golem cast and the entire visual language are new here.
+Seismic Valley is a ground-up rebuild of [Velion](https://github.com/nxrskyaa/Velion),
+a Godot 4 prototype of the same game, in Three.js. The setting, the palette, the
+camera, the premise and the Pruning mechanic are Velion's and are carried across
+deliberately. What is new here is the engine, the interface, and Rocky.
 
-It shares a world with [Seismic
-Skate](https://github.com/nxrskyaa/Seismic-Skate), which is the same mascot on a
-turbine skateboard.
+It shares a mascot with [Seismic Skate](https://github.com/nxrskyaa/Seismic-Skate),
+which is the same construct on a turbine skateboard.
 
 ---
 
 <div align="center">
-<img src="docs/night.png" width="820" alt="The homestead after dark, the kiln glowing and stars over the ridge" />
+<img src="docs/night.png" width="860" alt="The homestead after dark" />
 <br /><br />
 <sub>Built by <a href="https://x.com/nxrskyaa">Nxrskyaa</a>.</sub>
 </div>

@@ -1,6 +1,6 @@
 import * as THREE from 'three'
 import { bake, bakedMat, COLUMN, FLAT, POINT, shardMat, stoneLump, TAPER } from '../core/kit.js'
-import { C, shade } from '../core/palette.js'
+import { C, shade, UI } from '../core/palette.js'
 import { shardGeometry } from '../core/mark.js'
 import { LEVEL, N, P } from './grid.js'
 
@@ -47,9 +47,9 @@ function treeGeometry(kind) {
     // Ridgepine — narrow, stacked, tallest thing in the valley.
     const parts = [
       { geometry: TAPER, position: [0, 1.1, 0], scale: [0.34, 2.2, 0.34], color: C.trunk },
-      { geometry: TAPER, position: [0, 2.0, 0], scale: [1.9, 1.5, 1.9], color: C.canopyDeep },
-      { geometry: TAPER, position: [0, 2.9, 0], scale: [1.5, 1.3, 1.5], color: C.canopy },
-      { geometry: TAPER, position: [0, 3.7, 0], scale: [1.0, 1.1, 1.0], color: C.canopyPale },
+      { geometry: TAPER, position: [0, 2.0, 0], scale: [1.9, 1.5, 1.9], color: C.canopyC },
+      { geometry: TAPER, position: [0, 2.9, 0], scale: [1.5, 1.3, 1.5], color: C.canopyA },
+      { geometry: TAPER, position: [0, 3.7, 0], scale: [1.0, 1.1, 1.0], color: C.canopyB },
     ]
     return bake(parts)
   }
@@ -58,16 +58,16 @@ function treeGeometry(kind) {
     // on the upper plate is what stops a row of them reading as a stamp.
     return bake([
       { geometry: COLUMN, position: [0, 0.75, 0], scale: [0.42, 1.5, 0.42], color: C.trunkDark },
-      { geometry: POINT, position: [0, 1.75, 0], scale: [2.6, 1.1, 2.6], color: C.canopy },
-      { geometry: FLAT, position: [0.18, 2.35, -0.12], scale: [2.0, 0.8, 2.0], color: C.canopyPale },
-      { geometry: FLAT, position: [-0.22, 1.5, 0.16], scale: [1.7, 0.6, 1.7], color: C.canopyDeep },
+      { geometry: POINT, position: [0, 1.75, 0], scale: [2.6, 1.1, 2.6], color: C.canopyA },
+      { geometry: FLAT, position: [0.18, 2.35, -0.12], scale: [2.0, 0.8, 2.0], color: C.canopyB },
+      { geometry: FLAT, position: [-0.22, 1.5, 0.16], scale: [1.7, 0.6, 1.7], color: C.canopyC },
     ])
   }
   // Ironbark — squat, thick, dark. Worth four days of felling and it looks it.
   return bake([
     { geometry: COLUMN, position: [0, 0.85, 0], scale: [0.62, 1.7, 0.62], color: C.trunkDark },
     { geometry: COLUMN, position: [0.3, 1.5, 0.1], scale: [0.24, 0.9, 0.24], rotation: [0, 0, -0.5], color: C.trunkDark },
-    { geometry: POINT, position: [0, 2.1, 0], scale: [2.2, 1.3, 2.2], color: C.canopyDeep },
+    { geometry: POINT, position: [0, 2.1, 0], scale: [2.2, 1.3, 2.2], color: C.canopyC },
     { geometry: POINT, position: [0.35, 1.75, 0.2], scale: [1.3, 0.8, 1.3], color: C.canopyDead },
   ])
 }
@@ -76,8 +76,8 @@ function rockGeometry(kind) {
   const seeds = [7, 41, 93]
   const scale = [0.62, 0.95, 1.35][kind]
   return bake([
-    { geometry: stoneLump(seeds[kind], { radius: 0.52, height: 0.8, jitter: 0.26 }), position: [0, 0.34 * scale, 0], scale: [scale, scale * 0.86, scale], color: C.stone },
-    { geometry: stoneLump(seeds[kind] + 3, { radius: 0.3, height: 0.4, jitter: 0.2 }), position: [0.22 * scale, 0.16 * scale, -0.18 * scale], scale: scale * 0.8, color: shade(C.stone, 0.5) },
+    { geometry: stoneLump(seeds[kind], { radius: 0.52, height: 0.8, jitter: 0.26 }), position: [0, 0.34 * scale, 0], scale: [scale, scale * 0.86, scale], color: UI.stone },
+    { geometry: stoneLump(seeds[kind] + 3, { radius: 0.3, height: 0.4, jitter: 0.2 }), position: [0.22 * scale, 0.16 * scale, -0.18 * scale], scale: scale * 0.8, color: shade(UI.stone, 0.5) },
   ])
 }
 
@@ -91,7 +91,7 @@ function stumpGeometry() {
 function saplingGeometry() {
   return bake([
     { geometry: TAPER, position: [0, 0.24, 0], scale: [0.11, 0.48, 0.11], color: C.trunk },
-    { geometry: TAPER, position: [0, 0.5, 0], scale: [0.5, 0.4, 0.5], color: C.canopy },
+    { geometry: TAPER, position: [0, 0.5, 0], scale: [0.5, 0.4, 0.5], color: C.canopyA },
   ])
 }
 
@@ -124,8 +124,8 @@ function grassGeometry(kind) {
  */
 function fissureGeometry() {
   return bake([
-    { geometry: POINT, position: [0, 0.03, 0], scale: [0.9, 0.06, 0.62], color: C.scarBody },
-    { geometry: POINT, position: [0.1, 0.07, 0.06], scale: [0.5, 0.06, 0.3], color: C.ink },
+    { geometry: POINT, position: [0, 0.03, 0], scale: [0.9, 0.06, 0.62], color: '#bfb1bb' },
+    { geometry: POINT, position: [0.1, 0.07, 0.06], scale: [0.5, 0.06, 0.3], color: UI.ink },
   ])
 }
 
@@ -166,8 +166,8 @@ export class Props {
     // instanced meshes sharing one transform pass.
     this.geodeShell = new THREE.InstancedMesh(
       bake([
-        { geometry: stoneLump(17, { radius: 0.5, height: 0.62, jitter: 0.3 }), position: [0, 0.3, 0], scale: [1, 1, 1], color: C.stoneDeep },
-        { geometry: stoneLump(29, { radius: 0.3, height: 0.34, jitter: 0.22 }), position: [-0.24, 0.16, 0.2], scale: 0.9, color: C.stoneDark },
+        { geometry: stoneLump(17, { radius: 0.5, height: 0.62, jitter: 0.3 }), position: [0, 0.3, 0], scale: [1, 1, 1], color: UI.stoneDeep },
+        { geometry: stoneLump(29, { radius: 0.3, height: 0.34, jitter: 0.22 }), position: [-0.24, 0.16, 0.2], scale: 0.9, color: UI.stoneDark },
       ]),
       this.material,
       300,

@@ -12,9 +12,15 @@ import { C } from '../core/palette.js'
  * ravelcorn by its silhouette from thirty units away, and by its colour never.
  */
 
-export const SEASON = { THAW: 0, EMBER: 1, RUST: 2, STILL: 3 }
-export const SEASON_NAMES = ['Thaw', 'Ember', 'Rust', 'Still']
-export const SEASON_DAYS = 14
+/**
+ * The four seasons on EOF-001 are not astronomical. They are *scheduled* — the
+ * Loom sets their length — which is why they are named after entries in an
+ * operations calendar rather than after weather.
+ */
+export const SEASON = { THAW: 0, LONGLIGHT: 1, RUST: 2, STILL: 3 }
+export const SEASON_NAMES = ['Thaw', 'Longlight', 'Rust', 'Still']
+export const SEASON_SHORT = ['THW', 'LGL', 'RST', 'STL']
+export const SEASON_DAYS = 21
 
 export const FORM = { LEAFY: 0, GRAIN: 1, VINE: 2, ROOT: 3, FUNGUS: 4, BULB: 5 }
 
@@ -97,11 +103,11 @@ export const WEATHER = {
 }
 export const WEATHER_ORDER = ['CLEAR', 'HAZE', 'RAIN', 'STORM']
 
-/** Odds per season. Ember is dry on purpose — it is the season the watering can
- *  is supposed to hurt. */
+/** Odds per season. Longlight is dry on purpose — it is the season the watering
+ *  can is supposed to hurt, and it is the season the rollback happened in. */
 export const WEATHER_ODDS = [
   [0.5, 0.14, 0.3, 0.06], // Thaw
-  [0.66, 0.2, 0.12, 0.02], // Ember
+  [0.66, 0.2, 0.12, 0.02], // Longlight
   [0.44, 0.22, 0.26, 0.08], // Rust
   [0.5, 0.3, 0.16, 0.04], // Still
 ]

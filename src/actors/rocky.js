@@ -1,7 +1,7 @@
 import * as THREE from 'three'
 import { BALL, chamferBox, COLUMN, DISC, FLAT, FLARE, glowMat, POINT, shardMat, stoneMat, TAPER } from '../core/kit.js'
 import { markFlatGeometry, shardGeometry } from '../core/mark.js'
-import { C, mix, shade, sunlit } from '../core/palette.js'
+import { mix, shade, sunlit, UI } from '../core/palette.js'
 import { damp } from '../core/rng.js'
 
 /**
@@ -55,21 +55,21 @@ import { damp } from '../core/rng.js'
 export function tones(stone) {
   return {
     stone,
-    lit: sunlit(mix(stone, C.stonePale, 0.28), 0.55),
-    deep: shade(mix(stone, C.stoneShadow, 0.22), 0.7),
+    lit: sunlit(mix(stone, UI.stonePale, 0.28), 0.55),
+    deep: shade(mix(stone, UI.stoneShadow, 0.22), 0.7),
   }
 }
 
 /** Named cuts. `stone` is what he is quarried from; nothing else changes. */
 export const ROCKY_CUTS = {
-  rocky: { stone: '#a4653f', trim: C.creamDeep, eye: C.cream },
-  cairn: { stone: '#8d6a4c', trim: C.creamWarm, eye: C.cream },
-  ember: { stone: '#b06a3a', trim: C.creamDeep, eye: '#ffe6bd' },
-  sand: { stone: '#c09067', trim: C.stoneDeep, eye: C.cream },
-  basalt: { stone: '#6b5040', trim: C.creamDeep, eye: C.cream },
+  rocky: { stone: '#a4653f', trim: UI.creamDeep, eye: UI.cream },
+  cairn: { stone: '#8d6a4c', trim: UI.creamWarm, eye: UI.cream },
+  ember: { stone: '#b06a3a', trim: UI.creamDeep, eye: '#ffe6bd' },
+  sand: { stone: '#c09067', trim: UI.stoneDeep, eye: UI.cream },
+  basalt: { stone: '#6b5040', trim: UI.creamDeep, eye: UI.cream },
 }
 
-const INK = new THREE.MeshBasicMaterial({ color: new THREE.Color().setStyle(C.ink, THREE.SRGBColorSpace), side: THREE.BackSide })
+const INK = new THREE.MeshBasicMaterial({ color: new THREE.Color().setStyle(UI.ink, THREE.SRGBColorSpace), side: THREE.BackSide })
 
 /**
  * The drawn line, as geometry.
@@ -117,13 +117,13 @@ export function buildRocky({ cut = 'rocky', chest = 'mark', height = 1.9, outlin
     stone: stoneMat(T.stone),
     lit: stoneMat(T.lit),
     deep: stoneMat(T.deep),
-    joint: stoneMat(C.ink, { flatShading: true }),
+    joint: stoneMat(UI.ink, { flatShading: true }),
     trim: stoneMat(look.trim),
     eye: glowMat(look.eye, 1.15),
     // Inlay, not a lamp. In the reference the mark is CUT into the plate and
     // catches the light like the stone around it; an emissive mark turns the
     // chest into a torch and pulls every eye off his face.
-    mark: stoneMat(C.creamShade),
+    mark: stoneMat(UI.creamShade),
     shard: shardMat(),
   }
 

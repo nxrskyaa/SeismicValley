@@ -4,6 +4,7 @@ import { Grid, N, P } from '../world/grid.js'
 import { CROPS, cropForSeed, cropIdAt, cropIndex, isRipe, regrowReset, SEASON_DAYS, SEASON_NAMES, seasonalSeeds, TREES, TREE_ORDER, WEATHER, WEATHER_ODDS, WEATHER_ORDER } from './crops.js'
 import { STARTING_HOTBAR, item, isTool, valueOf } from './items.js'
 import { PEBBLE_NAMES, TRAIT_KEYS } from '../actors/pebble.js'
+import { LOGS, MANIFEST_TOTAL, TAGS } from './story.js'
 
 /**
  * The game, as data.
@@ -23,16 +24,17 @@ const SAVE_KEY = 'seismic-valley.save'
 export const SAVE_VERSION = 1
 
 export const MAX_WATER = 40
-export const MAX_ENERGY = 100
-export const CAIRN_RADIUS = (level) => 4 + level * 2.2
+export const MAX_STAMINA = 100
 
-/** What a cairn costs to raise, per level. */
-export const CAIRN_COST = [
-  { cutstone: 6, fibre: 4 },
-  { cutstone: 12, shard: 1 },
-  { cutstone: 20, shard: 2, hardwood: 4 },
-  { cutstone: 30, shard: 4, ashglass: 2 },
-]
+/**
+ * A registration stake.
+ *
+ * Four sticks and some twine, and it is the difference between a shed and a
+ * pile of components. The Loom takes apart what it has no record of; a stake
+ * driven at the corner is the record. It is deliberately the cheapest thing in
+ * the game — the cost is remembering, not the wood.
+ */
+export const STAKE_COST = { wood: 4, fibre: 3 }
 
 export const BUILD_COST = {
   kiln: { stone: 20, wood: 12 },
@@ -59,7 +61,7 @@ export class GameState {
 
     this.coin = 60
     this.water = MAX_WATER
-    this.energy = MAX_ENERGY
+    this.stamina = MAX_STAMINA
     this.homeTier = 1
 
     /** id -> count. Tools live here too, at count 1. */
@@ -68,18 +70,23 @@ export class GameState {
     this.slot = 0
 
     this.buildings = [] // { kind, level, x, z }
-    this.cairns = [] // { x, z, level }
     this.pebbles = [] // { name, trait, x, z, home: [x,z] }
     this.shipped = [] // { id, n } waiting in the crate
     this.journal = []
     this.requests = []
     this.flags = new Set()
 
-    // The fault's own schedule. Known three days out once you have a Surveyor.
-    this.nextTremor = 4
-    this.tremorMag = 1
-    this.tremorsSurvived = 0
-    this.lastTremorDay = 0
+    // The Loom's schedule. It works to a schedule, not to a mood.
+    this.nextPruning = 5
+    this.pruningsSeen = 0
+    this.lastPruningDay = 0
+
+    // The Manifest. Every species carried through to a harvest writes one line
+    // back onto the chip — this is the progress bar and the whole point.
+    this.recovered = new Set()
+    // Story fragments already found, so nothing is handed out twice.
+    this.tagsFound = 0
+    this.logsFound = []
 
     this._subs = new Map()
     this._pendingRebuild = { props: false, crops: false, structures: false }
@@ -160,31 +167,26 @@ export class GameState {
   }
 
   spend(energy) {
-    this.energy = Math.max(0, this.energy - energy)
+    this.stamina = Math.max(0, this.stamina - energy)
     this.emit('vitals')
     // Exhaustion does not kill you; it sends you home. Waking up at noon having
     // lost the morning is a real cost without being a fail state.
-    if (this.energy <= 0 && !this.flags.has('collapsing')) {
+    if (this.stamina <= 0 && !this.flags.has('collapsing')) {
       this.flags.add('collapsing')
       this.emit('collapse')
     }
   }
 
-  // ------------------------------------------------------------- cairns --
+  // ---------------------------------------------------------- the record --
 
-  /** Is this cell inside a cairn's calm field? Crops here survive a tremor and
-   *  grow a stage faster, which is the entire economy of the game. */
-  calmAt(x, z) {
-    for (const c of this.cairns) {
-      const r = CAIRN_RADIUS(c.level)
-      if ((x - c.x) ** 2 + (z - c.z) ** 2 <= r * r) return c
-    }
-    return null
+  /** Which structure covers a cell, if any. The list is a dozen entries long,
+   *  so a linear scan beats maintaining a second index. */
+  structureAt(x, z) {
+    return this.buildings.find((b) => Math.abs(b.x - x) <= 2 && Math.abs(b.z - z) <= 2) ?? null
   }
-  get calmCells() {
-    let n = 0
-    for (let z = 0; z < N; z++) for (let x = 0; x < N; x++) if (this.calmAt(x, z)) n++
-    return n
+
+  get unregistered() {
+    return this.buildings.filter((b) => b.kind !== 'homestead' && b.kind !== 'gate' && !b.registered)
   }
 
   // ------------------------------------------------------------ actions --
@@ -194,10 +196,14 @@ export class GameState {
   till(x, z) {
     const g = this.grid
     if (!g.canTill(x, z)) return null
-    this.spend(1.5)
+    this.spend(2)
     g.set('ground', x, z, G.TILLED)
     g.set('tilled', x, z, 1)
     this._pendingRebuild.props = true
+    // Found, never given. Marit used soil-tags as a lab notebook because she
+    // hated writing, and the colony never bothered to collect them. They are
+    // still out there, and you find them by accident, while hoeing.
+    if (this.tagsFound < TAGS.length && chance(this.rand, 0.055)) this.findTag(x, z)
     return 'swing'
   }
 
@@ -248,10 +254,15 @@ export class GameState {
     const id = cropIdAt(cv)
     if (!isRipe(id, g.get('grown', x, z))) return null
     const c = CROPS[id]
-    // A calm field yields more, not just faster. Two levers on the same
-    // structure is what makes a cairn feel worth thirty cut stone.
-    const bonus = this.calmAt(x, z) ? 1 : 0
-    this.give(id, c.yield + bonus)
+    this.give(id, c.yield)
+    // The Manifest. Every species carried through to a harvest writes one line
+    // back onto the chip — this is the progress bar, and it is the whole point.
+    if (!this.recovered.has(id)) {
+      this.recovered.add(id)
+      this.emit('manifest', this.recovered.size)
+      this.say(`${item(id).name} recovered. ${this.recovered.size} of 406.`, 'good')
+      this.addJournal(`${item(id).name} carried through to a harvest. Written back onto the chip.`)
+    }
     this.spend(0.7)
     const reset = regrowReset(id)
     if (reset < 0) {
@@ -361,41 +372,37 @@ export class GameState {
   // ---------------------------------------------------------- structures --
 
   build(kind, x, z, level = 1) {
-    const cost = kind === 'cairn' ? CAIRN_COST[0] : BUILD_COST[kind]
+    const cost = BUILD_COST[kind]
     if (!cost) return null
     if (!this.canAfford(cost)) {
       this.say('Not enough for that yet.', 'warn')
       return null
     }
     this.pay(cost)
-    if (kind === 'cairn') {
-      this.cairns.push({ x, z, level: 1 })
-      this.say('Cairn raised. The ground here will hold.', 'good')
-      this.emit('cairns')
-    }
-    this.buildings.push({ kind, level, x, z })
+    // Built, and NOT registered. That is the trap, and it is the correct trap:
+    // the player learns what pruning is by losing something to it once.
+    this.buildings.push({ kind, level, x, z, registered: false })
     this.grid.set('prop', x, z, P.BUILDING)
     this._pendingRebuild.structures = true
     this._pendingRebuild.props = true
     this.emit('build', { kind, x, z })
+    this.say('Built. It is not registered.', 'warn')
     return 'swing'
   }
 
-  raiseCairn(cairn) {
-    const next = cairn.level + 1
-    if (next > 4) return false
-    const cost = CAIRN_COST[cairn.level]
-    if (!this.canAfford(cost)) {
-      this.say('Not enough to raise it.', 'warn')
+  /** Drive a stake at the corner. The structure is now in the Loom's record and
+   *  survives a pass. */
+  stake(building) {
+    if (!building || building.registered) return false
+    if (!this.canAfford(STAKE_COST)) {
+      this.say('A stake needs four wood and three fibre.', 'warn')
       return false
     }
-    this.pay(cost)
-    cairn.level = next
-    const b = this.buildings.find((s) => s.kind === 'cairn' && s.x === cairn.x && s.z === cairn.z)
-    if (b) b.level = next
+    this.pay(STAKE_COST)
+    building.registered = true
     this._pendingRebuild.structures = true
-    this.emit('cairns')
-    this.say(`Cairn now holds ${CAIRN_RADIUS(next).toFixed(0)} paces.`, 'good')
+    this.emit('build', { kind: building.kind, registered: true })
+    this.say('Stake driven. It is in the record now.', 'good')
     return true
   }
 
@@ -466,6 +473,58 @@ export class GameState {
     return true
   }
 
+  /**
+   * Sixteen dug something up.
+   *
+   * She is a survey dog, so what she finds is what a survey dog finds: fibre,
+   * stone, the odd seed, and — rarely — a soil-tag, which is the game's whole
+   * story delivery mechanism. Found, never given.
+   */
+  /**
+   * A soil-tag comes up.
+   *
+   * Handed out IN ORDER regardless of where it was dug, which is what enforces
+   * the mundane-before-cosmic rule: the first six are complaints about
+   * drainage, and the scale is earned by starting at ankle height.
+   */
+  findTag(x, z) {
+    if (this.tagsFound >= TAGS.length) return null
+    const tag = TAGS[this.tagsFound++]
+    this.give('soil_tag', 1)
+    this.emit('fragment', { kind: 'tag', title: `Soil-tag · ${tag.at}`, lines: tag.lines, from: 'Marit Flavyn' })
+    this.addJournal(`Turned up a soil-tag at ${x}, ${z}. Twelve seconds of somebody complaining about clay.`)
+    return tag
+  }
+
+  /**
+   * An Odenne log, off the relay. Out of order, always — she numbered them and
+   * the player will find 31 before 6, and that is correct.
+   */
+  findLog() {
+    const left = LOGS.filter((l) => !this.logsFound.includes(l.id))
+    if (!left.length) return null
+    const log = pick(this.rand, left)
+    this.logsFound.push(log.id)
+    this.emit('fragment', { kind: 'log', title: `Log ${log.id}`, lines: log.lines, from: 'Odenne Var' })
+    this.addJournal(`Recovered log ${log.id} from the relay.`)
+    return log
+  }
+
+  get manifestCount() { return this.recovered.size }
+  get manifestTotal() { return MANIFEST_TOTAL }
+
+  dogFound(x, z) {
+    const roll = this.rand()
+    if (roll < 0.08) {
+      this.findTag(x, z)
+      return
+    }
+    const drop = roll < 0.4 ? 'fibre' : roll < 0.68 ? 'stone' : roll < 0.86 ? 'resin' : 'wood'
+    const n = 1 + randInt(this.rand, 0, 1)
+    this.give(drop, n)
+    this.say(`Sixteen dropped ${n} ${item(drop).name} at your feet.`)
+  }
+
   addJournal(line) {
     this.journal.unshift({ day: this.day, season: this.season, year: this.year, line })
     if (this.journal.length > 60) this.journal.length = 60
@@ -480,7 +539,6 @@ export class GameState {
   sleep() {
     const g = this.grid
     const rained = WEATHER[this.weather].rain
-    const calmBonus = new Set()
 
     let grew = 0
     for (let z = 0; z < N; z++) {
@@ -491,10 +549,8 @@ export class GameState {
           const id = cropIdAt(cv)
           const watered = g.wet[i] || rained
           if (watered && !isRipe(id, g.grown[i])) {
-            const calm = this.calmAt(x, z)
-            g.grown[i] += calm ? 2 : 1
+            g.grown[i] += 1
             grew++
-            if (calm) calmBonus.add(`${x},${z}`)
           }
         }
         // Water evaporates unless it rained.
@@ -527,7 +583,7 @@ export class GameState {
       this.addJournal(`${SEASON_NAMES[this.season]}, year ${this.year}.`)
     }
     this.hour = 6.4
-    this.energy = Math.min(MAX_ENERGY, this.energy + 62 + this.homeTier * 8)
+    this.stamina = Math.min(MAX_STAMINA, this.stamina + 62 + this.homeTier * 8)
     this.water = MAX_WATER
     this.flags.delete('collapsing')
 
@@ -540,7 +596,7 @@ export class GameState {
     this._pendingRebuild.crops = true
     this._pendingRebuild.props = true
     this.emit('vitals')
-    this.emit('day', { earned, grew, calm: calmBonus.size })
+    this.emit('day', { earned, grew })
 
     if (earned) this.say(`The crate went out. ${earned} coin.`, 'good')
     return { earned, grew }
@@ -617,13 +673,14 @@ export class GameState {
       seed: this.seed,
       day: this.day, season: this.season, year: this.year, hour: this.hour,
       weather: this.weather, tomorrow: this.tomorrow,
-      coin: this.coin, water: this.water, energy: this.energy, homeTier: this.homeTier,
+      coin: this.coin, water: this.water, stamina: this.stamina, homeTier: this.homeTier,
       bag: [...this.bag], hotbar: this.hotbar, slot: this.slot,
-      buildings: this.buildings, cairns: this.cairns, pebbles: this.pebbles,
+      buildings: this.buildings, pebbles: this.pebbles,
       shipped: this.shipped, journal: this.journal, requests: this.requests,
       flags: [...this.flags],
-      nextTremor: this.nextTremor, tremorMag: this.tremorMag,
-      tremorsSurvived: this.tremorsSurvived, lastTremorDay: this.lastTremorDay,
+      nextPruning: this.nextPruning, pruningsSeen: this.pruningsSeen,
+      lastPruningDay: this.lastPruningDay,
+      recovered: [...this.recovered], tagsFound: this.tagsFound, logsFound: this.logsFound,
       grid: this.grid.serialize(),
     }
   }
@@ -662,21 +719,22 @@ export class GameState {
     Object.assign(this, {
       day: data.day, season: data.season, year: data.year, hour: data.hour,
       weather: data.weather, tomorrow: data.tomorrow,
-      coin: data.coin, water: data.water, energy: data.energy, homeTier: data.homeTier,
+      coin: data.coin, water: data.water, stamina: data.stamina ?? MAX_STAMINA, homeTier: data.homeTier,
       hotbar: data.hotbar, slot: data.slot,
-      buildings: data.buildings, cairns: data.cairns, pebbles: data.pebbles,
+      buildings: data.buildings, pebbles: data.pebbles,
       shipped: data.shipped, journal: data.journal, requests: data.requests ?? [],
-      nextTremor: data.nextTremor, tremorMag: data.tremorMag,
-      tremorsSurvived: data.tremorsSurvived ?? 0, lastTremorDay: data.lastTremorDay ?? 0,
+      nextPruning: data.nextPruning ?? 5, pruningsSeen: data.pruningsSeen ?? 0,
+      lastPruningDay: data.lastPruningDay ?? 0,
+      tagsFound: data.tagsFound ?? 0, logsFound: data.logsFound ?? [],
     })
     this.bag = new Map(data.bag)
+    this.recovered = new Set(data.recovered ?? [])
     this.flags = new Set(data.flags ?? [])
     this._pendingRebuild.props = true
     this._pendingRebuild.crops = true
     this._pendingRebuild.structures = true
     this.emit('vitals')
     this.emit('bag')
-    this.emit('cairns')
     return true
   }
 

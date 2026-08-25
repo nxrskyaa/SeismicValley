@@ -1,7 +1,7 @@
 import { markSvg } from '../core/mark.js'
 import { cropForSeed, SEASON_NAMES, seasonalSeeds } from '../game/crops.js'
 import { KIND, item, valueOf } from '../game/items.js'
-import { BUILD_COST, CAIRN_COST, CAIRN_RADIUS, HOME_COST } from '../game/state.js'
+import { BUILD_COST, HOME_COST, STAKE_COST } from '../game/state.js'
 import { iconFor } from './icons.js'
 
 /**
@@ -46,7 +46,7 @@ export class Panels {
     this.scrim.addEventListener('click', () => this.close())
     state.on('bag', () => this.refresh())
     state.on('coin', () => this.refresh())
-    state.on('cairns', () => this.refresh())
+    state.on('build', () => this.refresh())
     state.on('requests', () => this.refresh())
   }
 
@@ -141,27 +141,13 @@ export class Panels {
   render_build(body, payload) {
     const s = this.state
     const [x, z] = payload?.cell ?? [0, 0]
-    body.append(el('p', 'lede', `Raising on the ground in front of you (${x}, ${z}).`))
-
-    const cairnCost = CAIRN_COST[0]
-    const row = el('div', 'row row-hero')
-    row.append(el('div', 'row-main', `<strong>Cairn</strong><span class="muted">Holds ${CAIRN_RADIUS(1).toFixed(0)} paces of ground steady through a tremor. Crops inside grow twice as fast and yield one more.</span><div class="costs">${costLine(cairnCost, s)}</div>`))
-    const cb = el('button', 'btn btn-solid', 'Raise')
-    cb.disabled = !s.canAfford(cairnCost)
-    cb.addEventListener('click', () => {
-      if (s.build('cairn', x, z)) {
-        this.close()
-        this.opts.onBuilt?.('cairn')
-      }
-    })
-    row.append(cb)
-    body.append(row)
+    body.append(el('p', 'lede', `Raising on the ground in front of you (${x}, ${z}). Nothing you build is registered until you drive a stake at its corner.`))
 
     const blurbs = {
       kiln: 'Squares stone into cut stone, and burns sand into ash glass.',
       shed: 'Somewhere to keep the stone that is not in a wall yet.',
       well: 'Refill the can without walking to the river.',
-      vault: 'Holds shards. A shard in the vault steadies every cairn you own.',
+      vault: 'Cold store, cut into bedrock. What you put in it is below registered depth.',
     }
     for (const [kind, cost] of Object.entries(BUILD_COST)) {
       const r = el('div', 'row')
@@ -178,17 +164,28 @@ export class Panels {
       body.append(r)
     }
 
-    if (s.cairns.length) {
-      body.append(el('h3', null, 'Standing cairns'))
-      for (const c of s.cairns) {
-        const cost = CAIRN_COST[c.level]
-        const r = el('div', 'row')
-        r.append(el('div', 'row-main', `<strong>Cairn at ${c.x}, ${c.z}</strong><span class="muted">Level ${c.level} — ${CAIRN_RADIUS(c.level).toFixed(0)} paces</span>${cost ? `<div class="costs">${costLine(cost, s)}</div>` : ''}`))
-        if (cost) {
-          const b = el('button', 'btn', 'Raise')
-          b.disabled = !s.canAfford(cost)
-          b.addEventListener('click', () => s.raiseCairn(c))
-          r.append(b)
+    // Everything you own, and whether the Loom has a record of it. This list is
+    // the actual game: a structure without a stake is a structure you are
+    // renting from a machine that is still finishing a job.
+    const mine = s.buildings.filter((b) => b.kind !== 'gate')
+    if (mine.length) {
+      body.append(el('h3', null, 'The record'))
+      for (const b of mine) {
+        const fixed = b.kind === 'homestead'
+        const r = el('div', `row${b.registered || fixed ? '' : ' is-unregistered'}`)
+        r.append(el('div', 'row-main', `<strong>${b.kind[0].toUpperCase()}${b.kind.slice(1)} at ${b.x}, ${b.z}</strong><span class="muted">${
+          fixed ? 'Registered when it was built. It is where you sleep.'
+            : b.registered ? 'Registered. A pass will go around it.'
+              : 'NOT registered. The next pass takes it apart.'
+        }</span>${b.registered || fixed ? '' : `<div class="costs">${costLine(STAKE_COST, s)}</div>`}`))
+        if (!b.registered && !fixed) {
+          const btn = el('button', 'btn btn-solid', 'Drive a stake')
+          btn.disabled = !s.canAfford(STAKE_COST)
+          btn.addEventListener('click', () => {
+            s.stake(b)
+            this.opts.onBuilt?.('stake')
+          })
+          r.append(btn)
         }
         body.append(r)
       }

@@ -1,6 +1,6 @@
 import * as THREE from 'three'
 import { BALL, chamferBox, COLUMN, DISC, FLAT, POINT, stoneMat, TAPER } from '../core/kit.js'
-import { C } from '../core/palette.js'
+import { C, UI } from '../core/palette.js'
 import { clamp, damp } from '../core/rng.js'
 import { Grid, N } from '../world/grid.js'
 
@@ -32,19 +32,28 @@ const RUN = 7.0
 const RADIUS = 0.3
 
 /**
- * Wardrobe. The settler and the three villagers are the same eleven plates in
- * different cloth — which is the point: they are all people from the same
- * valley, and a villager built from a different rig would read as a visitor.
+ * Wardrobe.
+ *
+ * One entry, and that is the point. There is nobody else alive in the valley —
+ * the survivors are scattered and do not know about each other — so a second
+ * human look would be a lie about the setting. An earlier pass put three
+ * villagers and a market square in here and it read as a different game.
+ *
+ * The teal jacket and the rust pack are the only saturated colours a person is
+ * allowed to be against a washed-out world. They are how you find yourself in a
+ * wide shot.
  */
 export const LOOKS = {
-  settler: { skin: '#d8a87c', hair: '#4a3529', coat: C.creamDeep, coatDark: C.creamShade, trouser: '#6f5238', boot: '#4a3529', pack: '#a4653f', hat: true },
-  marn: { skin: '#c08a5e', hair: '#3a2a20', coat: '#a4653f', coatDark: '#8a5335', trouser: '#4a3529', boot: '#3a2a20', pack: C.creamShade, hat: true },
-  odile: { skin: '#e0b98f', hair: '#5a3f2c', coat: C.creamWarm, coatDark: C.parchment, trouser: '#7a553d', boot: '#4a3529', pack: '#b06d70', hat: false },
-  tace: { skin: '#b47f56', hair: '#241a16', coat: '#8d6a4c', coatDark: '#6f5238', trouser: '#5a4433', boot: '#3a2a20', pack: C.stoneLit, hat: true },
+  apprentice: {
+    skin: C.skin, hair: C.hair,
+    coat: C.jacket, coatDark: C.jacketDark,
+    trouser: C.trousers, boot: C.boots,
+    pack: C.pack, hat: true,
+  },
 }
 
-export function buildPlayer(lookKey = 'settler') {
-  const look = typeof lookKey === 'string' ? (LOOKS[lookKey] ?? LOOKS.settler) : lookKey
+export function buildPlayer(lookKey = 'apprentice') {
+  const look = typeof lookKey === 'string' ? (LOOKS[lookKey] ?? LOOKS.apprentice) : lookKey
   const MAT = {
     skin: stoneMat(look.skin),
     hair: stoneMat(look.hair),
@@ -53,8 +62,8 @@ export function buildPlayer(lookKey = 'settler') {
     trouser: stoneMat(look.trouser),
     boot: stoneMat(look.boot),
     pack: stoneMat(look.pack),
-    strap: stoneMat(C.stoneDark),
-    eye: stoneMat(C.ink),
+    strap: stoneMat(UI.stoneDark),
+    eye: stoneMat(UI.ink),
   }
 
   const root = new THREE.Group()

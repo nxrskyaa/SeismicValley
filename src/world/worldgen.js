@@ -20,12 +20,17 @@ import { chance, clamp, fbm, noise2, randInt, rng, smoothstep } from '../core/rn
  * makes every later operation fight the staircase it just created.
  */
 
-// The four named places, all west of the river on purpose: a homestead the
-// river runs through is a homestead you cannot plant half of.
-export const HOME = { x: 34, z: 54 } // the player's plot
-export const VILLAGE = { x: 26, z: 28 } // the three villagers
-export const GATE = { x: 62, z: 20 } // Rocky's post, sitting on the fault
-export const YARD = { x: 46, z: 40 } // the training yard
+/**
+ * The two named places, both west of the river on purpose: a homestead the
+ * river runs through is a homestead you cannot plant half of.
+ *
+ * There is no village. You were the only person underground when the world was
+ * rolled back, and the survivors are scattered and do not know about each
+ * other — so the map has your plot, and it has the relay on the north ridge
+ * that was standing before any of it happened.
+ */
+export const HOME = { x: 34, z: 54 } // your plot
+export const GATE = { x: 62, z: 20 } // the relay, and the one thing still standing on it
 
 export function generate(seed) {
   const grid = new Grid()
@@ -48,11 +53,11 @@ export function generate(seed) {
       // Radial term, on the longer of the two axes so the valley is a bowl and
       // not an ellipse squashed into the map's aspect.
       const d = Math.max(Math.abs(x - mid), Math.abs(z - mid)) / mid
-      const basin = 7.6 + smoothstep(0.44, 1.0, d) * 16
+      const basin = 8.2 + smoothstep(0.4, 1.0, d) * 19
       // Low frequencies only. High-frequency terrain in a game whose whole verb
       // is "put a field here" reads as static: every cell a level off its
       // neighbour, no plateau big enough to farm, and a horizon that fizzes.
-      const detail = (land(x * 0.034, z * 0.034) - 0.5) * 8.4 + (rough(x * 0.075, z * 0.075) - 0.5) * 1.5
+      const detail = (land(x * 0.028, z * 0.028) - 0.5) * 9.4 + (rough(x * 0.07, z * 0.07) - 0.5) * 1.7
       // The fault: a short, sharp step, not a slope. Everything on the far side
       // rides about two levels higher.
       const f = faultAt(x, z)
@@ -61,39 +66,15 @@ export function generate(seed) {
     }
   }
 
-  // River: a wandering channel cut top-to-bottom, widening as it falls. Held to
-  // the eastern third so it never crosses a named place.
-  let rx = N * 0.8
-  for (let z = 0; z < N; z++) {
-    rx += (land(z * 0.09, 4.5) - 0.5) * 2.2
-    rx = clamp(rx, N * 0.58, N - 9)
-    const width = 2.1 + (z / N) * 4.4
-    for (let x = Math.floor(rx - width - 2); x <= Math.ceil(rx + width + 2); x++) {
-      if (x < 0 || x >= N) continue
-      const t = 1 - clamp(Math.abs(x - rx) / (width + 2), 0, 1)
-      const cut = smoothstep(0, 1, t) * 7.5
-      const i = z * N + x
-      raw[i] = Math.min(raw[i], Math.max(2.4, raw[i] - cut))
-    }
-  }
-
-  // The southern lake the river runs into. Flat-bottomed on purpose: a lake with
-  // a noisy floor reads as a puddle field once the water plane is drawn over it.
-  for (let z = 0; z < N; z++) {
-    for (let x = 0; x < N; x++) {
-      const d = Math.hypot(x - N * 0.78, z - N * 0.85) / 15
-      if (d < 1) {
-        const i = z * N + x
-        raw[i] = Math.min(raw[i], 3.1 + smoothstep(0.55, 1, d) * 5)
-      }
-    }
-  }
-
   // Smoothing, before the quantiser and not after. Blurring integer levels only
   // ever produces more integer levels; blurring the float field is what actually
   // turns a fizzing surface into terraces with room to plant on.
+  //
+  // The river and the lake are carved AFTER this, further down, for the same
+  // reason: three passes of blur over a freshly cut channel fills it back in
+  // and the map comes out with a damp streak instead of a river.
   const blur = new Float32Array(N * N)
-  for (let pass = 0; pass < 2; pass++) {
+  for (let pass = 0; pass < 3; pass++) {
     for (let z = 0; z < N; z++) {
       for (let x = 0; x < N; x++) {
         let sum = 0, n = 0
@@ -109,6 +90,34 @@ export function generate(seed) {
       }
     }
     raw.set(blur)
+  }
+
+  // River: a wandering channel cut top-to-bottom, widening as it falls. Held to
+  // the eastern third so it never crosses a named place.
+  let rx = N * 0.8
+  for (let z = 0; z < N; z++) {
+    rx += (land(z * 0.09, 4.5) - 0.5) * 2.2
+    rx = clamp(rx, N * 0.58, N - 9)
+    const width = 2.1 + (z / N) * 4.4
+    for (let x = Math.floor(rx - width - 2); x <= Math.ceil(rx + width + 2); x++) {
+      if (x < 0 || x >= N) continue
+      const t = 1 - clamp(Math.abs(x - rx) / (width + 2), 0, 1)
+      const cut = smoothstep(0, 1, t) * 9.5
+      const i = z * N + x
+      raw[i] = Math.min(raw[i], Math.max(2.4, raw[i] - cut))
+    }
+  }
+
+  // The southern lake the river runs into. Flat-bottomed on purpose: a lake with
+  // a noisy floor reads as a puddle field once the water plane is drawn over it.
+  for (let z = 0; z < N; z++) {
+    for (let x = 0; x < N; x++) {
+      const d = Math.hypot(x - N * 0.78, z - N * 0.85) / 15
+      if (d < 1) {
+        const i = z * N + x
+        raw[i] = Math.min(raw[i], 3.1 + smoothstep(0.55, 1, d) * 5)
+      }
+    }
   }
 
   // Quantise. Nothing above this line knows about levels.
@@ -179,7 +188,7 @@ export function generate(seed) {
       const g = grid.ground[i]
       if (grid.height[i] < WATER_LEVEL) continue
       const near = (p, rad) => Math.abs(x - p.x) < rad && Math.abs(z - p.z) < rad
-      if (near(HOME, 11) || near(VILLAGE, 9) || near(GATE, 7) || near(YARD, 7)) continue
+      if (near(HOME, 11) || near(GATE, 8)) continue
 
       const density = forest(x * 0.07, z * 0.07)
       if ((g === G.MEADOW || g === G.LOAM) && density > 0.58 && chance(r, (density - 0.58) * 1.5)) {
@@ -221,9 +230,7 @@ export function generate(seed) {
     return h
   }
   const homeH = pad(HOME, 20, 18)
-  pad(VILLAGE, 16, 14)
   pad(GATE, 12, 12)
-  pad(YARD, 12, 12)
 
   grid.touchAll()
   return { grid, homeH, seed }

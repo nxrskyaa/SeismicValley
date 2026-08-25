@@ -90,7 +90,7 @@ export class Water {
       uDeep: { value: new THREE.Color().setStyle(C.waterDeep, THREE.SRGBColorSpace) },
       uShallow: { value: new THREE.Color().setStyle(C.waterShallow, THREE.SRGBColorSpace) },
       uFoam: { value: new THREE.Color().setStyle(C.waterFoam, THREE.SRGBColorSpace) },
-      uFogColor: { value: new THREE.Color(C.fog) },
+      uFogColor: { value: new THREE.Color('#cfc6dc') },
       uFogNear: { value: 34 },
       uFogFar: { value: 128 },
       uTime: { value: 0 },

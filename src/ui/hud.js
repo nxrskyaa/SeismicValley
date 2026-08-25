@@ -1,22 +1,27 @@
 import { markSvg } from '../core/mark.js'
-import { svgWordmark } from '../core/wordmark.js'
-import { SEASON_DAYS, SEASON_NAMES, WEATHER } from '../game/crops.js'
+import { SEASON_DAYS, SEASON_NAMES, SEASON_SHORT, WEATHER } from '../game/crops.js'
 import { item } from '../game/items.js'
-import { MAX_ENERGY, MAX_WATER } from '../game/state.js'
-import { coinIcon, iconFor } from './icons.js'
+import { MANIFEST_TOTAL } from '../game/story.js'
+import { MAX_STAMINA, MAX_WATER } from '../game/state.js'
+import { iconFor } from './icons.js'
 
 /**
  * The heads-up display.
  *
- * Plain DOM over the canvas, and deliberately so: the browser already has the
- * best text layout engine anyone is going to write, and a HUD drawn into WebGL
- * is a HUD that cannot be read by a screen reader, cannot be selected, and needs
- * its own font atlas — which this project has sworn off.
+ * **The interface has to be quieter than the world.** The world is washed out
+ * and low-contrast; a HUD of bright cards sitting on top of it takes the frame
+ * and the valley becomes the background to a dashboard. So: one dark plate,
+ * hairline rules, small letter-spaced caps, tabular figures, and exactly one
+ * accent colour used for exactly one thing at a time.
  *
- * Everything here is EVENT DRIVEN. The HUD subscribes to the game state and
- * redraws the one strip that changed; nothing polls. A farming game runs for
- * hours, and a HUD that rebuilds forty nodes a frame is the single most
- * expensive thing in a scene otherwise made of two hundred triangles.
+ * That rule is Velion's and it is the reason an earlier pass here looked
+ * generic — it rebuilt the HUD as a set of light rounded panels, which is what
+ * every browser game looks like, and it was the loudest thing on screen.
+ *
+ * Everything is EVENT DRIVEN. The HUD subscribes to the game state and redraws
+ * the one strip that changed; nothing polls. A farming game runs for hours, and
+ * a HUD that rebuilds forty nodes a frame is the most expensive thing in a
+ * scene otherwise made of two hundred triangles.
  */
 
 const el = (tag, cls, html) => {
@@ -26,6 +31,8 @@ const el = (tag, cls, html) => {
   return n
 }
 
+const two = (n) => String(n).padStart(2, '0')
+
 export class HUD {
   constructor(root, state, opts = {}) {
     this.state = state
@@ -33,37 +40,35 @@ export class HUD {
     this.node = el('div', 'hud')
     root.append(this.node)
 
-    // --- top left: when it is ---------------------------------------------
-    this.dateCard = el('div', 'card date')
-    this.dateCard.append(
-      (this.seasonEl = el('span', 'date-season', 'Thaw')),
-      (this.dayEl = el('span', 'date-day', 'Day 1')),
-      (this.weatherEl = el('span', 'date-weather', 'Clear')),
-    )
-    this.clockDial = el('div', 'clock')
-    this.clockDial.append((this.clockHand = el('i', 'clock-hand')), (this.clockLabel = el('span', 'clock-label', '6:20')))
-    this.dateCard.append(this.clockDial)
+    // A vignette, not a frame. It pulls the eye to the middle of a wide shot
+    // and it is the only decoration in the whole interface.
+    this.node.append(el('div', 'vig'))
 
-    // --- top right: what it costs and what is coming -----------------------
-    this.purse = el('div', 'card purse')
-    this.purse.append(el('img', 'icon-sm'), (this.coinEl = el('span', 'purse-n', '0')))
-    this.purse.firstChild.src = coinIcon()
+    // --- the field log ------------------------------------------------------
+    // One plate, four facts, in the order you look for them.
+    this.log = el('div', 'log')
+    this.logDate = el('b', 'log-date')
+    this.logTime = el('span', 'log-time')
+    this.logWeather = el('span', 'log-weather')
+    this.logManifest = el('span', 'log-manifest')
+    const row1 = el('div', 'log-row')
+    row1.append(this.logDate, this.logTime)
+    const row2 = el('div', 'log-row log-row-sub')
+    row2.append(this.logWeather, this.logManifest)
+    this.log.append(row1, row2)
 
-    this.fault = el('div', 'card fault')
-    this.fault.append(
-      el('span', 'fault-label', 'Fault'),
-      (this.faultEl = el('strong', 'fault-n', '—')),
-      (this.faultBar = el('div', 'fault-bar')),
-    )
-    this.faultBar.append((this.faultFill = el('i')))
+    // --- the relay's forecast ----------------------------------------------
+    // One line, and it only says anything when there is something to say.
+    this.prune = el('div', 'prune')
+    this.log.append(this.prune)
 
-    // --- left: how much is left in you ------------------------------------
-    this.vitals = el('div', 'vitals')
-    this.energyBar = this.meter('Energy', 'energy')
-    this.waterBar = this.meter('Can', 'water')
-    this.vitals.append(this.energyBar.node, this.waterBar.node)
+    // --- meters -------------------------------------------------------------
+    this.meters = el('div', 'meters')
+    this.stamina = this.meter('Stamina')
+    this.water = this.meter('Can')
+    this.meters.append(this.stamina.node, this.water.node)
 
-    // --- bottom: the hotbar ------------------------------------------------
+    // --- hotbar -------------------------------------------------------------
     this.hotbar = el('div', 'hotbar')
     this.slots = Array.from({ length: 8 }, (_, i) => {
       const s = el('button', 'slot')
@@ -77,37 +82,44 @@ export class HUD {
       return s
     })
 
-    // --- transient ---------------------------------------------------------
-    this.prompt = el('div', 'prompt')
+    // --- transient ----------------------------------------------------------
+    this.hint = el('div', 'hint')
     this.toasts = el('div', 'toasts')
-    this.banner = el('div', 'banner')
     this.dialogue = el('div', 'dialogue')
     this.dialogue.append(
       (this.dlgName = el('div', 'dlg-name')),
-      (this.dlgRole = el('div', 'dlg-role')),
       (this.dlgLine = el('p', 'dlg-line')),
-      el('div', 'dlg-hint', 'E — continue &nbsp;·&nbsp; Esc — leave'),
+      el('div', 'dlg-hint', 'E — continue · Esc — leave'),
     )
 
-    this.corner = el('div', 'corner', markSvg({ className: 'corner-mark' }))
-    this.corner.append(el('span', 'corner-word', svgWordmark('SEISMIC VALLEY', { className: 'corner-type' })))
+    // The fragment card. Never more than four lines, because Marit's recorder
+    // held twelve seconds and the rule is the rule.
+    this.fragment = el('div', 'fragment')
+    this.fragment.append(
+      (this.fragTitle = el('div', 'frag-title')),
+      (this.fragBody = el('div', 'frag-body')),
+      (this.fragFrom = el('div', 'frag-from')),
+    )
+    this.fragment.addEventListener('click', () => this.closeFragment())
 
-    this.node.append(this.dateCard, this.purse, this.fault, this.vitals, this.hotbar, this.prompt, this.toasts, this.banner, this.dialogue, this.corner)
+    this.mark = el('div', 'corner', markSvg({ className: 'corner-mark' }))
 
-    // --- wiring -------------------------------------------------------------
+    this.node.append(this.log, this.meters, this.hotbar, this.hint, this.toasts, this.dialogue, this.fragment, this.mark)
+
     state.on('bag', () => this.drawHotbar())
     state.on('hotbar', () => this.drawHotbar())
-    state.on('coin', () => this.drawPurse())
-    state.on('vitals', () => this.drawVitals())
-    state.on('day', () => this.drawDate())
+    state.on('vitals', () => this.drawMeters())
+    state.on('day', () => this.drawAll())
+    state.on('manifest', () => this.drawLog())
     state.on('toast', (t) => this.toast(t.text, t.tone))
-    state.on('tremor', (t) => this.onTremor(t))
+    state.on('fragment', (f) => this.showFragment(f))
+    state.on('pruning', (p) => this.onPruning(p))
 
     this.drawAll()
   }
 
-  meter(label, kind) {
-    const node = el('div', `meter meter-${kind}`)
+  meter(label) {
+    const node = el('div', 'meter')
     const track = el('div', 'meter-track')
     const fillEl = el('i')
     track.append(fillEl)
@@ -116,32 +128,27 @@ export class HUD {
   }
 
   drawAll() {
-    this.drawDate()
-    this.drawPurse()
-    this.drawVitals()
+    this.drawLog()
+    this.drawMeters()
     this.drawHotbar()
-    this.drawFault()
+    this.drawPruning()
   }
 
-  drawDate() {
+  drawLog() {
     const s = this.state
-    this.seasonEl.textContent = SEASON_NAMES[s.season]
     const dayOfSeason = ((s.day - 1) % SEASON_DAYS) + 1
-    this.dayEl.textContent = `Day ${dayOfSeason} / ${SEASON_DAYS}`
-    this.weatherEl.textContent = WEATHER[s.weather].label
-    this.weatherEl.dataset.w = s.weather
+    this.logDate.textContent = `${SEASON_SHORT[s.season]} ${dayOfSeason} / ${SEASON_DAYS}`
+    this.logDate.title = `${SEASON_NAMES[s.season]}, year ${s.year}`
+    this.logWeather.textContent = WEATHER[s.weather].label
+    this.logManifest.textContent = `Manifest ${s.manifestCount} / ${MANIFEST_TOTAL}`
   }
 
-  drawPurse() {
-    this.coinEl.textContent = this.state.coin.toLocaleString()
-  }
-
-  drawVitals() {
+  drawMeters() {
     const s = this.state
-    this.energyBar.fill.style.width = `${(s.energy / MAX_ENERGY) * 100}%`
-    this.energyBar.node.classList.toggle('is-low', s.energy < MAX_ENERGY * 0.25)
-    this.waterBar.fill.style.width = `${(s.water / MAX_WATER) * 100}%`
-    this.waterBar.node.classList.toggle('is-low', s.water < 6)
+    this.stamina.fill.style.width = `${(s.stamina / MAX_STAMINA) * 100}%`
+    this.stamina.node.classList.toggle('is-low', s.stamina < MAX_STAMINA * 0.25)
+    this.water.fill.style.width = `${(s.water / MAX_WATER) * 100}%`
+    this.water.node.classList.toggle('is-low', s.water < 6)
   }
 
   drawHotbar() {
@@ -165,39 +172,28 @@ export class HUD {
     })
   }
 
-  drawFault() {
-    const s = this.state
-    const days = Math.max(0, s.nextTremor - s.day)
-    const known = s.forecastDays ?? 1
-    if (days > known) {
-      this.faultEl.textContent = 'quiet'
-      this.faultFill.style.width = '12%'
-      this.fault.dataset.level = 'calm'
+  /** The relay's line. Silent until a pass is close, because a permanent
+   *  countdown is a permanent anxiety and the Loom is not in a hurry. */
+  drawPruning() {
+    const nights = Math.max(0, this.state.nextPruning - this.state.day)
+    const unregistered = this.state.unregistered.length
+    if (nights > 2 || !unregistered) {
+      this.prune.textContent = ''
+      this.prune.classList.remove('is-on')
       return
     }
-    this.faultEl.textContent = days === 0 ? 'today' : days === 1 ? 'tomorrow' : `${days} days`
-    this.faultFill.style.width = `${Math.max(8, 100 - days * 24)}%`
-    this.fault.dataset.level = days === 0 ? 'now' : days <= 1 ? 'near' : 'soon'
+    this.prune.textContent = nights === 0
+      ? `Pass tonight · ${unregistered} unregistered`
+      : `Pass in ${nights} ${nights === 1 ? 'night' : 'nights'} · ${unregistered} unregistered`
+    this.prune.classList.add('is-on')
   }
 
-  /** The clock hand and the tint of the whole HUD follow the hour, so the panel
-   *  reads as part of the same afternoon the valley is in. */
-  setHour(hour) {
-    const turn = ((hour % 24) / 24) * 360
-    this.clockHand.style.transform = `rotate(${turn}deg)`
-    const h = Math.floor(hour)
-    const m = Math.floor((hour - h) * 60)
-    this.clockLabel.textContent = `${h}:${String(m).padStart(2, '0')}`
-    const night = hour < 6 || hour > 19.5
-    this.node.classList.toggle('is-night', night)
-  }
-
-  /** The one-line hint under the reticle: what the key in your hand would do. */
-  setPrompt(text) {
-    if (this._prompt === text) return
-    this._prompt = text
-    this.prompt.innerHTML = text ?? ''
-    this.prompt.classList.toggle('is-on', !!text)
+  /** The one-line hint: what the key in your hand would do. */
+  setHint(text) {
+    if (this._hint === text) return
+    this._hint = text
+    this.hint.innerHTML = text ?? ''
+    this.hint.classList.toggle('is-on', !!text)
   }
 
   toast(text, tone = 'plain') {
@@ -205,9 +201,9 @@ export class HUD {
     this.toasts.append(n)
     // Fade on a timer rather than on animationend: an animationend that never
     // fires (a backgrounded tab) leaves the message on screen forever.
-    setTimeout(() => n.classList.add('is-out'), 3200)
-    setTimeout(() => n.remove(), 3900)
-    while (this.toasts.children.length > 5) this.toasts.firstChild.remove()
+    setTimeout(() => n.classList.add('is-out'), 3400)
+    setTimeout(() => n.remove(), 4100)
+    while (this.toasts.children.length > 4) this.toasts.firstChild.remove()
   }
 
   say(who) {
@@ -216,30 +212,51 @@ export class HUD {
       return
     }
     this.dlgName.textContent = who.name
-    this.dlgRole.textContent = who.role ?? ''
     this.dlgLine.textContent = who.line
     this.dialogue.classList.add('is-on')
   }
 
-  onTremor(t) {
-    if (t.phase === 'warn') {
-      this.banner.innerHTML = '<strong>The fault is moving.</strong><span>Get behind a cairn.</span>'
-      this.banner.classList.add('is-on')
-      this.node.classList.add('is-shaking')
-    } else if (t.phase === 'shock') {
-      this.banner.innerHTML = t.lost
-        ? `<strong>${t.lost} lost</strong><span>${t.saved ? `${t.saved} held by cairns` : 'nothing was behind a cairn'}</span>`
-        : '<strong>The ground held</strong><span>nothing was standing where it went</span>'
-    } else {
-      this.banner.classList.remove('is-on')
-      this.node.classList.remove('is-shaking')
-      this.drawFault()
+  /** A soil-tag or a log. Four lines maximum, no exceptions — the constraint is
+   *  what keeps the story from becoming a wall of text in a corner. */
+  showFragment(f) {
+    this.fragTitle.textContent = f.title
+    this.fragBody.replaceChildren(...f.lines.slice(0, 4).map((l) => el('p', null, l)))
+    this.fragFrom.textContent = f.from
+    this.fragment.classList.add('is-on')
+    clearTimeout(this._fragTimer)
+    this._fragTimer = setTimeout(() => this.closeFragment(), 11000)
+    this.opts.onFragment?.(f)
+  }
+
+  closeFragment() {
+    clearTimeout(this._fragTimer)
+    this.fragment.classList.remove('is-on')
+  }
+
+  onPruning(p) {
+    if (p.phase === 'warn') {
+      this.node.classList.add('is-pass')
+      this.toast('Something went through the valley in the night.', 'warn')
+    } else if (p.phase === 'done') {
+      this.node.classList.remove('is-pass')
+      this.drawPruning()
     }
   }
 
-  /** Called every frame with cheap, always-changing values. Kept to exactly two
-   *  writes so this can run at 144 Hz without touching layout. */
+  /** Called every frame with the clock. Exactly one DOM write per frame, and
+   *  only when the displayed minute has actually changed. */
   tick(hour) {
-    this.setHour(hour)
+    const h = Math.floor(hour) % 24
+    const m = Math.floor((hour % 1) * 6) * 10
+    const stamp = `${two(h)}:${two(m)}`
+    if (stamp !== this._stamp) {
+      this._stamp = stamp
+      this.logTime.textContent = stamp
+    }
+    const night = hour < 6 || hour > 19.6
+    if (night !== this._night) {
+      this._night = night
+      this.node.classList.toggle('is-night', night)
+    }
   }
 }

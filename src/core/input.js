@@ -32,7 +32,9 @@ export class Input {
     /** Set by the UI while a panel has focus, so WASD in a text field or a
      *  click on a button never also drives the player. */
     this.captured = false
-    this.touch = { active: false, id: -1, ox: 0, oy: 0, x: 0, y: 0 }
+    /** Set each frame by TouchControls, in screen space. Merged into `move`
+     *  below so nothing downstream has to know where a direction came from. */
+    this.stick = [0, 0]
 
     const onKey = (e, down) => {
       if (e.code === 'Tab') e.preventDefault()
@@ -59,7 +61,7 @@ export class Input {
     this._onBlur = () => {
       this.keys.clear()
       this.held.clear()
-      this.touch.active = false
+      this.stick = [0, 0]
     }
     target.addEventListener('blur', this._onBlur)
 
@@ -77,20 +79,10 @@ export class Input {
       this.pointer.down = true
       this.pointer.x = e.clientX
       this.pointer.y = e.clientY
-      if (e.pointerType === 'touch') {
-        // Left half of the screen drives; right half acts. One thumb each, and
-        // the split is by SCREEN half rather than by a drawn control, so it
-        // works on any aspect without a layout pass.
-        if (e.clientX < innerWidth * 0.5) {
-          this.touch.active = true
-          this.touch.id = e.pointerId
-          this.touch.ox = this.touch.x = e.clientX
-          this.touch.oy = this.touch.y = e.clientY
-        } else {
-          this.held.add('use')
-          this.edges.add('use')
-        }
-      } else if (e.button === 0) {
+      // Touch does NOT reach here: the touch canvas sits above the world and
+      // routes to TouchControls, which writes into the same sets. See ui/touch.js.
+      if (e.pointerType === 'touch') return
+      if (e.button === 0) {
         this.held.add('use')
         this.edges.add('use')
       } else if (e.button === 2) {
@@ -102,16 +94,11 @@ export class Input {
     canvas.addEventListener('pointermove', (e) => {
       this.pointer.x = e.clientX
       this.pointer.y = e.clientY
-      if (this.touch.active && e.pointerId === this.touch.id) {
-        this.touch.x = e.clientX
-        this.touch.y = e.clientY
-      }
     })
-    const release = (e) => {
+    const release = () => {
       this.pointer.down = false
       this.held.delete('use')
       this.held.delete('interact')
-      if (this.touch.active && e.pointerId === this.touch.id) this.touch.active = false
     }
     canvas.addEventListener('pointerup', release)
     canvas.addEventListener('pointercancel', release)
@@ -134,17 +121,8 @@ export class Input {
     if (k.has('KeyW') || k.has('ArrowUp')) z -= 1
     if (k.has('KeyS') || k.has('ArrowDown')) z += 1
 
-    if (this.touch.active) {
-      const dx = this.touch.x - this.touch.ox
-      const dy = this.touch.y - this.touch.oy
-      const len = Math.hypot(dx, dy)
-      // A 12px dead zone: without it a stationary thumb jitters the player.
-      if (len > 12) {
-        const k2 = Math.min(1, (len - 12) / 60) / len
-        x += dx * k2
-        z += dy * k2
-      }
-    }
+    x += this.stick[0]
+    z += this.stick[1]
 
     const len = Math.hypot(x, z)
     if (len > 1) {

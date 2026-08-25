@@ -1,5 +1,5 @@
 import { markPath2D, shardPath2D } from '../core/mark.js'
-import { C, shade } from '../core/palette.js'
+import { C, shade, UI } from '../core/palette.js'
 import { GLYPH, item } from '../game/items.js'
 
 /**
@@ -18,7 +18,7 @@ const S = 100
 const cache = new Map()
 
 const ink = (ctx, w = 5) => {
-  ctx.strokeStyle = C.ink
+  ctx.strokeStyle = UI.ink
   ctx.lineWidth = w
   ctx.lineJoin = 'round'
   ctx.lineCap = 'round'
@@ -104,7 +104,7 @@ const DRAW = {
     fill(ctx, poly([[16, 72], [22, 40], [50, 24], [80, 42], [84, 74]]), t)
     ctx.save()
     ctx.translate(50, 56)
-    fill(ctx, shardPath2D(40), C.rose)
+    fill(ctx, shardPath2D(40), UI.rose)
     ctx.restore()
   },
   [GLYPH.POUCH]: (ctx, t, d) => {
@@ -166,7 +166,7 @@ const DRAW = {
     ctx.stroke()
   },
   [GLYPH.CAP]: (ctx, t, d) => {
-    fill(ctx, poly([[36, 56], [64, 56], [60, 88], [40, 88]]), C.creamShade)
+    fill(ctx, poly([[36, 56], [64, 56], [60, 88], [40, 88]]), UI.creamShade)
     const p = new Path2D()
     p.moveTo(14, 56)
     p.quadraticCurveTo(50, 8, 86, 56)
@@ -199,6 +199,34 @@ const DRAW = {
     }
     fill(ctx, leaf(1), t)
     fill(ctx, leaf(-1), d)
+  },
+  [GLYPH.TAG]: (ctx, t, d) => {
+    // A fired-clay marker: a rounded rectangle with a hole punched at the top
+    // and three scratched lines. Marit's handwriting was famously unreadable.
+    fill(ctx, poly([[26, 14], [74, 14], [74, 82], [50, 92], [26, 82]]), t)
+    fill(ctx, round(50, 28, 7), d, false)
+    ink(ctx, 4)
+    ctx.strokeStyle = d
+    for (const y of [46, 58, 70]) {
+      ctx.beginPath()
+      ctx.moveTo(34, y)
+      ctx.lineTo(66, y)
+      ctx.stroke()
+    }
+  },
+  [GLYPH.CHIP]: (ctx, t, d) => {
+    fill(ctx, poly([[22, 26], [78, 26], [78, 74], [22, 74]]), t)
+    fill(ctx, poly([[34, 38], [66, 38], [66, 62], [34, 62]]), d, false)
+    ink(ctx, 4)
+    ctx.strokeStyle = t
+    for (const y of [36, 50, 64]) {
+      for (const x of [22, 78]) {
+        ctx.beginPath()
+        ctx.moveTo(x, y)
+        ctx.lineTo(x + (x < 50 ? -12 : 12), y)
+        ctx.stroke()
+      }
+    }
   },
   [GLYPH.COIN]: (ctx, t, d) => {
     fill(ctx, round(50, 52, 34), t)
@@ -240,6 +268,6 @@ export function coinIcon() {
   cv.width = cv.height = S
   const ctx = cv.getContext('2d')
   ink(ctx)
-  DRAW[GLYPH.COIN](ctx, C.creamDeep, C.stoneDeep)
+  DRAW[GLYPH.COIN](ctx, UI.creamDeep, UI.stoneDeep)
   return cv.toDataURL()
 }

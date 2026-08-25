@@ -5,7 +5,7 @@ import { audio } from './core/audio.js'
 import { Input } from './core/input.js'
 import { hashSeed } from './core/rng.js'
 import { LEVEL, N, P } from './world/grid.js'
-import { GATE, HOME, VILLAGE, generate } from './world/worldgen.js'
+import { GATE, HOME, generate } from './world/worldgen.js'
 import { Terrain } from './world/terrain.js'
 import { Props } from './world/props.js'
 import { CropView } from './world/cropView.js'
@@ -16,12 +16,13 @@ import { flagpole, placeStructure } from './world/buildings.js'
 import { PlayerController, buildPlayer } from './actors/player.js'
 import { Cast } from './actors/cast.js'
 import { GameState } from './game/state.js'
-import { TremorSystem } from './game/tremor.js'
+import { PruningSystem } from './game/pruning.js'
 import { SEASON_NAMES, stageFor } from './game/crops.js'
 import { KIND, item } from './game/items.js'
 import { HUD } from './ui/hud.js'
 import { Panels } from './ui/panels.js'
 import { showTitle } from './ui/title.js'
+import { TouchControls } from './ui/touch.js'
 
 /**
  * Bootstrap and the loop.
@@ -50,19 +51,16 @@ window.app = app
  * running its real systems.
  */
 const POSES = {
-  valley: { at: [N / 2, 0, N / 2], from: [-40, 34, 46], hour: 9.5 },
-  home: { at: [HOME.x, 0, HOME.z], from: [-15, 13, 17], hour: 10 },
-  village: { at: [VILLAGE.x, 0, VILLAGE.z], from: [-13, 10, 14], hour: 11 },
-  gate: { at: [GATE.x, 1, GATE.z], from: [-8, 5.5, 15], hour: 9 },
-  rocky: { at: [GATE.x, 1.4, GATE.z], from: [-2.2, 0.4, 12], hour: 9.5, fov: 24 },
-  rig: { at: [HOME.x - 3, 1.0, HOME.z], from: [0, 0.25, 3.6], hour: 12 },
-  sheet: { at: [HOME.x - 4, 0.95, HOME.z], from: [0, 0, 24], hour: 12, fov: 7 },
-  cairn: { at: [HOME.x + 6, 0.6, HOME.z - 6], from: [-6, 4, 8], hour: 15 },
-  pebbles: { at: [HOME.x, 0.5, HOME.z + 3], from: [-4, 2.6, 5], hour: 13 },
-  night: { at: [HOME.x, 0, HOME.z], from: [-14, 11, 16], hour: 22.5 },
-  // The one pose that changes the world before it photographs it: without
-  // firing a real tremor there is nothing to photograph but ordinary ground.
-  tremor: { at: [GATE.x - 10, 0, GATE.z + 14], from: [-15, 11, 17], hour: 11.5, quake: 3 },
+  valley: { at: [N / 2, 0, N / 2], size: 62, hour: 9.5 },
+  home: { at: [HOME.x, 0, HOME.z], size: 22, hour: 10 },
+  gate: { at: [GATE.x, 1, GATE.z], size: 16, hour: 9 },
+  rocky: { at: [GATE.x, 1.2, GATE.z], size: 5.2, hour: 9.5 },
+  sheet: { at: [HOME.x, 1.0, HOME.z], size: 3.6, hour: 12 },
+  rig: { at: [HOME.x, 1.0, HOME.z], size: 5, hour: 12 },
+  dawn: { at: [HOME.x, 0, HOME.z], size: 26, hour: 6.2 },
+  dusk: { at: [HOME.x, 0, HOME.z], size: 26, hour: 19.4 },
+  night: { at: [HOME.x, 0, HOME.z], size: 26, hour: 22.5 },
+  pruning: { at: [HOME.x, 0, HOME.z], size: 24, hour: 6.6, prune: true },
 }
 
 function makeRenderer() {
@@ -72,10 +70,9 @@ function makeRenderer() {
   renderer.shadowMap.enabled = true
   renderer.shadowMap.type = THREE.PCFSoftShadowMap
   renderer.toneMapping = THREE.ACESFilmicToneMapping
-  // The valley is one hue from end to end, so it lives or dies on VALUE
-  // separation. A touch over 1 opens the mid-tones enough that a stone wall and
-  // the ground it stands on are two different browns rather than one.
-  renderer.toneMappingExposure = 1.14
+  // The grade lives in the sky key-frames now, not here. Exposure stays at 1 so
+  // that table means what it says.
+  renderer.toneMappingExposure = 1.0
   renderer.outputColorSpace = THREE.SRGBColorSpace
   return renderer
 }
@@ -103,13 +100,14 @@ function seedStructures(state, grid) {
     state.buildings.push({ kind, level, x: cx, z: cz })
     grid.set('prop', cx, cz, P.BUILDING)
   }
+  // The homestead and the crate are YOURS. The relay on the ridge is the Loom's
+  // — it was standing before the rollback and is one of the few things the
+  // checkpoint had a record of. There is no village: you are the only person in
+  // the valley, and the setting stops working the moment there is a market
+  // square in it.
   put('homestead', HOME.x, HOME.z - 5, 1)
   put('crate', HOME.x + 4, HOME.z + 1)
   put('gate', GATE.x, GATE.z)
-  put('homestead', VILLAGE.x - 5, VILLAGE.z - 2, 1)
-  put('homestead', VILLAGE.x + 5, VILLAGE.z + 2, 1)
-  put('shed', VILLAGE.x, VILLAGE.z - 6)
-  put('well', VILLAGE.x + 1, VILLAGE.z + 6)
 }
 
 function boot() {
@@ -123,8 +121,11 @@ function boot() {
   app.renderer = makeRenderer()
   document.getElementById('app').append(app.renderer.domElement)
 
-  app.camera = new THREE.PerspectiveCamera(46, innerWidth / innerHeight, 0.4, 420)
+  // Orthographic, and the rig owns the frustum — see world/camera.js for why
+  // this is not a style choice.
+  app.camera = new THREE.OrthographicCamera(-10, 10, 10, -10, 0.1, 260)
   app.rig = new CameraRig(app.camera)
+  app.rig.applyFrustum()
 
   app.terrain = new Terrain(grid)
   app.terrain.rebuildAll()
@@ -151,16 +152,15 @@ function boot() {
   const [sx, sz] = grid.nearestStandable(HOME.x, HOME.z + 3)
   app.control = new PlayerController(grid, app.player, sx + 0.5, sz + 0.5)
 
-  app.cast = new Cast(app.scene, grid, app.state)
+  app.cast = new Cast(app.scene, grid, app.state, [sx + 0.5, sz + 0.5])
   app.props.rebuild()
   app.crops.rebuild(stageFor)
 
   app.input = new Input().attach(app.renderer.domElement)
-  app.tremor = new TremorSystem(app.state, app.terrain, app.props, app.crops, app.rig, audio)
+  app.pruning = new PruningSystem(app.state, syncStructures, app.rig, audio)
 
   addEventListener('resize', () => {
-    app.camera.aspect = innerWidth / innerHeight
-    app.camera.updateProjectionMatrix()
+    app.rig.applyFrustum()
     app.renderer.setSize(innerWidth, innerHeight)
   })
 
@@ -174,43 +174,35 @@ function boot() {
 
 function runCapture(shot) {
   const { grid } = app
-  if (shot.quake) {
-    app.state.tremorMag = shot.quake
-    app.tremor.start()
-    app.tremor.grid = grid
-    app.tremor.apply()
-    app.terrain.flush()
-    app.props.rebuild()
-    app.water.refresh()
-  }
   const focus = new THREE.Vector3(
     shot.at[0],
     shot.at[1] + grid.y(Math.round(shot.at[0]), Math.round(shot.at[2])),
     shot.at[2],
   )
-  app.camera.position.set(focus.x + shot.from[0], focus.y + shot.from[1], focus.z + shot.from[2])
-  app.camera.lookAt(focus)
-  if (shot.fov) {
-    app.camera.fov = shot.fov
-    app.camera.updateProjectionMatrix()
-  }
+  // Frame through the real rig at a fixed size, so a capture is the game's own
+  // camera at a chosen zoom rather than a second camera that can drift from it.
+  app.rig.size = app.rig.targetSize = shot.size
+  app.rig.applyFrustum()
+  app.rig.smoothed.copy(focus)
+  app.rig._first = false
+
   const clock = new THREE.Clock()
   let frames = 0
   app.renderer.setAnimationLoop(() => {
     const dt = Math.min(clock.getDelta(), 0.05)
+    app.rig.update(dt, focus, null)
     app.terrain.update()
     app.props.update(dt)
     app.crops.update(dt, stageFor)
-    app.flag.update(dt)
     // The cast reacts to where the PLAYER is, and in a capture the nearest
     // thing to a player is the camera. Passing the focus point instead makes
     // anyone standing on it turn to face their own feet.
     app.cast.update(dt, app.camera.position, shot.hour)
+    app.sky.setSpan(app.rig.size * 0.95)
     const sky = app.sky.update(shot.hour, focus)
     app.sky.follow(app.camera)
     app.water.update(dt, sky)
     animateStructures(dt, sky)
-    app.camera.lookAt(focus)
     app.renderer.render(app.scene, app.camera)
     if (++frames > 20 && !app.grid.dirty.size) window.__shotReady = true
   })
@@ -233,7 +225,10 @@ function runGame() {
   })
   state.on('build', () => syncStructures())
 
-  if (matchMedia('(pointer: coarse)').matches) document.body.classList.add('is-touch')
+  // A coarse pointer is the only reliable signal. A narrow window on a desktop
+  // is still a desktop and should not get a joystick drawn over it.
+  app.touch = new TouchControls(input)
+  app.touch.setEnabled(matchMedia('(pointer: coarse)').matches)
 
   // `?shot=play` is the one capture that goes through the real game rather than
   // through runCapture, because it is the only way to photograph the HUD.
@@ -271,10 +266,12 @@ function runGame() {
     const dt = Math.min(clock.getDelta(), 0.06)
 
     if (started) {
+      app.touch.update(dt)
+      input.stick = app.touch.move
       input.poll()
       // Time only moves while the game is being played. A player who opened the
       // journal and went to lunch should not come back to a lost season.
-      if (!app.panels.isOpen && !app.tremor.active) {
+      if (!app.panels.isOpen && !app.pruning.active) {
         state.hour += dt * 0.28
         if (state.hour >= 26) doSleep(true)
       }
@@ -284,15 +281,15 @@ function runGame() {
     } else {
       // Title: a slow drift over the homestead, so the first thing anyone sees
       // is the valley and not a menu on a flat colour.
-      const t = performance.now() * 0.00004
-      idleTarget.set(HOME.x, app.grid.y(HOME.x, HOME.z) + 1.4, HOME.z)
-      focus.copy(idleTarget)
-      app.camera.position.set(HOME.x + Math.cos(t) * 20, idleTarget.y + 11, HOME.z + Math.sin(t) * 20)
-      app.camera.lookAt(idleTarget)
+      // A slow turn over the homestead through the real rig, so the first thing
+      // anyone sees is the game's own camera on the valley.
+      app.rig.yawIndex = performance.now() * 0.00004
+      idleTarget.set(HOME.x, app.grid.y(HOME.x, HOME.z), HOME.z)
+      focus.copy(app.rig.update(dt, idleTarget, null))
     }
 
     app.cast.update(dt, control.pos, state.hour)
-    app.tremor.update(dt)
+    app.pruning.update(dt)
     app.flag.update(dt)
 
     const rebuild = state.drainRebuilds()
@@ -303,6 +300,7 @@ function runGame() {
     app.props.update(dt)
     app.crops.update(dt, stageFor)
 
+    app.sky.setSpan(app.rig.size * 0.95)
     const sky = app.sky.update(state.hour, focus)
     app.sky.follow(app.camera)
     app.water.update(dt, sky)
@@ -376,16 +374,18 @@ function handleInteraction(talking) {
   else if (heldItem?.kind === KIND.SEED && grid.get('tilled', tx, tz) && !crop) prompt = `<b>F</b> — sow ${item(held.replace('seed_', '')).name}`
   else if (held === 'can' && grid.get('tilled', tx, tz)) prompt = '<b>F</b> — water'
   else if (prop === P.NONE && !grid.isWater(tx, tz)) prompt = '<b>B</b> — raise a cairn here'
-  hud.setPrompt(prompt)
+  hud.setHint(prompt)
 
   // --- E: interact ---------------------------------------------------------
   if (input.pressed('interact')) {
     if (near) {
-      const said = near.spec.id === 'rocky'
-        ? { name: 'Rocky', role: near.spec.role, line: cast.forecast(app.tremor.daysUntil(), state.tremorMag) }
-        : near.speak()
-      hud.say(said)
-      audio.golem(near.spec.kind === 'golem' ? 1 : 2.2)
+      // Rocky's first line is always the forecast, because that is what the
+      // relay is for; after that he cycles what he has to say.
+      hud.say(near.line === 0
+        ? { name: near.spec.name, role: near.spec.role, line: cast.forecast(app.pruning.nightsUntil()) }
+        : near.speak())
+      near.line++
+      audio.golem(1)
       return near
     }
     if (talking) {
@@ -499,12 +499,12 @@ function doSleep(collapsed = false) {
   if (collapsed) hud.toast('You did not make it to bed. The morning is half gone.', 'warn')
   hud.toast(`Day ${state.day} — ${SEASON_NAMES[state.season]}. ${result.grew} plants grew.`)
 
-  if (app.tremor.checkDay()) {
-    // Give the player the morning before the ground moves; a tremor on the
-    // first frame after waking is a tremor nobody sees coming.
-    setTimeout(() => app.tremor.start(), 2600)
+  if (app.pruning.checkDay()) {
+    // A pass happened in the night. It resolves a beat after you wake, so the
+    // first thing you see is the valley and the second is what is missing.
+    setTimeout(() => app.pruning.start(), 1800)
   }
-  hud.drawFault()
+  hud.drawPruning()
 }
 
 /** Put a save back. The grid bytes are authoritative; the structures and the
