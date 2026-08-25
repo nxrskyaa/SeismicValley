@@ -119,6 +119,37 @@ console.log('\ncamera')
   assert(!/PerspectiveCamera/.test(main), 'no perspective camera anywhere in main')
 }
 
+// ------------------------------------------------------- 2b. the controls --
+
+console.log('controls')
+{
+  // W must move the player along the direction the camera is looking, and S
+  // against it. The obvious camera-relative rotation is 90 degrees off for this
+  // rig, and at the default 45-degree yaw that reads as reversed controls.
+  const YAW = (45 * Math.PI) / 180
+  const cos = Math.cos(YAW)
+  const sin = Math.sin(YAW)
+  // The rig sits at focus + (sin yaw, *, cos yaw) * d and looks back at it.
+  const fwd = [-Math.sin(YAW), -Math.cos(YAW)]
+  const resolve = (m) => [m.x * cos + m.z * sin, -m.x * sin + m.z * cos]
+  const dot = (v) => v[0] * fwd[0] + v[1] * fwd[1]
+
+  const player = read(path.join(SRC, 'actors/player.js'))
+  assert(/const mx = input\.move\.x \* cos \+ input\.move\.z \* sin/.test(player)
+    && /const mz = -input\.move\.x \* sin \+ input\.move\.z \* cos/.test(player),
+  'the controller uses the rotation that matches this camera')
+
+  assert(dot(resolve({ x: 0, z: -1 })) > 0.99, 'W walks toward where the camera is looking')
+  assert(dot(resolve({ x: 0, z: 1 })) < -0.99, 'S walks away from it')
+  assert(Math.abs(dot(resolve({ x: -1, z: 0 }))) < 0.01, 'A is perpendicular')
+  assert(Math.abs(dot(resolve({ x: 1, z: 0 }))) < 0.01, 'D is perpendicular')
+  // Left really is left. With +Y up, left = up x forward = (fz, -fx), so the
+  // test is `fwd.z*a.x - fwd.x*a.z`. Getting that sign backwards is how you end
+  // up "fixing" a controller that was already correct.
+  const a = resolve({ x: -1, z: 0 })
+  assert(fwd[1] * a[0] - fwd[0] * a[1] > 0.99, 'A is the LEFT perpendicular, not the right one')
+}
+
 // ------------------------------------------------------------ 3. you alone --
 
 console.log('the premise')
