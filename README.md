@@ -127,6 +127,63 @@ There were forty of her.
 
 ---
 
+## The pond, and what is under it
+
+<div align="center">
+<img src="docs/pond.png" width="860" alt="The pond east of the homestead: violet water over a terraced basin, a school of fish showing through it, ripple rings on the surface" />
+</div>
+
+There are two bodies of water — the southern lake the river falls into, and a
+pond a short walk east of the homestead, because a rod in the starting pack and
+the only water forty cells away is a mechanic you find out about on day nine.
+
+The rod is a real object parented into the player's hand, the line is real
+geometry from its tip to a float that is really floating, and the rod bends when
+something is on it. One key does the whole loop: cast, wait, watch for the
+nibble, and strike the moment the float goes **under**. Miss the bite and you
+lose the fish, not the cast — those are different disappointments and only one
+of them is fair.
+
+Underneath, three instanced schools swim slow loops in open water, and how long
+a bite takes depends on how many of them are actually near your float. Deep
+water is deliberately not opaque: at full opacity the fish were mathematically
+present and visually absent, which is the same as not having built them.
+
+---
+
+## Wind
+
+Nothing in a valley of flat plateaus and hard-edged cubes moves. Stand still for
+five seconds and the frame is a photograph.
+
+So there is one wind field and everything reads from it — trees, tufts, flowers,
+crops, the flag on the ridge, and whatever is in the air. They all bend the same
+way, because two things blowing different directions is worse than neither of
+them moving. The sway is a vertex shader rather than an animation: every prop in
+the valley is an InstancedMesh, and `instanceMatrix[3].xyz` gives each copy its
+own phase, so a stand of trees ripples instead of swinging in lockstep.
+
+What is in the air is seasonal. Thaw blows petals, Longlight pollen, Rust
+leaves, Still ash off the scar — same system, four palettes and four gravities.
+
+---
+
+## The music is written while you play it
+
+Nothing loads over the network, so the score is oscillators or it does not
+exist. That rules out a loop — a two-minute loop built from sine waves is two
+minutes of sine waves and then two more.
+
+The clock is the composer. The hour picks the mode, the register, the tempo and
+how often a note is allowed to happen: dawn open and slow on stacked fourths,
+midday Lydian and as busy as it ever gets, evening down a third to minor, night
+an octave lower with the drone carrying it. The melody is a random walk over the
+mode with a pull back toward the tonic, so a phrase wanders and comes home
+without ever being written down. The mode swaps on a phrase boundary and the
+drone slides rather than steps.
+
+---
+
 ## The story is found, never given
 
 No quest-giver explains any of the above. You hoe a square of dirt and a piece
