@@ -95,9 +95,13 @@ function syncStructures() {
 
 /** The fixed cast of buildings a new valley starts with. */
 function seedStructures(state, grid) {
+  // Everything the generator places is REGISTERED. It was standing when the
+  // rollback ran, so the Loom has a record of it — which is the fiction, and is
+  // also the only sane rule: a first pruning night that eats the shipping crate
+  // takes away the economy before the player has learned what a stake is.
   const put = (kind, x, z, level = 1) => {
     const [cx, cz] = grid.nearestStandable(x, z)
-    state.buildings.push({ kind, level, x: cx, z: cz })
+    state.buildings.push({ kind, level, x: cx, z: cz, registered: true })
     grid.set('prop', cx, cz, P.BUILDING)
   }
   // The homestead and the crate are YOURS. The relay on the ridge is the Loom's

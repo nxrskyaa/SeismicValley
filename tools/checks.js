@@ -287,9 +287,11 @@ console.log('\ngameplay')
   assert(kiln.registered === true, 'and the structure goes into the record')
   assert(!state.stake(kiln), 'a registered structure cannot be staked twice')
 
-  // The homestead is placed by the generator, not by build(), so the fixture
-  // has to stand one up before it can assert the Loom goes around it.
-  state.buildings.push({ kind: 'homestead', level: 1, x: HOME.x, z: HOME.z - 5 })
+  // The homestead and the crate are placed by the generator, not by build(), so
+  // the fixture stands them up the same way it does — registered, because they
+  // were there when the rollback ran.
+  state.buildings.push({ kind: 'homestead', level: 1, x: HOME.x, z: HOME.z - 5, registered: true })
+  state.buildings.push({ kind: 'crate', level: 1, x: HOME.x + 4, z: HOME.z + 1, registered: true })
 
   const pruning = new PruningSystem(state, null, { kick() {} }, null)
   state.nextPruning = state.day
@@ -302,6 +304,7 @@ console.log('\ngameplay')
   assert(!state.buildings.some((b) => b.kind === 'shed'), 'the shed is not')
   assert(state.buildings.some((b) => b.kind === 'homestead'), 'the homestead is never taken — it is where you sleep')
   assert(state.count('wood') > before, 'and the components are stacked where it stood')
+  assert(state.buildings.some((b) => b.kind === 'crate'), 'the shipping crate you started with is never taken')
   assert(state.nextPruning > state.day, 'the next pass is scheduled')
 
   // --- economy and save ----------------------------------------------------
