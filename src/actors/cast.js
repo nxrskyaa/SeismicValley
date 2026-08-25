@@ -2,7 +2,8 @@ import * as THREE from 'three'
 import { buildRocky } from './rocky.js'
 import { buildPebble } from './pebble.js'
 import { Sixteen } from './dog.js'
-import { clamp, damp, rng } from '../core/rng.js'
+import { clamp, damp, pick, rng } from '../core/rng.js'
+import { findSpot, JOBS } from './jobs.js'
 import { GATE } from '../world/worldgen.js'
 
 /**
@@ -59,6 +60,7 @@ class Construct {
     this.facing = spec.face ?? 0
     this.near = Infinity
     this.line = 0
+    this.t = 0
     this.rig.root.position.set(this.pos.x, grid.sampleY(this.pos.x, this.pos.y), this.pos.y)
     scene.add(this.rig.root)
   }
@@ -81,8 +83,24 @@ class Construct {
 
     this.rig.root.rotation.y = this.facing
     this.rig.anim.speed = 0
-    this.rig.anim.pose = this.near < 4 ? 'wave' : 'idle'
     this.rig.anim.lookAt = this.near < 12 ? playerPos : null
+
+    /**
+     * What he does when nobody is watching.
+     *
+     * He has been at this relay for forty days and he is not a statue, so left
+     * alone he cycles between working on it, standing guard over it, and doing
+     * nothing at all. The cycle is slow — nineteen seconds a beat — because a
+     * landmark that changes pose every three seconds stops being a landmark and
+     * starts being a loop.
+     *
+     * Anything close overrides it: a wave when you are within talking distance,
+     * a guard stance when you are on the ridge but not yet at him.
+     */
+    this.t += dt
+    if (this.near < 4) this.rig.anim.pose = 'wave'
+    else if (this.near < 11) this.rig.anim.pose = 'guard'
+    else this.rig.anim.pose = ['work', 'idle', 'guard', 'idle'][Math.floor(this.t / 19) % 4]
     this.rig.update(dt)
   }
 
@@ -102,59 +120,142 @@ class PebbleAgent {
     this.rig = buildPebble({ trait: data.trait, size: 0.5 })
     this.pos = new THREE.Vector2(data.x, data.z)
     this.goal = new THREE.Vector2(data.x, data.z)
-    this.rand = rng((data.name?.charCodeAt(0) ?? 7) * 7919)
-    this.wait = this.rand() * 3
+    this.rand = rng((data.name?.charCodeAt(0) ?? 7) * 7919 + (data.x | 0) * 31 + (data.z | 0))
     this.speed = 0
     this.facing = 0
+    this.t = this.rand() * 40
+    this.job = null
+    this.phase = 'idle'
+    this.settle = 0
+    this.day = -1
+    /** Held still for a capture. Nothing else sets it. */
+    this.pinned = false
     scene.add(this.rig.root)
   }
 
-  update(dt, playerPos, night) {
+  /**
+   * A new job, at dawn.
+   *
+   * The spot is searched for from a point a good way OUT from wherever the
+   * pebble slept, not from the pebble itself — otherwise every job it ever takes
+   * is within a few cells of the last one and it spends its life in one corner
+   * of a field. Fifteen to thirty cells is roughly "somewhere else in the
+   * valley" at this map size.
+   */
+  pickJob() {
+    const a = this.rand() * Math.PI * 2
+    const r = 15 + this.rand() * 15
+    const sx = clamp(Math.round(this.pos.x + Math.cos(a) * r), 3, this.grid.n - 4)
+    const sz = clamp(Math.round(this.pos.y + Math.sin(a) * r), 3, this.grid.n - 4)
+
+    // Three tries at a job with a real destination, then fall back to following
+    // — which is the one job that can never fail to find somewhere to be.
+    for (let i = 0; i < 3; i++) {
+      const job = pick(this.rand, JOBS)
+      if (job.follows) continue
+      const spot = findSpot(this.grid, job, sx, sz, 26, this.day, this.rand)
+      if (spot) {
+        this.job = job
+        this.goal.set(spot[0] + 0.5, spot[1] + 0.5)
+        this.phase = 'travel'
+        return
+      }
+    }
+    this.job = JOBS.find((j) => j.follows)
+    this.phase = 'travel'
+  }
+
+  update(dt, playerPos, night, day) {
     const g = this.grid
-    // At night they sit down where they are and sleep, which is both correct and
-    // the only chance the player gets to see the pose from the reference sheet.
-    this.rig.anim.sleeping = night
-    if (!night) {
-      const toPlayer = new THREE.Vector2(playerPos.x - this.pos.x, playerPos.z - this.pos.y)
-      const dist = toPlayer.length()
-      if (dist > 3.5 && dist < 26) {
-        this.goal.set(playerPos.x, playerPos.z).addScaledVector(toPlayer.normalize(), -2.4)
-      } else {
-        this.wait -= dt
-        if (this.wait <= 0) {
-          const a = this.rand() * Math.PI * 2
-          this.goal.set(
-            clamp(this.pos.x + Math.cos(a) * 3, 1, g.n - 2),
-            clamp(this.pos.y + Math.sin(a) * 3, 1, g.n - 2),
-          )
-          this.wait = 1.5 + this.rand() * 4
-        }
-      }
-      const d = this.goal.clone().sub(this.pos)
-      const len = d.length()
-      if (len > 0.15) {
-        d.divideScalar(len)
-        const cx = Math.floor(this.pos.x + d.x * 0.4)
-        const cz = Math.floor(this.pos.y + d.y * 0.4)
-        if (!g.isWater(cx, cz)) {
-          this.pos.addScaledVector(d, Math.min(len, 3.1 * dt))
-          this.facing = Math.atan2(d.x, d.y)
-        }
-        this.speed = damp(this.speed, 1, 8, dt)
-      } else {
-        this.speed = damp(this.speed, 0, 8, dt)
-      }
-    } else {
+    this.t += dt
+
+    // The rig accumulates whatever the last pose left on it, and a pose is not
+    // guaranteed to touch every channel. Reset the ones only a pose ever writes.
+    const rig = this.rig
+    rig.body.rotation.x = 0
+    rig.body.rotation.y = 0
+    rig.head.rotation.z = 0
+
+    if (night) {
+      // They sit down where they are and sleep, which is both correct and the
+      // only chance the player gets to see the pose from the reference sheet.
+      rig.anim.sleeping = true
       this.speed = 0
+      this.job = null
+      this.phase = 'idle'
+      this.commit()
+      return
+    }
+    rig.anim.sleeping = false
+
+    if (this.pinned) {
+      this.speed = 0
+      rig.anim.speed = 0
+      rig.update(dt)
+      this.commit()
+      return
     }
 
+    if (day !== this.day) {
+      this.day = day
+      this.pickJob()
+    }
+    if (!this.job) this.pickJob()
+
+    // Following has a destination that walks away, so it is re-aimed every
+    // frame; everything else has a fixed spot and is aimed once.
+    if (this.job.follows) {
+      const to = new THREE.Vector2(playerPos.x - this.pos.x, playerPos.z - this.pos.y)
+      const dist = to.length()
+      if (dist > 3) this.goal.set(playerPos.x, playerPos.z).addScaledVector(to.normalize(), -2.2)
+      else this.goal.copy(this.pos)
+    }
+
+    const d = this.goal.clone().sub(this.pos)
+    const len = d.length()
+    if (len > 0.35) {
+      d.divideScalar(len)
+      const cx = Math.floor(this.pos.x + d.x * 0.5)
+      const cz = Math.floor(this.pos.y + d.y * 0.5)
+      if (g.isWater(cx, cz)) {
+        // The shore jobs put the goal one cell in from water and the walk can
+        // still clip a corner of it. Rather than a pathfinder, slide along the
+        // bank: turn ninety degrees and keep going.
+        this.pos.x += -d.y * 2.2 * dt
+        this.pos.y += d.x * 2.2 * dt
+      } else {
+        this.pos.addScaledVector(d, Math.min(len, 3.1 * dt))
+      }
+      this.facing = Math.atan2(d.x, d.y)
+      this.speed = damp(this.speed, 1, 8, dt)
+      this.phase = 'travel'
+      this.settle = 0
+    } else {
+      this.speed = damp(this.speed, 0, 8, dt)
+      // A beat of standing still before the job starts. Snapping from a walk
+      // straight into a pose reads as a teleport into a different animation.
+      this.settle += dt
+      if (this.settle > 0.6) this.phase = 'work'
+    }
+
+    rig.anim.speed = this.speed
+    rig.update(dt)
+    // The pose runs AFTER the rig's own animation, because it is overriding it.
+    if (this.phase === 'work' && this.job.pose) this.job.pose(rig, this.t)
+    this.commit()
+  }
+
+  commit() {
+    const g = this.grid
     this.data.x = this.pos.x
     this.data.z = this.pos.y
-    this.rig.anim.speed = this.speed
+    this.data.job = this.job?.id ?? null
     this.rig.root.position.set(this.pos.x, g.sampleY(this.pos.x, this.pos.y), this.pos.y)
     this.rig.root.rotation.y = this.facing
-    this.rig.update(dt)
   }
+
+  /** What it is doing, for the HUD and the journal. */
+  get doing() { return this.job?.label ?? 'asleep' }
 }
 
 // --- the whole cast ---------------------------------------------------------
@@ -185,7 +286,7 @@ export class Cast {
     const night = hour < 5.6 || hour > 21
     this.rocky.update(dt, playerPos)
     this.sixteen.update(dt, playerPos, (x, z) => this.state.dogFound(x, z))
-    for (const p of this.pebbles) p.update(dt, playerPos, night)
+    for (const p of this.pebbles) p.update(dt, playerPos, night, this.state.day)
   }
 
   /** Whoever is within reach, or null. Rocky is the only thing you can talk to. */

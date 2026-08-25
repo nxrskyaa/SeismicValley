@@ -23,10 +23,17 @@
  *
  * ## What it teaches, in order
  *
- * Walk, chop, break ground, sow, water, fish, sleep. Deliberately the whole loop
- * and nothing else: no building, no shipping, no pruning, no geodes. Those are
- * all things the valley will make the player care about on its own, and a
- * tutorial that covers everything is a manual with a progress bar on it.
+ * Walk, fell, break ground, sow, water, fish, meet Rocky, sleep. Deliberately
+ * the whole loop and nothing else: no building, no shipping, no pruning, no
+ * geodes. Those are all things the valley will make the player care about on its
+ * own, and a tutorial that covers everything is a manual with a progress bar.
+ *
+ * The Rocky step is the odd one out and it is here for a reason. He stands at
+ * the relay on the north ridge and he never leaves it, which is correct — a
+ * landmark that moves is not a landmark — but it also meant that a player who
+ * farmed near the homestead could finish a whole season without ever finding out
+ * there was anything else alive in the valley. One line on the list fixes that
+ * without moving him.
  */
 
 export const STEPS = [
@@ -71,6 +78,13 @@ export const STEPS = [
     note: 'Face open water. Strike the moment the float goes under, not before.',
     keys: '<kbd>5</kbd> take the rod · <kbd>F</kbd> to cast, <kbd>F</kbd> again to strike',
     done: (s) => s.stats.caught > 0,
+  },
+  {
+    id: 'rocky',
+    job: 'Find out what is on the north ridge',
+    note: 'Something up there is still standing, and it has been watching the valley for forty days.',
+    keys: 'follow the flag north-east · <kbd>E</kbd> to speak',
+    done: (s) => s.flags.has('met-rocky'),
   },
   {
     id: 'sleep',

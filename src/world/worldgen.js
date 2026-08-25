@@ -253,7 +253,12 @@ export function generate(seed) {
       let g
       if (h < WATER_LEVEL) g = G.SHORE
       else if (h === WATER_LEVEL || (h === WATER_LEVEL + 1 && grid.nearWater(x, z))) g = G.SHORE
-      else if (slope >= 2) g = G.ROCK
+      // G.STONE, not G.ROCK. There is no ROCK key in the palette's ground table
+      // and there never was, so this read `undefined`, every steep cell was
+      // written as MEADOW, and the scatter below — which tests the SAME missing
+      // key — never fired once. The valley shipped with no rocks in it at all,
+      // which meant the pick had nothing to hit and stone could only be bought.
+      else if (slope >= 2) g = G.STONE
       else if (m > 0.8 && h < 12) g = G.LOAM
       else if (patch(x * 0.13, z * 0.13) > 0.88) g = G.ASH
       else g = G.MEADOW
@@ -276,13 +281,13 @@ export function generate(seed) {
       if (near(HOME, 11) || near(GATE, 8)) continue
 
       const density = forest(x * 0.07, z * 0.07)
-      if ((g === G.MEADOW || g === G.LOAM) && density > 0.5 && chance(r, 0.055 + (density - 0.5) * 0.28)) {
+      if ((g === G.MEADOW || g === G.LOAM) && density > 0.5 && chance(r, 0.078 + (density - 0.5) * 0.34)) {
         grid.prop[i] = P.TREE
         grid.propData[i] = randInt(r, 0, SPECIES - 1)
-      } else if (g === G.ROCK && chance(r, 0.09)) {
+      } else if (g === G.STONE && chance(r, 0.09)) {
         grid.prop[i] = P.ROCK
         grid.propData[i] = randInt(r, 0, 2)
-      } else if (g === G.SCAR && chance(r, 0.06)) {
+      } else if (g === G.SCAR && chance(r, 0.15)) {
         // Geodes seed along the fault. They are the reason to walk it.
         grid.prop[i] = P.GEODE
         grid.propData[i] = randInt(r, 0, 3)

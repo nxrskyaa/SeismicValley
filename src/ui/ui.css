@@ -820,3 +820,7 @@ body.is-touch .hud .meters { bottom: calc(var(--u) * 10.5); }
   .task { width: calc(var(--u) * 14); top: calc(var(--u) * 5.4); }
   .task-note { display: none; }
 }
+
+/* A row that is a record rather than a control — no button, no hover. */
+.panels .row-quiet { cursor: default; }
+.panels .row-quiet:hover { background: none; }

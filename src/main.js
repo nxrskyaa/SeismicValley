@@ -240,10 +240,12 @@ function runCapture(shot) {
     // anyone standing on it turn to face their own feet.
     app.cast.update(dt, shot.pebble ? focus : app.camera.position, shot.hour)
     if (shot.pebble && app.cast.pebbles[0]) {
-      // Pin it: a following pebble walks out of frame within a second.
-      app.cast.pebbles[0].pos.set(focus.x, focus.z)
-      app.cast.pebbles[0].goal.copy(app.cast.pebbles[0].pos)
-      app.cast.pebbles[0].facing = Math.PI * 0.25
+      // Pin it. A pebble with a job walks off to do it within a second.
+      const p0 = app.cast.pebbles[0]
+      p0.pinned = true
+      p0.pos.set(focus.x, focus.z)
+      p0.goal.copy(p0.pos)
+      p0.facing = Math.PI * 0.25
     }
     app.sky.setSpan(app.rig.size * 0.95)
     const sky = app.sky.update(shot.hour, focus)
@@ -539,6 +541,10 @@ function handleInteraction(talking) {
         : near.speak())
       near.line++
       audio.golem(1)
+      if (!state.flags.has('met-rocky')) {
+        state.flags.add('met-rocky')
+        state.addJournal('Met the construct at the relay. It calls itself Rocky and it does not leave the ridge.')
+      }
       return near
     }
     if (talking) {

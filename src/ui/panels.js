@@ -3,6 +3,7 @@ import { cropForSeed, SEASON_NAMES, seasonalSeeds } from '../game/crops.js'
 import { KIND, item, valueOf } from '../game/items.js'
 import { BUILD_COST, HOME_COST, STAKE_COST } from '../game/state.js'
 import { iconFor } from './icons.js'
+import { JOBS } from '../actors/jobs.js'
 
 /**
  * The overlays.
@@ -122,6 +123,25 @@ export class Panels {
     })
     sleep.append(sb)
     body.append(sleep)
+
+    /**
+     * What the pebbles did today.
+     *
+     * This is here rather than on the pebble panel because it is what makes the
+     * house a PLACE. A homestead you only visit to press Sleep is a menu with a
+     * roof on it; a homestead where you find out that one of them spent six
+     * hours tapping a rock is somewhere you come back to.
+     */
+    const out = s.pebbles.filter((p) => p.job)
+    if (out.length) {
+      body.append(el('h3', null, 'While you were out'))
+      for (const p of out) {
+        const job = JOBS.find((j) => j.id === p.job)
+        if (!job) continue
+        body.append(el('div', 'row row-quiet',
+          `<div class="row-main"><strong>${p.name}</strong><span class="muted">${job.say}</span></div>`))
+      }
+    }
 
     body.append(el('h3', null, 'Requests'))
     if (!s.requests.length) body.append(el('p', 'muted', 'Nobody needs anything today.'))
@@ -289,11 +309,13 @@ export class Panels {
 
   render_pebbles(body) {
     const s = this.state
-    body.append(el('p', 'lede', 'They hatch out of geodes. Each one does one thing at dawn, and does it near where it hatched.'))
+    body.append(el('p', 'lede', 'They hatch out of geodes. Each one picks something to do at dawn and goes off and does it, and none of them will tell you why.'))
     if (!s.pebbles.length) body.append(el('p', 'muted', 'None yet. Break geodes along the scar.'))
     for (const p of s.pebbles) {
       const row = el('div', 'row')
-      row.append(el('div', 'row-main', `<strong>${p.name}</strong><span class="muted">${p.trait}</span>`))
+      const job = JOBS.find((j) => j.id === p.job)
+      row.append(el('div', 'row-main',
+        `<strong>${p.name}</strong><span class="muted">${p.trait} · ${job ? job.label : 'asleep'}</span>`))
       body.append(row)
     }
   }

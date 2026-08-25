@@ -270,8 +270,32 @@ console.log('\nthe first morning')
   assert(t2.step?.id === 'till', 'a save that is already past a job starts past it', t2.step?.id)
 
   for (const k of Object.keys(state.stats)) state.stats[k] = 99
+  state.flags.add('met-rocky')
   const t3 = new Tutorial(state)
   assert(t3.finished && t3.step === null, 'a finished list stays finished')
+
+  // --- what the pebbles do all day -----------------------------------------
+  const { JOBS, findSpot } = await import('../src/actors/jobs.js')
+  assert(JOBS.length >= 6, `there is more than one thing to do (${JOBS.length} jobs)`)
+  assert(JOBS.every((j) => j.label && j.say), 'every job has a label and a line for the journal')
+  assert(JOBS.filter((j) => j.follows).length === 1,
+    'following the player is ONE job out of many, not the default state of the world')
+  assert(JOBS.every((j) => j.follows || typeof j.pose === 'function'),
+    'every job with a destination has something to do when it gets there')
+
+  // The valley has to actually contain somewhere to do each of them. A job whose
+  // predicate never matches is a pebble that walks to the map edge and stops.
+  const homeless = JOBS.filter((j) => !j.follows && !findSpot(grid, j, 48, 48, 44)).map((j) => j.id)
+  assert(homeless.length === 0, 'every job has somewhere in the valley to be done', homeless.join(', '))
+
+  // Every step has to be reachable from something the game actually records.
+  // A step whose predicate reads a counter nobody increments is a wall.
+  const src = read(path.join(SRC, 'game/state.js')) + read(path.join(SRC, 'game/fishing.js')) + read(path.join(SRC, 'game/tutorial.js'))
+  for (const k of ['tilled', 'sown', 'watered', 'chopped', 'caught', 'slept']) {
+    assert(src.includes(`stats.${k}++`), `something in the game increments stats.${k}`)
+  }
+  assert(read(path.join(SRC, 'main.js')).includes("flags.add('met-rocky')"),
+    'meeting Rocky is recorded, so the ridge step can complete')
 }
 
 // ------------------------------------------------------------ 6b. the water --
