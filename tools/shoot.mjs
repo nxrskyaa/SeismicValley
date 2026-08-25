@@ -28,7 +28,7 @@ const OUT = path.join(ROOT, 'shots')
 const W = 1440
 const H = 900
 
-const ALL = ['valley', 'home', 'gate', 'rocky', 'sheet', 'rig', 'pond', 'lake', 'dawn', 'dusk', 'night', 'pruning', 'pebble', 'play', 'menu', 'hud', 'audio']
+const ALL = ['valley', 'home', 'gate', 'rocky', 'sheet', 'rig', 'pond', 'lake', 'dawn', 'dusk', 'night', 'pruning', 'pebble', 'play', 'menu', 'hud', 'audio', 'prologue']
 
 /**
  * Poses that are INTERFACE rather than camera.
@@ -45,6 +45,7 @@ const DOM_POSES = {
   // books several phrases of notes; anything wrong in it throws, and the harness
   // already fails on a console error.
   audio: { query: '?nomenu=1&audiotest=1', wait: '.hotbar', settle: 4000 },
+  prologue: { query: '?nomenu=1&prologue=1', wait: '.prologue-lines', settle: 1600 },
 }
 
 const argv = process.argv.slice(2)

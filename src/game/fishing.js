@@ -289,6 +289,7 @@ export class Fishing {
           const c = this.roll(this.depthAt(this.target), this.hour ?? hour)
           this.lastCatch = c
           this.state.give(c.id, 1)
+          this.state.stats.caught++
           this.life.splash(this.target.x, this.target.z, 1.4)
           this.audio?.landed?.()
           this.state.onCatch?.(c)

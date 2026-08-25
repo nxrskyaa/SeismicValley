@@ -26,6 +26,8 @@ import { KIND, item } from './game/items.js'
 import { HUD } from './ui/hud.js'
 import { Panels } from './ui/panels.js'
 import { showTitle } from './ui/title.js'
+import { prologueSeen, showPrologue } from './ui/prologue.js'
+import { CLOSING, Tutorial } from './game/tutorial.js'
 import { loadAppearance, lookFrom } from './game/appearance.js'
 import { TouchControls } from './ui/touch.js'
 
@@ -274,12 +276,28 @@ function runGame() {
 
   app.hud = new HUD(root, state, {
     onSelect: () => audio.ui(),
+    onSkipTutorial: () => app.tutorial?.skip(),
     sound: prefs.sound,
     music: prefs.music,
     onSound: (on) => { prefs.sound = on; audio.setMuted(!on); savePrefs(); if (on) audio.ui() },
     onMusic: (on) => { prefs.music = on; savePrefs(); on ? app.music.start() : app.music.stop() },
   })
   app.audioPrefs = prefs
+  // The first morning. It reads state.stats, so a loaded save that is already
+  // past a step starts past it.
+  app.tutorial = new Tutorial(state, {
+    onStep: (step) => {
+      if (step) {
+        app.hud.setTask(step, app.tutorial.index + 1, app.tutorial.total)
+        audio.ui()
+      } else {
+        app.hud.setTask({ ...CLOSING, closing: true })
+        audio.chime()
+      }
+    },
+    onDone: () => app.hud.setTask(null),
+  })
+
   app.panels = new Panels(root, state, {
     onOpen: () => { input.captured = true },
     onClose: () => { input.captured = false },
@@ -299,6 +317,10 @@ function runGame() {
   // through runCapture, because it is the only way to photograph the HUD.
   const playShot = params.get('shot') === 'play'
   let started = params.has('nomenu') || playShot
+  const showTask = () => {
+    const t = app.tutorial
+    if (t.step) app.hud.setTask(t.step, t.index + 1, t.total)
+  }
   if (!started) {
     showTitle(root, {
       seed: app.seedText,
@@ -319,13 +341,33 @@ function runGame() {
           return
         }
         if (load) restore(load)
-        started = true
-        audio.chime()
+
+        /**
+         * The cold open, on a fresh valley only.
+         *
+         * The world is already meshed and the camera is already drifting behind
+         * the text — that is why there is no loading screen anywhere in this
+         * game. `started` stays false through it so the player cannot walk off
+         * during their own prologue, and it is never shown when a save is being
+         * loaded: nobody wants the opening of a film every time they come back
+         * to a farm.
+         */
+        const begin = () => {
+          started = true
+          audio.chime()
+          showTask()
+        }
+        if (!load && !prologueSeen()) showPrologue(root, begin)
+        else begin()
       },
     })
   } else {
     audio.unlock()
     if (app.audioPrefs.music) app.music.start()
+    showTask()
+    // `?prologue=1` puts the cold open back up on a nomenu load, which is the
+    // only way to photograph it — it is otherwise behind a click and a flag.
+    if (params.get('prologue')) showPrologue(root, () => {})
   }
   if (params.get('audiotest')) {
     // Every sound in the game, fired once, plus the score. `npm run shoot audio`
@@ -393,6 +435,7 @@ function runGame() {
     app.pruning.update(dt)
     app.flag.update(dt)
     app.music.setHour(state.hour)
+    app.tutorial.update(dt, control.pos)
 
     const rebuild = state.drainRebuilds()
     if (rebuild.props) app.props.dirty = true

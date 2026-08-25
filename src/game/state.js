@@ -64,6 +64,16 @@ export class GameState {
     this.stamina = MAX_STAMINA
     this.homeTier = 1
 
+    /**
+     * A tally of things you have DONE, as opposed to things you have.
+     *
+     * The tutorial reads it, the journal will, and it costs eight integers. The
+     * alternative is a tutorial that subscribes to nine events and has to be
+     * right about all of them; a counter it can poll cannot be missed, cannot
+     * fire twice, and survives a reload for free.
+     */
+    this.stats = { tilled: 0, sown: 0, watered: 0, harvested: 0, chopped: 0, mined: 0, caught: 0, slept: 0, walked: 0 }
+
     /** id -> count. Tools live here too, at count 1. */
     this.bag = new Map()
     this.hotbar = [...STARTING_HOTBAR]
@@ -199,6 +209,7 @@ export class GameState {
     this.spend(2)
     g.set('ground', x, z, G.TILLED)
     g.set('tilled', x, z, 1)
+    this.stats.tilled++
     this._pendingRebuild.props = true
     // Found, never given. Marit used soil-tags as a lab notebook because she
     // hated writing, and the colony never bothered to collect them. They are
@@ -221,6 +232,7 @@ export class GameState {
     this.spend(0.8)
     g.set('crop', x, z, cropIndex(cropId))
     g.set('grown', x, z, 0)
+    this.stats.sown++
     this._pendingRebuild.crops = true
     return 'swing'
   }
@@ -236,6 +248,7 @@ export class GameState {
     this.spend(0.6)
     g.set('wet', x, z, 1)
     g.set('ground', x, z, G.WET)
+    this.stats.watered++
     this.emit('vitals')
     return 'pour'
   }
@@ -255,6 +268,7 @@ export class GameState {
     if (!isRipe(id, g.get('grown', x, z))) return null
     const c = CROPS[id]
     this.give(id, c.yield)
+    this.stats.harvested++
     // The Manifest. Every species carried through to a harvest writes one line
     // back onto the chip — this is the progress bar, and it is the whole point.
     if (!this.recovered.has(id)) {
@@ -286,6 +300,7 @@ export class GameState {
       if (chance(this.rand, 0.35)) this.give(tree.sapling, 1)
       g.set('prop', x, z, P.STUMP)
       this.spend(4)
+      this.stats.chopped++
       this._pendingRebuild.props = true
       this.say(`Felled a ${tree.id}.`)
       return 'swing'
@@ -308,6 +323,7 @@ export class GameState {
       if (chance(this.rand, 0.12)) this.give('ashglass', 1)
       g.set('prop', x, z, P.NONE)
       this.spend(3.5)
+      this.stats.mined++
       this._pendingRebuild.props = true
       return 'swing'
     }
@@ -539,6 +555,7 @@ export class GameState {
   sleep() {
     const g = this.grid
     const rained = WEATHER[this.weather].rain
+    this.stats.slept++
 
     let grew = 0
     for (let z = 0; z < N; z++) {
@@ -681,6 +698,7 @@ export class GameState {
       nextPruning: this.nextPruning, pruningsSeen: this.pruningsSeen,
       lastPruningDay: this.lastPruningDay,
       recovered: [...this.recovered], tagsFound: this.tagsFound, logsFound: this.logsFound,
+      stats: this.stats,
       grid: this.grid.serialize(),
     }
   }
@@ -726,6 +744,7 @@ export class GameState {
       nextPruning: data.nextPruning ?? 5, pruningsSeen: data.pruningsSeen ?? 0,
       lastPruningDay: data.lastPruningDay ?? 0,
       tagsFound: data.tagsFound ?? 0, logsFound: data.logsFound ?? [],
+      stats: { ...this.stats, ...(data.stats ?? {}) },
     })
     this.bag = new Map(data.bag)
     this.recovered = new Set(data.recovered ?? [])

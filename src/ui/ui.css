@@ -711,3 +711,112 @@ body.is-touch .hud .meters { bottom: calc(var(--u) * 10.5); }
 .sound-btn.is-off { opacity: 0.3; border-left-color: transparent; text-decoration: line-through; }
 .sound-btn:focus-visible { outline: 1px solid var(--cream-deep); outline-offset: 2px; }
 @media (max-width: 720px) { .sound { bottom: calc(var(--u) * 6.4); } }
+
+/* --- the cold open -------------------------------------------------------- */
+
+.prologue {
+  position: fixed;
+  inset: 0;
+  z-index: 44;
+  display: grid;
+  place-items: center;
+  /* Heavier than the title scrim. The valley is still moving behind it and it
+     is supposed to be, but nothing in it should compete with five lines. */
+  background: linear-gradient(180deg, rgba(12, 8, 7, 0.72), rgba(12, 8, 7, 0.88));
+  transition: opacity 0.6s;
+  padding: calc(var(--u) * 2);
+  cursor: pointer;
+}
+.prologue.is-out { opacity: 0; pointer-events: none; }
+.prologue-card { width: min(calc(var(--u) * 38), 92vw); text-align: center; }
+.prologue-lines {
+  margin: 0 0 calc(var(--u) * 2.4);
+  min-height: calc(var(--u) * 7);
+  opacity: 0;
+  transform: translateY(calc(var(--u) * 0.5));
+  transition: opacity 0.7s, transform 0.7s;
+}
+.prologue-lines.is-in { opacity: 1; transform: none; }
+.prologue-lines span {
+  display: block;
+  font-size: calc(var(--u) * 1.16);
+  line-height: 1.75;
+  letter-spacing: 0.015em;
+  color: var(--cream);
+}
+.prologue-word { margin-top: calc(var(--u) * 1.6); }
+.prologue-type { width: min(calc(var(--u) * 20), 70vw); height: auto; fill: var(--cream-deep); display: block; margin: 0 auto; }
+.prologue-foot {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: calc(var(--u) * 1.2);
+}
+.prologue-dots { display: flex; gap: calc(var(--u) * 0.4); }
+.prologue-dots i {
+  width: calc(var(--u) * 1.4);
+  height: 1px;
+  background: rgba(250, 244, 234, 0.2);
+  transition: background 0.5s;
+}
+.prologue-dots i.is-on { background: var(--stone-lit); }
+
+/* --- the first morning ---------------------------------------------------- */
+
+.task {
+  position: absolute;
+  top: calc(var(--u) * 1.1);
+  right: calc(var(--u) * 1.1);
+  width: calc(var(--u) * 17);
+  padding: calc(var(--u) * 0.8) calc(var(--u) * 0.9) calc(var(--u) * 0.7);
+  background: var(--plate);
+  border: 1px solid var(--line);
+  /* The one accent rule in the whole HUD, and it is here because this is the
+     only element that is asking the player to do something. */
+  border-left: 2px solid var(--stone-lit);
+  text-align: left;
+  pointer-events: auto;
+  transition: opacity 0.35s, transform 0.35s;
+}
+.task.is-off { opacity: 0; transform: translateX(calc(var(--u) * 1)); pointer-events: none; }
+@keyframes task-turn {
+  from { opacity: 0.2; transform: translateY(calc(var(--u) * -0.4)); }
+  to { opacity: 1; transform: none; }
+}
+.task.is-turn { animation: task-turn 0.45s ease-out; }
+.task-count {
+  font-size: calc(var(--u) * 0.58);
+  letter-spacing: 0.24em;
+  text-transform: uppercase;
+  color: var(--dim);
+  margin-bottom: calc(var(--u) * 0.3);
+}
+.task-job {
+  font-size: calc(var(--u) * 0.95);
+  color: var(--cream);
+  line-height: 1.3;
+  margin-bottom: calc(var(--u) * 0.26);
+}
+.task-note {
+  font-size: calc(var(--u) * 0.7);
+  color: var(--dim);
+  line-height: 1.5;
+  margin-bottom: calc(var(--u) * 0.5);
+}
+.task-keys { font-size: calc(var(--u) * 0.66); color: var(--cream-deep); line-height: 1.9; }
+.task-skip {
+  font: inherit;
+  font-size: calc(var(--u) * 0.58);
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: rgba(250, 244, 234, 0.34);
+  background: none;
+  border: 0;
+  padding: calc(var(--u) * 0.4) 0 0;
+  cursor: pointer;
+}
+.task-skip:hover { color: var(--cream); }
+@media (max-width: 720px) {
+  .task { width: calc(var(--u) * 14); top: calc(var(--u) * 5.4); }
+  .task-note { display: none; }
+}

@@ -220,6 +220,58 @@ console.log('\nstory delivery')
   const early = TAGS.slice(0, 3).map((t) => t.lines.join(' ')).join(' ').toLowerCase()
   assert(/clay|drainage|row four/.test(early), 'the first tags are complaints about soil, not prophecy')
   assert(LOGS.every((l, i) => i === 0 || l.id > LOGS[i - 1].id), 'logs are authored in order so shuffling them is the game\'s choice')
+  // The prologue is the one piece of writing here that could have gotten away
+  // with breaking the four-line rule, so it is the one most worth asserting.
+  const { CARDS } = await import('../src/ui/prologue.js')
+  const longCard = CARDS.findIndex((c) => c.lines.length > 4)
+  assert(longCard === -1, 'no prologue card runs past four lines', longCard >= 0 && `card ${longCard + 1}`)
+  assert(CARDS.length <= 6, `the cold open is short (${CARDS.length} cards)`)
+  const opener = CARDS[0].lines.join(' ').toLowerCase()
+  assert(!/loom|manifest|rollback|colony/.test(opener),
+    'the first card does not explain the setting -- that is what the soil is for')
+}
+
+// ----------------------------------------------------- 6d. the first morning --
+
+console.log('\nthe first morning')
+{
+  const { STEPS, Tutorial } = await import('../src/game/tutorial.js')
+  const { GameState } = await import('../src/game/state.js')
+  const { generate } = await import('../src/world/worldgen.js')
+  const { STARTING_HOTBAR } = await import('../src/game/items.js')
+
+  assert(STEPS.length >= 5 && STEPS.length <= 8, `the list is a morning, not a manual (${STEPS.length} jobs)`)
+  const ids = STEPS.map((s) => s.id)
+  for (const need of ['chop', 'fish', 'sow']) {
+    assert(ids.includes(need), `the first morning covers ${need}`)
+  }
+
+  // Every key a step names has to be the slot that item is actually in. This is
+  // the failure that makes a tutorial actively worse than none: telling the
+  // player to press 6 for a seed when 6 is the rod.
+  const slotOf = (id) => STARTING_HOTBAR.indexOf(id) + 1
+  const keyed = { chop: slotOf('axe'), till: slotOf('hoe'), sow: slotOf('seed_grubwort'), water: slotOf('can'), fish: slotOf('rod') }
+  for (const [id, slot] of Object.entries(keyed)) {
+    const step = STEPS.find((x) => x.id === id)
+    assert(step && slot > 0 && step.keys.includes(`<kbd>${slot}</kbd>`),
+      `the ${id} step names the slot the tool is really in (${slot})`)
+  }
+
+  const { grid } = generate(77)
+  const state = new GameState(grid, 77)
+  const t = new Tutorial(state)
+  assert(t.step?.id === STEPS[0].id, 'a fresh valley starts at the first job')
+
+  // A save already past a job starts past it. Nobody who has farmed for six days
+  // wants to be told which key the hoe is on.
+  state.stats.walked = 40
+  state.stats.chopped = 3
+  const t2 = new Tutorial(state)
+  assert(t2.step?.id === 'till', 'a save that is already past a job starts past it', t2.step?.id)
+
+  for (const k of Object.keys(state.stats)) state.stats[k] = 99
+  const t3 = new Tutorial(state)
+  assert(t3.finished && t3.step === null, 'a finished list stays finished')
 }
 
 // ------------------------------------------------------------ 6b. the water --

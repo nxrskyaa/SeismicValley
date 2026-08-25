@@ -102,6 +102,20 @@ export class HUD {
     )
     this.fragment.addEventListener('click', () => this.closeFragment())
 
+    // --- the first morning ---------------------------------------------------
+    // One job at a time. A checklist of seven with six greyed out is a form; one
+    // line that changes when you finish it is a note somebody left themselves.
+    this.task = el('div', 'task')
+    this.taskCount = el('div', 'task-count')
+    this.taskJob = el('div', 'task-job')
+    this.taskNote = el('div', 'task-note')
+    this.taskKeys = el('div', 'task-keys')
+    this.taskSkip = el('button', 'task-skip', 'skip')
+    this.taskSkip.type = 'button'
+    this.taskSkip.addEventListener('click', () => opts.onSkipTutorial?.())
+    this.task.append(this.taskCount, this.taskJob, this.taskNote, this.taskKeys, this.taskSkip)
+    this.task.classList.add('is-off')
+
     this.mark = el('div', 'corner', markSvg({ className: 'corner-mark' }))
 
     // --- audio ---------------------------------------------------------------
@@ -119,7 +133,7 @@ export class HUD {
     this.musOn = opts.music ?? true
     this.paintAudio()
 
-    this.node.append(this.log, this.meters, this.hotbar, this.hint, this.toasts, this.dialogue, this.fragment, this.sound, this.mark)
+    this.node.append(this.log, this.meters, this.hotbar, this.hint, this.toasts, this.dialogue, this.fragment, this.task, this.sound, this.mark)
 
     state.on('bag', () => this.drawHotbar())
     state.on('hotbar', () => this.drawHotbar())
@@ -131,6 +145,31 @@ export class HUD {
     state.on('pruning', (p) => this.onPruning(p))
 
     this.drawAll()
+  }
+
+  /**
+   * @param step  the current step, `'done'` for the closing card, or null to hide
+   * @param n     one-based index
+   * @param total how many there are
+   */
+  setTask(step, n, total) {
+    if (!step) {
+      this.task.classList.add('is-off')
+      return
+    }
+    this.task.classList.remove('is-off')
+    const closing = step.closing
+    this.taskCount.textContent = closing ? 'The first morning' : `${n} of ${total}`
+    this.taskJob.textContent = step.job
+    this.taskNote.textContent = step.note
+    this.taskKeys.innerHTML = step.keys ?? ''
+    this.taskKeys.style.display = step.keys ? '' : 'none'
+    this.taskSkip.style.display = closing ? 'none' : ''
+    // Re-run the entry animation on every change, so a finished job visibly
+    // becomes the next one instead of the text silently swapping.
+    this.task.classList.remove('is-turn')
+    void this.task.offsetWidth
+    this.task.classList.add('is-turn')
   }
 
   paintAudio() {
