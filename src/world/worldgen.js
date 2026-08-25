@@ -53,15 +53,15 @@ export function generate(seed) {
       // Radial term, on the longer of the two axes so the valley is a bowl and
       // not an ellipse squashed into the map's aspect.
       const d = Math.max(Math.abs(x - mid), Math.abs(z - mid)) / mid
-      const basin = 8.2 + smoothstep(0.4, 1.0, d) * 19
+      const basin = 8.6 + smoothstep(0.62, 1.0, d) * 24
       // Low frequencies only. High-frequency terrain in a game whose whole verb
       // is "put a field here" reads as static: every cell a level off its
       // neighbour, no plateau big enough to farm, and a horizon that fizzes.
-      const detail = (land(x * 0.028, z * 0.028) - 0.5) * 9.4 + (rough(x * 0.07, z * 0.07) - 0.5) * 1.7
+      const detail = (land(x * 0.016, z * 0.016) - 0.5) * 6.5 + (rough(x * 0.048, z * 0.048) - 0.5) * 1.2
       // The fault: a short, sharp step, not a slope. Everything on the far side
       // rides about two levels higher.
       const f = faultAt(x, z)
-      const step = smoothstep(-2.2, 2.2, f) * 2.6
+      const step = smoothstep(-2.2, 2.2, f) * 1.6
       raw[z * N + x] = basin + detail + step
     }
   }
@@ -74,7 +74,7 @@ export function generate(seed) {
   // reason: three passes of blur over a freshly cut channel fills it back in
   // and the map comes out with a damp streak instead of a river.
   const blur = new Float32Array(N * N)
-  for (let pass = 0; pass < 3; pass++) {
+  for (let pass = 0; pass < 2; pass++) {
     for (let z = 0; z < N; z++) {
       for (let x = 0; x < N; x++) {
         let sum = 0, n = 0
@@ -98,11 +98,11 @@ export function generate(seed) {
   for (let z = 0; z < N; z++) {
     rx += (land(z * 0.09, 4.5) - 0.5) * 2.2
     rx = clamp(rx, N * 0.58, N - 9)
-    const width = 2.1 + (z / N) * 4.4
+    const width = 2.8 + (z / N) * 5.2
     for (let x = Math.floor(rx - width - 2); x <= Math.ceil(rx + width + 2); x++) {
       if (x < 0 || x >= N) continue
       const t = 1 - clamp(Math.abs(x - rx) / (width + 2), 0, 1)
-      const cut = smoothstep(0, 1, t) * 9.5
+      const cut = smoothstep(0, 1, t) * 12
       const i = z * N + x
       raw[i] = Math.min(raw[i], Math.max(2.4, raw[i] - cut))
     }
@@ -120,8 +120,65 @@ export function generate(seed) {
     }
   }
 
+  /**
+   * TERRACING, and this is the step that decides whether the valley reads as
+   * landscape or as corduroy.
+   *
+   * Rounding a smooth height field to levels gives a smooth STAIRCASE: every
+   * cell one level off its neighbour, all the way down every slope. No amount of
+   * blurring or median filtering fixes that, because the median of a ramp is the
+   * ramp — which is exactly what the first three attempts here proved.
+   *
+   * So the field is terraced BEFORE it is quantised. Inside each band of `STEP`
+   * levels the value is pushed toward the band's floor or ceiling, so most of
+   * the band comes out flat and the whole transition happens over a couple of
+   * cells. The result is broad shelves separated by real walls, which is what the
+   * reference is and what you can actually plant a field on.
+   */
+  const STEP = 2
+  const HARD = 8 // exponent; at 3 the transition eats 60% of the band and nothing is flat
+  const terrace = (v) => {
+    const f = v / STEP
+    const k = Math.floor(f)
+    const t = f - k
+    // Eased hard from both ends: about four-fifths of each band comes out dead
+    // flat and the whole step happens across the middle fifth.
+    const shaped = t < 0.5 ? ((t * 2) ** HARD) / 2 : 1 - (((1 - t) * 2) ** HARD) / 2
+    return (k + shaped) * STEP
+  }
+  for (let i = 0; i < N * N; i++) raw[i] = terrace(raw[i])
+
   // Quantise. Nothing above this line knows about levels.
   for (let i = 0; i < N * N; i++) grid.height[i] = clamp(Math.round(raw[i]), 0, 40)
+
+  // Median filter, twice. This is what turns a staircase into LANDSCAPE: a 3x3
+  // median flattens the interior of a slope into a plateau while leaving a real
+  // edge exactly where it was, so the valley comes out as broad flat shelves
+  // separated by walls two and three levels tall — which is what the reference
+  // is, and what a farming game needs, because you cannot plant a field on a
+  // gradient of one-level steps.
+  const win = new Int8Array(9)
+  for (let pass = 0; pass < 1; pass++) {
+    const src = Int8Array.from(grid.height)
+    for (let z = 1; z < N - 1; z++) {
+      for (let x = 1; x < N - 1; x++) {
+        const i = z * N + x
+        if (src[i] < WATER_LEVEL) continue
+        let n = 0
+        for (let dz = -1; dz <= 1; dz++) for (let dx = -1; dx <= 1; dx++) win[n++] = src[i + dz * N + dx]
+        // Insertion sort of nine values; a full sort call here costs more than
+        // the filter it is serving.
+        for (let a = 1; a < 9; a++) {
+          const v = win[a]
+          let b = a - 1
+          while (b >= 0 && win[b] > v) { win[b + 1] = win[b]; b-- }
+          win[b + 1] = v
+        }
+        grid.height[i] = win[4]
+      }
+    }
+  }
+
 
   // Despeckle. A cell one level above every neighbour is a pimple and a cell one
   // level below every neighbour is a pit; both are quantiser artefacts rather
@@ -140,9 +197,20 @@ export function generate(seed) {
     }
   }
 
-  // Terrace pass: soften any step of three or more, because a valley made
-  // entirely of unclimbable walls is a maze. Seeded, so the same valley comes
-  // back the same way.
+  /**
+   * Ramps.
+   *
+   * Terracing produces walls two and three levels tall, and a body may only step
+   * UP one level — so without this the valley is a set of islands. Each pass
+   * takes a cell sitting on a tall edge and drops it to an intermediate height,
+   * and running it a few times carves scattered ramps down off every shelf.
+   *
+   * Scattered rather than regular on purpose: a ramp at every edge is a slope,
+   * and the whole point of terracing was to stop having one.
+   */
+  // Two passes at one-in-ten. Any more and the ramps eat the terraces they were
+  // supposed to be exceptions to — four passes at a third put the staircase
+  // straight back and undid the whole terracing step above.
   for (let pass = 0; pass < 2; pass++) {
     for (let z = 1; z < N - 1; z++) {
       for (let x = 1; x < N - 1; x++) {
@@ -150,10 +218,11 @@ export function generate(seed) {
         const h = grid.height[i]
         if (h < WATER_LEVEL) continue
         const lo = Math.min(grid.height[i - 1], grid.height[i + 1], grid.height[i - N], grid.height[i + N])
-        if (h - lo >= 3 && chance(r, 0.6)) grid.height[i] = h - 1
+        if (h - lo >= 2 && chance(r, 0.1)) grid.height[i] = h - 1
       }
     }
   }
+
 
   // ------------------------------------------------------------- surfaces --
   for (let z = 0; z < N; z++) {

@@ -69,9 +69,11 @@ function makeRenderer() {
   renderer.setSize(innerWidth, innerHeight)
   renderer.shadowMap.enabled = true
   renderer.shadowMap.type = THREE.PCFSoftShadowMap
-  renderer.toneMapping = THREE.ACESFilmicToneMapping
-  // The grade lives in the sky key-frames now, not here. Exposure stays at 1 so
-  // that table means what it says.
+  // NO tone mapping. ACES is built for photographic HDR: it rolls the highlights
+  // off and pulls the mid-tones down, which is precisely the range this world
+  // lives in. Under it the pastel palette came out as dusty stone. The grade
+  // lives in the sky key-frames; the renderer's job is to not argue with it.
+  renderer.toneMapping = THREE.NoToneMapping
   renderer.toneMappingExposure = 1.0
   renderer.outputColorSpace = THREE.SRGBColorSpace
   return renderer

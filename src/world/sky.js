@@ -165,11 +165,19 @@ export class Sky {
     this.starMat.opacity = s.starAlpha * 0.85
 
     this.key.color.setStyle(s.key, THREE.SRGBColorSpace)
-    this.key.intensity = s.keyEnergy
+    // Times PI, and this is not a fudge factor.
+    //
+    // Since r155 three.js uses physical light units: a Lambert surface divides
+    // incoming irradiance by PI, so an intensity of 1 lands as about 0.32 on the
+    // surface. The key-frame table was authored against Godot's numbers, where
+    // 1.0 means "fully lit". Without the conversion every value in that table is
+    // read at a third of its meaning and the whole world comes out muddy — which
+    // is exactly how a pastel palette turns into dusty stone.
+    this.key.intensity = s.keyEnergy * Math.PI
     // `ambient` is a COLOUR and `ambientEnergy` is the number. Assigning the
     // colour to `intensity` sets it to NaN, every light goes dark, and the frame
     // comes out solid black with no error anywhere.
-    this.hemi.intensity = s.ambientEnergy
+    this.hemi.intensity = s.ambientEnergy * Math.PI
     this.hemi.color.setStyle(s.ambient, THREE.SRGBColorSpace)
     this.hemi.groundColor.setStyle(s.fog, THREE.SRGBColorSpace)
 

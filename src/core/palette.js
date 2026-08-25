@@ -5,9 +5,14 @@
  *
  * EOF-001 is a planet whose colour grading was set by a machine that has
  * stopped maintaining it. Nothing is fully saturated and everything is pulled a
- * few degrees toward lavender. Meadow tops are pale cream, cliffs band into
- * rust, ash flats go lilac, the water is blue-violet, and the canopies are pink
- * and powder blue.
+ * long way toward lavender.
+ *
+ * Sampled off the reference footage rather than invented: meadow tops are a
+ * pale khaki-olive (#c8c0a8), every cliff face below the lip is lilac
+ * (#c8b8c8), the water is a genuinely saturated blue-violet (#7060b0) going
+ * pale at the shallows, and the canopies are lilac and blush pink on plum
+ * trunks. The daytime fill light is violet too, and bright — which is the other
+ * half of why the reference is pastel rather than dusty.
  *
  * This is deliberately NOT the brand palette. A farming game is a colour-sorting
  * game: the player reads a field by hue from forty units away, and pressing the
@@ -51,15 +56,20 @@ export const sunlit = (hex, k = 1) => hexOf(rgb(hex).map((v, i) => v / (1 + (SHA
 
 export const C = {
   // ---------------------------------------------------------------- water --
-  waterDeep: '#6f66a8', waterShallow: '#9c95cf', waterFoam: '#d9d4ee',
+  // Sampled off the reference: a genuinely saturated blue-violet in the deep,
+  // going pale lilac at the shallows. Not a desaturated slate — the water is the
+  // one place the world is allowed to be a colour.
+  waterDeep: '#6a58ac', waterShallow: '#a294c4', waterFoam: '#ddd6ee',
 
   // -------------------------------------------------------------- foliage --
-  trunk: '#7d5578', trunkDark: '#6a4566',
-  canopyA: '#d9cbe4', canopyB: '#e5c9d6', canopyC: '#cbd3e0', canopyDead: '#b9aeb8',
-  shrub: '#9fb083', shrubDeep: '#7c8a5e', grass: '#b4c08e', grassDry: '#cbbf95',
+  // Trunks are dark plum, near-aubergine. Against a lilac cliff a brown trunk
+  // reads as a mistake; the plum is what ties the trees into the ground.
+  trunk: '#5a3550', trunkDark: '#482940',
+  canopyA: '#cfc6e0', canopyB: '#e0c8d8', canopyC: '#c6c8e2', canopyDead: '#b3a8b8',
+  shrub: '#9aa878', shrubDeep: '#7c8a5e', grass: '#bdb694', grassDry: '#cfc7a8',
 
   // ---------------------------------------------------------------- props --
-  stoneProp: '#c3bccb', stonePropDark: '#a49dae',
+  stoneProp: '#c2bcc8', stonePropDark: '#a89eb2',
 
   // --------------------------------------------------------------- player --
   skin: '#e2b48f', hair: '#3a2b33',
@@ -78,16 +88,23 @@ export const C = {
  * Ground: four colours per material — the flat top, then three strata read
  * top-to-bottom down any exposed cliff. The thin accent and rust bands are the
  * whole reason the terraces read as sedimentary rather than as staircases.
+ *
+ * **The body is LILAC, not tan.** This is the single colour that decides whether
+ * the valley looks like the reference or not: the tops are khaki-olive, there is
+ * a sage hairline and then a rust hairline under the lip, and the whole face of
+ * every cliff below that is pale mauve. An earlier pass gave the bodies warm tan
+ * bodies and the world came out as a beige quarry with purple trees in it.
+ * Sampled off the reference footage: top #c8c0a8, body #c8b8c8.
  */
 export const GROUND = {
-  MEADOW: ['#ded3af', '#9fb083', '#b4553c', '#c9b995'],
-  ASH: ['#e9e4ef', '#cfc9dc', '#a08c9c', '#cdc6d4'],
-  LOAM: ['#c49a86', '#a87f6d', '#8e5e4c', '#b08a78'],
-  STONE: ['#cdc6d2', '#b3aabb', '#8f8595', '#a89fb0'],
-  SHORE: ['#e6dcc2', '#d4c8ae', '#b7a68e', '#cbbda2'],
-  TILLED: ['#8d6a55', '#7a5a48', '#6b4c3c', '#7f5f4c'],
-  WET: ['#6b4c3e', '#5d4034', '#4f352b', '#5e4238'],
-  SCAR: ['#d8cdd6', '#b9a7b4', '#8d6f7e', '#bfb1bb'],
+  MEADOW: ['#c6bfa4', '#9aa878', '#b4553c', '#c6b6c6'],
+  ASH: ['#e6e2ec', '#d2ccdc', '#a89ab0', '#d8cee0'],
+  LOAM: ['#bfa198', '#a88a84', '#8e5e4c', '#b3a0bc'],
+  STONE: ['#c2bcc8', '#aca6b6', '#8f8595', '#b6aac0'],
+  SHORE: ['#ddd4bc', '#cbc0a6', '#b7a68e', '#cdbfd0'],
+  TILLED: ['#8d6a55', '#7a5a48', '#6b4c3c', '#8a6f84'],
+  WET: ['#6b4c3e', '#5d4034', '#4f352b', '#6b5468'],
+  SCAR: ['#c9bcc8', '#b3a2b2', '#8d6f7e', '#bdaec2'],
 }
 export const GROUND_KEYS = Object.keys(GROUND)
 export const G = Object.fromEntries(GROUND_KEYS.map((k, i) => [k, i]))
@@ -139,14 +156,20 @@ export const M = {
  * by eye — the horizon goes apricot at 06:00 while the zenith is still blue,
  * noon is faintly lilac rather than white, and 19:36 has a rose band that lasts
  * about twenty minutes and is the best-looking part of the day.
+ *
+ * The daytime AMBIENT is violet and strong. That is the second half of why the
+ * reference looks the way it does: it is not just that the surfaces are lilac,
+ * it is that the fill light is too, and it is bright enough to keep the whole
+ * frame low-contrast and pastel. A warm-grey fill at half this energy turns the
+ * same surfaces into dusty stone.
  */
 const SKY = [
   { t: 0.0, top: '#1d2733', hor: '#2b3540', fog: '#2c3742', sun: '#5d6f8f', energy: 0.16, amb: '#46566e', ambE: 0.62 },
   { t: 4.4, top: '#243046', hor: '#3d4356', fog: '#3a3f52', sun: '#6a7396', energy: 0.22, amb: '#4d5a78', ambE: 0.64 },
   { t: 6.0, top: '#6d7ba0', hor: '#e0a583', fog: '#c8a496', sun: '#ffb887', energy: 0.72, amb: '#8c8298', ambE: 0.62 },
-  { t: 8.0, top: '#b9c2dc', hor: '#e8d9c4', fog: '#dcd0cc', sun: '#ffe6c8', energy: 1.02, amb: '#c9c0b4', ambE: 0.74 },
-  { t: 12.0, top: '#c7c6e2', hor: '#e9e2ea', fog: '#cfc6dc', sun: '#fff4e2', energy: 1.18, amb: '#ccc2b8', ambE: 0.8 },
-  { t: 16.0, top: '#c2c0dd', hor: '#ecdfd6', fog: '#d3c8d6', sun: '#ffeeda', energy: 1.1, amb: '#cabfb6', ambE: 0.78 },
+  { t: 8.0, top: '#b9c2dc', hor: '#e8d9c4', fog: '#d9d2e0', sun: '#ffe6c8', energy: 0.96, amb: '#bcb6d2', ambE: 0.9 },
+  { t: 12.0, top: '#c7c6e2', hor: '#e9e2ea', fog: '#d6cfe4', sun: '#fff4e2', energy: 1.06, amb: '#c4bcda', ambE: 0.98 },
+  { t: 16.0, top: '#c2c0dd', hor: '#ecdfd6', fog: '#d3cade', sun: '#ffeeda', energy: 1.0, amb: '#c2b8d4', ambE: 0.94 },
   { t: 18.2, top: '#8e88b4', hor: '#e9ab84', fog: '#c9a091', sun: '#ffb073', energy: 0.78, amb: '#9a8ba0', ambE: 0.64 },
   { t: 19.6, top: '#4d4a70', hor: '#a3708b', fog: '#7d6a86', sun: '#c98a8c', energy: 0.4, amb: '#6d6a8a', ambE: 0.62 },
   { t: 21.0, top: '#22303a', hor: '#33414a', fog: '#33404a', sun: '#66788f', energy: 0.18, amb: '#495a6e', ambE: 0.62 },

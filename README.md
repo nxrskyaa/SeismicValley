@@ -158,12 +158,18 @@ fragment runs longer.
 </div>
 
 **The world** is graded by a machine that has stopped maintaining it: nothing is
-fully saturated and everything is pulled a few degrees toward lavender. Meadow
-tops are pale cream, cliffs band into rust, ash flats go lilac, the water is
-blue-violet and the canopies are pink and powder blue. The day runs on a
-ten-key-frame table, placed by eye — the horizon goes apricot at 06:00 while the
-zenith is still blue, noon is faintly lilac, and 19:36 has a rose band that lasts
-about twenty minutes and is the best-looking part of the day.
+fully saturated and everything is pulled a long way toward lavender. Meadow tops
+are pale khaki-olive, there is a sage hairline and a rust hairline under every
+lip, and **every cliff face below that is lilac** — that one colour is most of
+what makes the valley look like itself. Water is a saturated blue-violet going
+pale at the shallows; canopies are lilac and blush pink on plum trunks. All of
+it sampled off the reference footage rather than invented.
+
+The day runs on a ten-key-frame table placed by eye — the horizon goes apricot at
+06:00 while the zenith is still blue, noon is faintly lilac, and 19:36 has a rose
+band that lasts about twenty minutes and is the best-looking part of the day. The
+daytime fill light is violet **and bright**, which is the other half of why the
+reference reads as pastel rather than as dusty stone.
 
 **The interface** is Seismic's: warm stone, cream, ink, and the rose mark. It
 covers the HUD, the panels, the title, and the two things in the world that
@@ -193,7 +199,7 @@ npm run dev
 |---|---|
 | `npm run dev` | the game, on `localhost:5173` |
 | `npm run build` | a static `dist/` |
-| `npm run check` | 78 assertions — the split palette, the camera, the premise, no network assets, the rig rule, the story rules, and a full headless day loop |
+| `npm run check` | 79 assertions — the split palette, the camera, the premise, no network assets, the rig rule, the story rules, and a full headless day loop |
 | `npm run lint` | eslint |
 | `npm run shoot` | headless captures of every pose into `shots/` |
 | `npm run mark` | regenerate `public/mark.svg` from `src/core/mark.js` |
@@ -250,11 +256,13 @@ stacking is the entire silhouette language of this world. The yaws are
 cell edges at 45° to the screen; the axis-aligned ones flatten every cliff into a
 horizontal band and the depth cue goes with it.
 
-**Terrain is quantised once, at the very end.** Heights are built as floats,
-blurred three times, and only then rounded to levels. Blurring integer levels
-only ever produces more integer levels. The river is carved *after* the blur, or
-three passes of smoothing fill the channel back in and the map comes out with a
-damp streak instead of a river.
+**Terraces are built into the height field, not found by filtering it.** Rounding
+a smooth field to levels gives a smooth *staircase* — every cell one level off
+its neighbour, all the way down every slope — and no amount of blurring or
+median-filtering fixes it, because the median of a ramp is the ramp. So the field
+is pushed into flat bands before it is quantised, and the interior gradient is
+kept gentle enough that a band is about ten cells wide. Measured, not eyeballed:
+mean plateau run went 3.1 → 9.3 cells across that change.
 
 **Winding matters.** Three.js treats counter-clockwise-from-the-front as the
 front face. Get a chunk's quads backwards and you do not see a culling bug, you
