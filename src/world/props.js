@@ -1,6 +1,6 @@
 import * as THREE from 'three'
 import { bake, bakedMat, chamferBox, COLUMN, FLAT, POINT, shardMat, stoneLump, TAPER } from '../core/kit.js'
-import { C, shade, sunlit, UI } from '../core/palette.js'
+import { C, shade, UI } from '../core/palette.js'
 import { shardGeometry } from '../core/mark.js'
 import { LEVEL, N, P } from './grid.js'
 
@@ -55,12 +55,14 @@ function cellRand(x, z, salt = 0) {
 
 /** Cube-cluster canopy plans, on a cell grid. Offsets are in canopy cubes. */
 const CANOPY_PLANS = [
-  // Compact plus, one cube of relief.
-  [[0, 0, 0], [1, 0, 0], [-1, 0, 0], [0, 0, 1], [0, 0, -1], [0, 1, 0]],
-  // Wide and ragged, the commonest in the footage.
-  [[0, 0, 0], [1, 0, 0], [2, 0, 0], [-1, 0, 0], [0, 0, 1], [1, 0, 1], [-1, 0, -1], [0, 0, -1], [1, 1, 0], [0, 1, 1]],
-  // Small and dense.
-  [[0, 0, 0], [1, 0, 0], [0, 0, 1], [1, 0, 1], [0, 1, 0]],
+  // A plus. One raised cube and no more — the canopies in the footage are a
+  // SLAB, essentially one layer thick, and stacking a second layer turns them
+  // into shrubs on stilts.
+  [[0, 0, 0], [1, 0, 0], [-1, 0, 0], [0, 0, 1], [0, 0, -1]],
+  // Wide and lopsided, the commonest in the footage.
+  [[0, 0, 0], [1, 0, 0], [-1, 0, 0], [0, 0, 1], [1, 0, 1], [-1, 0, -1], [0, 1, 0]],
+  // Small and square.
+  [[0, 0, 0], [1, 0, 0], [0, 0, 1], [1, 0, 1]],
 ]
 
 function treeGeometry(kind) {
@@ -73,9 +75,10 @@ function treeGeometry(kind) {
     { geometry: chamferBox(0.62, trunkH, 0.62, 0.05), position: [0, trunkH / 2, 0], color: kind === 1 ? C.trunkDark : C.trunk },
   ]
   for (const [dx, dy, dz] of plan) {
-    // Two tones inside one canopy, split by height, so the slab has a lit top
-    // and a shaded underside without needing a second light.
-    const col = dy > 0 ? sunlit(tone, 0.14) : tone
+    // ONE tone across the whole canopy. Splitting it by height made the raised
+    // cubes read as a separate white object sitting on the tree; the reference's
+    // canopies are a single flat colour and get all their form from the faces.
+    const col = tone
     parts.push({
       geometry: chamferBox(cube, cube, cube, 0.05),
       position: [dx * cube * 0.94, trunkH + cube * (0.2 + dy * 0.86), dz * cube * 0.94],

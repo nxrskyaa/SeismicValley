@@ -99,7 +99,7 @@ export const C = {
 export const GROUND = {
   // Sand meadow. The one material with the full four-band read: a pale sand top,
   // a dappled olive lip, a rust band under it, and pale grey-lilac rock below.
-  MEADOW: ['#cdcdb2', '#93a56f', '#c4756a', '#cbc8d0'],
+  MEADOW: ['#c2c3a8', '#8c9e68', '#bb6e63', '#c6c3cc'],
   // Snow. Near-white, and NO banding — the reference's snow plateaus are one
   // white top over one faintly cooler face, and adding strata to them is what
   // makes a snowfield look like striped rock.
@@ -107,7 +107,7 @@ export const GROUND = {
   // Clay. A darker version of its own top, no rust, no olive.
   LOAM: ['#bb9c92', '#ab8c82', '#9d7f76', '#94776e'],
   STONE: ['#c8c4cc', '#b8b3c2', '#a49eb0', '#b0aabe'],
-  SHORE: ['#dcd6bc', '#cbc4a6', '#bcb094', '#cbc7d2'],
+  SHORE: ['#d2ccb2', '#c2bb9e', '#b4a88c', '#c6c3cc'],
   TILLED: ['#8d6a55', '#7f5e4a', '#6f5140', '#6b4f42'],
   WET: ['#6b4c3e', '#604437', '#553c30', '#4e372c'],
   SCAR: ['#c9bcc8', '#b3a2b2', '#8d6f7e', '#bdaec2'],

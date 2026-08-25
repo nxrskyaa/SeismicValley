@@ -1,5 +1,5 @@
 import * as THREE from 'three'
-import { BALL, chamferBox, COLUMN, DISC, FLAT, POINT, stoneMat, TAPER } from '../core/kit.js'
+import { chamferBox, stoneMat } from '../core/kit.js'
 import { C, UI } from '../core/palette.js'
 import { clamp, damp } from '../core/rng.js'
 import { Grid, N } from '../world/grid.js'
@@ -36,33 +36,52 @@ const RADIUS = 0.3
  *
  * One entry, and that is the point. There is nobody else alive in the valley —
  * the survivors are scattered and do not know about each other — so a second
- * human look would be a lie about the setting. An earlier pass put three
- * villagers and a market square in here and it read as a different game.
+ * human look would be a lie about the setting.
  *
- * The teal jacket and the rust pack are the only saturated colours a person is
+ * The blue cap and the tan belt are the only saturated colours a person is
  * allowed to be against a washed-out world. They are how you find yourself in a
  * wide shot.
  */
 export const LOOKS = {
   apprentice: {
-    skin: C.skin, hair: C.hair,
-    coat: C.jacket, coatDark: C.jacketDark,
-    trouser: C.trousers, boot: C.boots,
-    pack: C.pack, hat: true,
+    cap: '#7ba8c4', capDark: '#3d6b74',
+    shirt: '#e8e0d0', sleeve: '#5f9ec4',
+    belt: '#d9a05a', skin: C.skin,
+    trouser: '#3a4468', boot: '#1c1e2a',
   },
 }
 
+/**
+ * The settler.
+ *
+ * **Everything is a box.** Not a tapered prism, not a hex plate, not a sphere —
+ * hard rectangular voxels, the way the reference draws them. And the
+ * proportions are a chibi's, not a person's: roughly three heads tall, with a
+ * head as wide as the shoulders and legs that are a third of the figure.
+ *
+ * An earlier pass built a 1.72-unit adult out of hex prisms with tapered limbs
+ * and a brimmed hat. It was a perfectly decent little farmer and it was the
+ * wrong one — at this camera height the player is a hundred pixels tall, and at
+ * that size proportion and silhouette are the ONLY things that read.
+ *
+ * Measured off the footage, as fractions of total height:
+ *
+ *   head   1.06 → 1.55  (0.62 wide — as wide as the shoulders)
+ *   torso  0.58 → 1.10  (cream front panel, blue sleeves either side)
+ *   legs   0.12 → 0.60  (navy)
+ *   boots  0.00 → 0.17
+ */
 export function buildPlayer(lookKey = 'apprentice') {
   const look = typeof lookKey === 'string' ? (LOOKS[lookKey] ?? LOOKS.apprentice) : lookKey
   const MAT = {
+    cap: stoneMat(look.cap),
+    capDark: stoneMat(look.capDark),
+    shirt: stoneMat(look.shirt),
+    sleeve: stoneMat(look.sleeve),
+    belt: stoneMat(look.belt),
     skin: stoneMat(look.skin),
-    hair: stoneMat(look.hair),
-    coat: stoneMat(look.coat),
-    coatDark: stoneMat(look.coatDark),
     trouser: stoneMat(look.trouser),
     boot: stoneMat(look.boot),
-    pack: stoneMat(look.pack),
-    strap: stoneMat(UI.stoneDark),
     eye: stoneMat(UI.ink),
   }
 
@@ -70,12 +89,10 @@ export function buildPlayer(lookKey = 'apprentice') {
   root.name = 'player'
   const parts = { root, materials: MAT }
 
-  const plate = (parent, geo, at, sc, mat) => {
-    const m = new THREE.Mesh(geo, mat)
+  /** One box. The only primitive this rig uses. */
+  const box = (parent, [w, h, d], at, mat, cut = 0.03) => {
+    const m = new THREE.Mesh(chamferBox(w, h, d, cut), mat)
     m.position.set(...at)
-    m.scale.set(...(typeof sc === 'number' ? [sc, sc, sc] : sc))
-    m.castShadow = true
-    m.receiveShadow = true
     parent.add(m)
     return m
   }
@@ -89,70 +106,75 @@ export function buildPlayer(lookKey = 'apprentice') {
 
   const body = pivot(root, [0, 0, 0], 'body')
 
-  // Hips, coat, shoulders. The coat flares below the belt — one extra plate,
-  // and it is the difference between a farmer and a mannequin in a shirt.
-  plate(body, POINT, [0, 0.86, 0], [0.34, 0.16, 0.24], MAT.trouser)
-  plate(body, POINT, [0, 1.02, 0], [0.42, 0.22, 0.28], MAT.coatDark)
-  const chest = pivot(body, [0, 1.02, 0], 'chest')
-  plate(chest, FLAT, [0, 0.16, 0], [0.44, 0.3, 0.28], MAT.coat)
-  plate(chest, FLAT, [0, 0.32, 0.005], [0.46, 0.08, 0.3], MAT.coatDark)
-  // The pack. Everything you are carrying is notionally in here.
-  plate(chest, chamferBox(0.34, 0.36, 0.2, 0.05), [0, 0.16, -0.2], 1, MAT.pack)
-  plate(chest, FLAT, [0, 0.2, 0.15], [0.1, 0.34, 0.06], MAT.strap)
-
-  const head = pivot(chest, [0, 0.4, 0], 'head')
-  plate(head, POINT, [0, 0.1, 0], [0.25, 0.22, 0.24], MAT.skin)
-  // Brimmed hat, because the sun in Ember is the reason anybody wears one.
-  if (look.hat) plate(head, FLAT, [0, 0.2, -0.01], [0.44, 0.04, 0.42], MAT.hair)
-  plate(head, POINT, [0, look.hat ? 0.26 : 0.22, -0.01], [0.26, look.hat ? 0.11 : 0.16, 0.25], MAT.hair)
-  for (const side of [-1, 1]) {
-    plate(head, DISC, [side * 0.062, 0.1, 0.122], [0.036, 0.05, 0.02], MAT.eye)
-  }
-
+  // --- legs ----------------------------------------------------------------
   for (const side of [-1, 1]) {
     const L = side < 0 ? 'L' : 'R'
-    const arm = pivot(chest, [side * 0.24, 0.28, 0], `arm${L}`)
-    plate(arm, TAPER, [0, -0.16, 0], [0.11, 0.33, 0.11], MAT.coat)
-    const fore = pivot(arm, [0, -0.31, 0], `fore${L}`)
-    plate(fore, TAPER, [0, -0.14, 0], [0.1, 0.3, 0.1], MAT.coatDark)
-    plate(fore, BALL, [0, -0.31, 0], [0.13, 0.13, 0.13], MAT.skin)
-    const hold = pivot(fore, [0, -0.34, 0.04], `hold${L}`)
+    const thigh = pivot(body, [side * 0.13, 0.6, 0], `thigh${L}`)
+    box(thigh, [0.2, 0.44, 0.22], [0, -0.22, 0], MAT.trouser)
+    const shin = pivot(thigh, [0, -0.44, 0], `shin${L}`)
+    const foot = pivot(shin, [0, -0.02, 0], `foot${L}`)
+    box(foot, [0.23, 0.15, 0.32], [0, -0.06, 0.04], MAT.boot)
+  }
+
+  // --- torso ---------------------------------------------------------------
+  const chest = pivot(body, [0, 0.58, 0], 'chest')
+  box(chest, [0.5, 0.5, 0.34], [0, 0.25, 0.02], MAT.shirt)
+  for (const side of [-1, 1]) {
+    box(chest, [0.12, 0.5, 0.36], [side * 0.21, 0.25, 0], MAT.sleeve)
+  }
+  // The satchel strap. One band, and it is the only warm colour on the figure.
+  box(chest, [0.52, 0.11, 0.37], [0, 0.13, 0.01], MAT.belt)
+
+  // --- head ----------------------------------------------------------------
+  // Big, and wider than it is tall. The cap IS the head; there is no separate
+  // skull under it at this size.
+  const head = pivot(chest, [0, 0.52, 0], 'head')
+  box(head, [0.62, 0.42, 0.52], [0, 0.21, 0], MAT.cap, 0.04)
+  // The hood roll at the back of the crown — the one piece of asymmetry, and
+  // what tells you which way the figure is facing from directly above.
+  box(head, [0.32, 0.16, 0.24], [0, 0.44, -0.14], MAT.capDark)
+  box(head, [0.44, 0.2, 0.05], [0, 0.13, 0.26], MAT.skin)
+  for (const side of [-1, 1]) {
+    box(head, [0.07, 0.07, 0.03], [side * 0.1, 0.16, 0.29], MAT.eye, 0.01)
+  }
+
+  // --- arms ----------------------------------------------------------------
+  for (const side of [-1, 1]) {
+    const L = side < 0 ? 'L' : 'R'
+    const arm = pivot(chest, [side * 0.31, 0.44, 0], `arm${L}`)
+    box(arm, [0.15, 0.28, 0.18], [0, -0.14, 0], MAT.sleeve)
+    const fore = pivot(arm, [0, -0.28, 0], `fore${L}`)
+    box(fore, [0.14, 0.2, 0.17], [0, -0.1, 0], MAT.sleeve)
+    box(fore, [0.15, 0.1, 0.17], [0, -0.24, 0], MAT.skin)
+    const hold = pivot(fore, [0, -0.28, 0.06], `hold${L}`)
     hold.rotation.x = -0.4
-  }
-
-  for (const side of [-1, 1]) {
-    const L = side < 0 ? 'L' : 'R'
-    const thigh = pivot(body, [side * 0.12, 0.86, 0], `thigh${L}`)
-    plate(thigh, COLUMN, [0, -0.2, 0], [0.16, 0.42, 0.17], MAT.trouser)
-    const shin = pivot(thigh, [0, -0.42, 0], `shin${L}`)
-    plate(shin, COLUMN, [0, -0.2, 0], [0.14, 0.4, 0.15], MAT.trouser)
-    const foot = pivot(shin, [0, -0.42, 0], `foot${L}`)
-    plate(foot, chamferBox(0.17, 0.12, 0.3, 0.04), [0, 0.06, 0.06], 1, MAT.boot)
   }
 
   const A = { t: 0, speed: 0, swing: 0, use: 0, useKind: 'swing', carry: null }
   parts.anim = A
-  parts.height = 1.72
+  parts.height = 1.55
 
   parts.update = (dt) => {
     A.t += dt
     const s = A.speed
     const gait = A.t * (7.2 + s * 2.4)
 
-    parts.thighL.rotation.x = Math.sin(gait) * 0.72 * s
-    parts.thighR.rotation.x = -Math.sin(gait) * 0.72 * s
-    parts.shinL.rotation.x = Math.max(0, -Math.sin(gait - 0.6)) * 0.95 * s
-    parts.shinR.rotation.x = Math.max(0, Math.sin(gait - 0.6)) * 0.95 * s
-    parts.footL.rotation.x = -parts.thighL.rotation.x * 0.35
-    parts.footR.rotation.x = -parts.thighR.rotation.x * 0.35
+    // Stubby legs swing less than long ones or the figure looks like it is
+    // running on the spot.
+    parts.thighL.rotation.x = Math.sin(gait) * 0.5 * s
+    parts.thighR.rotation.x = -Math.sin(gait) * 0.5 * s
+    parts.footL.rotation.x = -parts.thighL.rotation.x * 0.3
+    parts.footR.rotation.x = -parts.thighR.rotation.x * 0.3
     // The bob runs at DOUBLE the stride, because it peaks once per foot. At
     // stride frequency it reads as a limp.
-    parts.body.position.y = Math.abs(Math.sin(gait)) * 0.055 * s
-    parts.chest.rotation.y = Math.sin(gait) * 0.1 * s
-    parts.body.rotation.x = s * 0.07
+    parts.body.position.y = Math.abs(Math.sin(gait)) * 0.045 * s
+    parts.chest.rotation.y = Math.sin(gait) * 0.08 * s
+    // The head counter-rotates a little, so the cap stays level while the body
+    // turns under it. It is two lines and it is most of the life in the walk.
+    parts.head.rotation.y = -parts.chest.rotation.y * 0.6
+    parts.head.rotation.z = Math.sin(gait) * 0.03 * s
+    parts.body.rotation.x = s * 0.05
 
-    // Tool use overrides the arms entirely, and decays on its own clock so the
-    // swing finishes even if the player let go of the key mid-stroke.
     A.use = Math.max(0, A.use - dt * 2.6)
     const u = A.use
     if (u > 0) {
@@ -162,17 +184,17 @@ export function buildPlayer(lookKey = 'apprentice') {
         ? -1.3 - Math.sin(Math.min(1, u) * Math.PI) * 0.3
         : -2.4 + Math.cos(u * Math.PI * 1.3) * 2.6
       parts.armR.rotation.x = curve
-      parts.armL.rotation.x = curve * 0.45
-      parts.foreR.rotation.x = A.useKind === 'pour' ? -0.5 : -0.8 + u * 0.6
-      parts.chest.rotation.x = A.useKind === 'pour' ? 0.05 : 0.24 * (1 - u)
+      parts.armL.rotation.x = curve * 0.4
+      parts.foreR.rotation.x = A.useKind === 'pour' ? -0.5 : -0.7 + u * 0.5
+      parts.chest.rotation.x = A.useKind === 'pour' ? 0.05 : 0.2 * (1 - u)
     } else {
-      const swing = Math.sin(gait) * 0.8 * s
+      const swing = Math.sin(gait) * 0.55 * s
       parts.armL.rotation.x = swing
       parts.armR.rotation.x = -swing
-      parts.armL.rotation.z = 0.08
-      parts.armR.rotation.z = -0.08
-      parts.foreL.rotation.x = -0.16 - Math.max(0, swing) * 0.4
-      parts.foreR.rotation.x = -0.16 - Math.max(0, -swing) * 0.4
+      parts.armL.rotation.z = 0.06
+      parts.armR.rotation.z = -0.06
+      parts.foreL.rotation.x = -0.1
+      parts.foreR.rotation.x = -0.1
       parts.chest.rotation.x = 0
     }
   }
@@ -233,12 +255,22 @@ export class PlayerController {
     const [cx, cz] = this.cell
     const standingH = g.h(cx, cz)
 
-    // Camera-relative movement. The camera only ever sits at one of four yaws,
-    // so this is a rotation and never a source of drift.
+    /**
+     * Camera-relative movement.
+     *
+     * The rig sits at `focus + (sin yaw, *, cos yaw) * d` and looks back at the
+     * focus, so the direction INTO the screen is `(-sin yaw, -cos yaw)`. W sends
+     * `move.z = -1`, and it has to come out as exactly that vector.
+     *
+     * The rotation below is the one that does it. The obvious form —
+     * `x*cos - z*sin, x*sin + z*cos` — rotates the wrong way for this camera and
+     * sends W off at ninety degrees to where the player is looking; at the
+     * default 45-degree yaw that reads as the controls being reversed.
+     */
     const cos = Math.cos(camYaw)
     const sin = Math.sin(camYaw)
-    const mx = input.move.x * cos - input.move.z * sin
-    const mz = input.move.x * sin + input.move.z * cos
+    const mx = input.move.x * cos + input.move.z * sin
+    const mz = -input.move.x * sin + input.move.z * cos
     const mag = Math.hypot(mx, mz)
 
     const speed = (input.run ? RUN : WALK) * (this.rig.anim.use > 0.15 ? 0.35 : 1)

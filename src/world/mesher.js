@@ -44,13 +44,19 @@ function linear(hex) {
   return v
 }
 
-/** Per-cell value jitter, so a flat field of one material still has grain.
- *  Deterministic in x/z: a chunk rebuilt after a tremor must come back looking
- *  identical everywhere the tremor did not touch. */
+/**
+ * Per-cell value jitter — deliberately almost nothing.
+ *
+ * A wide range here looks like "texture" in a close-up and like a CHECKERBOARD
+ * across a plateau, because every cell gets an independent value and the eye
+ * assembles them into a grid. The reference's ground is flat, single-toned, and
+ * carries its detail in scattered props instead. A range of a few percent is
+ * enough to stop large flats banding and small enough that no pattern forms.
+ */
 function grain(x, z) {
   let h = (Math.imul(x, 0x27d4eb2d) ^ Math.imul(z, 0x165667b1)) >>> 0
   h = Math.imul(h ^ (h >>> 15), h | 1)
-  return 0.94 + (((h ^ (h >>> 14)) >>> 0) / 4294967296) * 0.12
+  return 0.985 + (((h ^ (h >>> 14)) >>> 0) / 4294967296) * 0.03
 }
 
 /**

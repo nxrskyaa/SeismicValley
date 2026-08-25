@@ -238,8 +238,8 @@ export function generate(seed) {
       if (h < WATER_LEVEL) g = G.SHORE
       else if (h === WATER_LEVEL || (h === WATER_LEVEL + 1 && grid.nearWater(x, z))) g = G.SHORE
       else if (slope >= 2) g = G.ROCK
-      else if (m > 0.62 && h < 12) g = G.LOAM
-      else if (patch(x * 0.15, z * 0.15) > 0.82) g = G.ASH
+      else if (m > 0.8 && h < 12) g = G.LOAM
+      else if (patch(x * 0.13, z * 0.13) > 0.88) g = G.ASH
       else g = G.MEADOW
       grid.ground[i] = g
       // The fault itself is scarred ground: a one-cell band of burnt rock that
@@ -260,7 +260,7 @@ export function generate(seed) {
       if (near(HOME, 11) || near(GATE, 8)) continue
 
       const density = forest(x * 0.07, z * 0.07)
-      if ((g === G.MEADOW || g === G.LOAM) && density > 0.58 && chance(r, (density - 0.58) * 1.5)) {
+      if ((g === G.MEADOW || g === G.LOAM) && density > 0.5 && chance(r, 0.055 + (density - 0.5) * 0.28)) {
         grid.prop[i] = P.TREE
         grid.propData[i] = randInt(r, 0, SPECIES - 1)
       } else if (g === G.ROCK && chance(r, 0.09)) {
