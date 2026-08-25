@@ -43,7 +43,14 @@ const FRAG = /* glsl */ `
 
   void main() {
     // The bed texture stores height in levels / 40, so one texel is one cell.
-    float bed = texture2D(uBed, vUv).r * 40.0 * ${LEVEL.toFixed(3)};
+    //
+    // Sampled from WORLD position, not from vUv. A PlaneGeometry rotated flat
+    // puts uv.y = 1 at z = 0, while the DataTexture holds row 0 at v = 0 -- so
+    // the plane's own uv reads the bed MIRRORED in Z, which draws the lake on
+    // the wrong side of the map and leaves the real basin dry. World over N is
+    // the same number the grid is indexed by, and cannot drift.
+    vec2 bedUv = vec2(vWorld.x, vWorld.z) / ${N.toFixed(1)};
+    float bed = texture2D(uBed, bedUv).r * 40.0 * ${LEVEL.toFixed(3)};
     float depth = uSurface - bed;
     if (depth <= 0.02) discard;
 
@@ -64,10 +71,19 @@ const FRAG = /* glsl */ `
 
     col *= uLight;
 
-    float alpha = mix(0.55, 0.93, clamp(depth / 1.1, 0.0, 1.0));
+    // Deep water tops out well short of opaque ON PURPOSE. The school swims
+    // under this plane, and at 0.93 the fish were mathematically present and
+    // visually absent -- which is the same as not having built them.
+    float alpha = mix(0.5, 0.78, clamp(depth / 1.1, 0.0, 1.0));
     float fog = smoothstep(uFogNear, uFogFar, length(vWorld - cameraPosition));
     col = mix(col, uFogColor, fog);
     gl_FragColor = vec4(col, alpha);
+
+    // The uniforms are LINEAR (setStyle with SRGBColorSpace converts on the way
+    // in), so writing them straight out on an sRGB target renders the lake as
+    // tar. Three injects linearToOutputTexel into every ShaderMaterial prefix;
+    // this is the one line that uses it.
+    #include <colorspace_fragment>
   }
 `
 

@@ -77,6 +77,11 @@ export const C = {
   trousers: '#2a3352', boots: '#1e2436',
   pack: '#d2603a', packStrap: '#8f4028',
 
+  // ----------------------------------------------------------------- fish --
+  // Read through translucent violet water, so they are authored a step warmer
+  // than they should be — under the plane they come out the right colour.
+  fishA: '#aab6dc', fishB: '#c99b76', fishC: '#8fc4c8', fishBelly: '#efe8d6',
+
   // -------------------------------------------------------------- the dog --
   dogCoat: '#c9a68e', dogDark: '#a5836c', dogCollar: '#c05a3c',
 

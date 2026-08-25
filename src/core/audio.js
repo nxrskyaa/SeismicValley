@@ -166,6 +166,46 @@ export class Audio {
     setTimeout(() => this._tone({ freq: 92, to: 74, dur: 0.34, gain: 0.09, type: 'square' }), 520)
   }
 
+  // ---------------------------------------------------------------- water --
+  // Six sounds for one loop. Fishing is almost entirely audio: the float is
+  // eight pixels across at this camera height, so the ear is what actually
+  // tells you a fish is on.
+
+  /** The cast. A whip of line, then nothing. */
+  cast() {
+    this._burst({ dur: 0.22, gain: 0.1, type: 'bandpass', freq: 2600, sweep: 1.9, q: 1.1 })
+  }
+
+  /** The float landing. Short, wet, low. */
+  splash(size = 1) {
+    this._burst({ dur: 0.2 + size * 0.14, gain: 0.13 * size, type: 'lowpass', freq: 900 * size, sweep: 0.4, q: 0.8 })
+    this._tone({ freq: 340 * size, to: 180 * size, dur: 0.14, gain: 0.07, type: 'sine' })
+  }
+
+  /** A nibble. Deliberately almost inaudible — it is a warning, and a warning
+   *  you cannot miss is not a warning, it is a prompt. */
+  nibble() { this._tone({ freq: 1150, to: 980, dur: 0.05, gain: 0.05, type: 'sine' }) }
+
+  /** The bite. The one sound in the game you are meant to react to, so it is
+   *  the only one with a rising interval in it. */
+  bite() {
+    this._tone({ freq: 520, to: 780, dur: 0.12, gain: 0.15, type: 'triangle' })
+    this.splash(0.7)
+  }
+
+  /** Reeling. A ratchet — a burst train, not a tone. */
+  reel() {
+    for (let i = 0; i < 7; i++) {
+      setTimeout(() => this._burst({ dur: 0.04, gain: 0.07, freq: 1800 + i * 90, q: 2.4 }), i * 62)
+    }
+  }
+
+  /** Landed. The fish clears the water and the pack takes it. */
+  landed() {
+    this.splash(1.2)
+    setTimeout(() => this._tone({ freq: 660, to: 990, dur: 0.18, gain: 0.13 }), 120)
+  }
+
   /** Rocky's voice: a stone note, not a word. Pitched by how big he is. */
   golem(pitch = 1) {
     this._tone({ freq: 150 * pitch, to: 110 * pitch, dur: 0.22, gain: 0.14, type: 'triangle' })

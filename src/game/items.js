@@ -16,7 +16,7 @@ export const GLYPH = {
   LOG: 'log', ROCK: 'rock', FIBRE: 'fibre', DROP: 'drop', SHARD: 'shard',
   POUCH: 'pouch', LEAF: 'leaf', BERRY: 'berry', ROOT: 'root', GRAIN: 'grain',
   BULB: 'bulb', CAP: 'cap', MELON: 'melon', SPROUT: 'sprout', GEODE: 'geode',
-  BLOCK: 'block', COIN: 'coin', TAG: 'tag', CHIP: 'chip',
+  BLOCK: 'block', COIN: 'coin', TAG: 'tag', CHIP: 'chip', ROD: 'rod', FISH: 'fish',
 }
 
 export const ITEMS = {}
@@ -36,6 +36,20 @@ def('pick', 'Pick', KIND.TOOL, GLYPH.PICK, UI.stone, 1, 0,
   'Breaks stone, and opens a geode without spoiling what is inside it.')
 def('scythe', 'Scythe', KIND.TOOL, GLYPH.SCYTHE, UI.creamDeep, 1, 0,
   'Clears growth without disturbing the soil under it.')
+def('rod', 'Fishing Rod', KIND.TOOL, GLYPH.ROD, '#8a6a44', 1, 0,
+  'Survey issue. Face open water and cast; strike when the float goes under.')
+
+// ------------------------------------------------------------------- fish --
+def('silverfin', 'Silverfin', KIND.CROP, GLYPH.FISH, '#8a94b4', 999, 22,
+  'Shallow-water fish. Tastes of the lake it came out of, which is not a compliment.')
+def('ashcarp', 'Ashcarp', KIND.CROP, GLYPH.FISH, '#a88a72', 999, 30,
+  'Bottom feeder. It has been eating the valley for forty days and it shows.')
+def('glasseye', 'Glass-eye', KIND.CROP, GLYPH.FISH, '#7ea0a4', 999, 58,
+  'Comes up after dark. The eye is the part people keep.')
+def('loomfish', 'Loomfish', KIND.RELIC, GLYPH.FISH, UI.rose, 999, 180,
+  'Scales in a lattice pattern, and warm on one side. It was not in the archive.')
+def('riverboot', 'Sodden Boot', KIND.RESOURCE, GLYPH.LOG, '#5a4a44', 99, 1,
+  'Somebody walked into this lake once and came out lighter.')
 
 // -------------------------------------------------------------- resources --
 def('wood', 'Wood', KIND.RESOURCE, GLYPH.LOG, C.trunk, 999, 4,
@@ -97,4 +111,4 @@ export const isTool = (id) => item(id).kind === KIND.TOOL
 
 /** The starting kit. Deliberately small: the first hour is meant to be about
  *  what the valley gives you, not about what you arrived with. */
-export const STARTING_HOTBAR = ['hoe', 'can', 'axe', 'pick', 'seed_grubwort', 'seed_palewheat', null, null]
+export const STARTING_HOTBAR = ['hoe', 'can', 'axe', 'pick', 'rod', 'seed_grubwort', 'seed_palewheat', null]

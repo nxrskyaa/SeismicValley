@@ -108,17 +108,33 @@ export function generate(seed) {
     }
   }
 
-  // The southern lake the river runs into. Flat-bottomed on purpose: a lake with
-  // a noisy floor reads as a puddle field once the water plane is drawn over it.
-  for (let z = 0; z < N; z++) {
-    for (let x = 0; x < N; x++) {
-      const d = Math.hypot(x - N * 0.76, z - N * 0.84) / 19
-      if (d < 1) {
+  /**
+   * THE TWO BODIES OF WATER.
+   *
+   * Flat-bottomed on purpose: a lake with a noisy floor reads as a puddle field
+   * once the water plane is drawn over it.
+   *
+   *   The southern lake is the big one — the river falls into it, it is deep
+   *   enough in the middle to hold the rare fish, and it is a destination.
+   *   The home pond is a short walk east of the homestead. It exists because a
+   *   fishing rod in the starting pack and the only water forty cells away is a
+   *   mechanic the player finds out about on day nine.
+   *
+   * `bowl` cuts one: flat floor out to `flat`, then a shelved rim. The rim
+   * matters — a cylinder cut into the terrain gives a swimming pool.
+   */
+  const bowl = (cx, cz, radius, floor, flat = 0.5) => {
+    for (let z = 0; z < N; z++) {
+      for (let x = 0; x < N; x++) {
+        const d = Math.hypot(x - cx, z - cz) / radius
+        if (d >= 1) continue
         const i = z * N + x
-        raw[i] = Math.min(raw[i], 3.1 + smoothstep(0.55, 1, d) * 5)
+        raw[i] = Math.min(raw[i], floor + smoothstep(flat, 1, d) * 5)
       }
     }
   }
+  bowl(N * 0.76, N * 0.84, 19, 3.1, 0.55)
+  bowl(HOME.x + 13, HOME.z + 2, 8.5, 3.6, 0.42)
 
   /**
    * TERRACING, and this is the step that decides whether the valley reads as

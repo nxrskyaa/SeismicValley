@@ -200,6 +200,27 @@ const DRAW = {
     fill(ctx, leaf(1), t)
     fill(ctx, leaf(-1), d)
   },
+  [GLYPH.ROD]: (ctx, t, d) => {
+    fill(ctx, poly([[16, 84], [26, 88], [80, 18], [74, 12]]), t)
+    fill(ctx, poly([[14, 78], [30, 84], [26, 94], [10, 88]]), d)
+    ink(ctx, 3)
+    ctx.strokeStyle = C.ink
+    ctx.beginPath()
+    ctx.moveTo(78, 16)
+    ctx.quadraticCurveTo(88, 46, 70, 68)
+    ctx.stroke()
+    fill(ctx, round(70, 70, 7), '#d94f4f')
+  },
+  [GLYPH.FISH]: (ctx, t, d) => {
+    const body = new Path2D()
+    body.moveTo(22, 50)
+    body.quadraticCurveTo(46, 20, 74, 44)
+    body.quadraticCurveTo(46, 80, 22, 50)
+    fill(ctx, body, t)
+    fill(ctx, poly([[74, 44], [92, 28], [92, 66]]), d)
+    fill(ctx, round(38, 45, 5), '#ffffff')
+    fill(ctx, round(38, 45, 2.4), C.ink, false)
+  },
   [GLYPH.TAG]: (ctx, t, d) => {
     // A fired-clay marker: a rounded rectangle with a hole punched at the top
     // and three scratched lines. Marit's handwriting was famously unreadable.

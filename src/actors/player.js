@@ -150,7 +150,7 @@ export function buildPlayer(lookKey = 'apprentice') {
     hold.rotation.x = -0.4
   }
 
-  const A = { t: 0, speed: 0, swing: 0, use: 0, useKind: 'swing', carry: null }
+  const A = { t: 0, speed: 0, swing: 0, use: 0, useKind: 'swing', carry: null, rod: false }
   parts.anim = A
   parts.height = 1.55
 
@@ -196,6 +196,17 @@ export function buildPlayer(lookKey = 'apprentice') {
       parts.foreL.rotation.x = -0.1
       parts.foreR.rotation.x = -0.1
       parts.chest.rotation.x = 0
+      if (A.rod) {
+        // Holding a rod is not holding a hoe. The right arm comes up and across
+        // so the pole clears the shoulder, and the left comes in to steady it —
+        // without the second hand the figure reads as carrying a stick.
+        parts.armR.rotation.x = -0.62 - swing * 0.2
+        parts.armR.rotation.z = -0.2
+        parts.foreR.rotation.x = -0.34
+        parts.armL.rotation.x = -0.34 + swing * 0.2
+        parts.armL.rotation.z = 0.3
+        parts.foreL.rotation.x = -0.5
+      }
     }
   }
 

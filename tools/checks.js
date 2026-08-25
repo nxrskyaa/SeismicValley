@@ -222,6 +222,40 @@ console.log('\nstory delivery')
   assert(LOGS.every((l, i) => i === 0 || l.id > LOGS[i - 1].id), 'logs are authored in order so shuffling them is the game\'s choice')
 }
 
+// ------------------------------------------------------------ 6b. the water --
+
+console.log('\nwater')
+{
+  const { generate, HOME } = await import('../src/world/worldgen.js')
+  const { N, WATER_LEVEL } = await import('../src/world/grid.js')
+  const { CATCH } = await import('../src/game/fishing.js')
+  const { STARTING_HOTBAR, ITEMS } = await import('../src/game/items.js')
+
+  // The rod has to be IN THE PACK. A fishing system the player has to buy a rod
+  // to find out about is a fishing system most players never see.
+  assert(STARTING_HOTBAR.includes('rod'), 'the rod is in the starting hotbar')
+  const orphan = CATCH.map((c) => c.id).filter((id) => !ITEMS[id])
+  assert(orphan.length === 0, 'everything in the catch table is a real item', orphan.join(', '))
+
+  const { grid } = generate(4242)
+  // Two pools, and one of them within a short walk of the homestead — the whole
+  // point of carving the second one.
+  let nearHome = 0
+  for (let z = HOME.z - 12; z < HOME.z + 14; z++) {
+    for (let x = HOME.x; x < HOME.x + 26; x++) if (grid.height[z * N + x] < WATER_LEVEL) nearHome++
+  }
+  assert(nearHome > 60, 'there is fishable water within sight of the homestead', `${nearHome} cells`)
+
+  // The bed texture is a DataTexture indexed by grid position, and a flat
+  // PlaneGeometry's own uv runs the other way in Z. Sampling by uv drew the lake
+  // mirrored across the map and left the real basin dry; this is that bug.
+  const water = readFileSync(path.join(SRC, 'world/water.js'), 'utf8')
+  assert(/texture2D\(uBed,\s*bedUv\)/.test(water) && /vWorld\.x,\s*vWorld\.z/.test(water),
+    'the water samples its bed from world position, not from the plane uv')
+  assert(water.includes('<colorspace_fragment>'),
+    'the water converts to the output colour space — linear straight out renders as tar')
+}
+
 // --------------------------------------------------------- 7. the game loop --
 
 console.log('\ngameplay')

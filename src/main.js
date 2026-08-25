@@ -10,6 +10,7 @@ import { Terrain } from './world/terrain.js'
 import { Props } from './world/props.js'
 import { CropView } from './world/cropView.js'
 import { Water } from './world/water.js'
+import { Water_Life } from './world/fish.js'
 import { Sky } from './world/sky.js'
 import { CameraRig } from './world/camera.js'
 import { flagpole, placeStructure } from './world/buildings.js'
@@ -17,6 +18,7 @@ import { PlayerController, buildPlayer } from './actors/player.js'
 import { Cast } from './actors/cast.js'
 import { GameState } from './game/state.js'
 import { PruningSystem } from './game/pruning.js'
+import { Fishing } from './game/fishing.js'
 import { SEASON_NAMES, stageFor } from './game/crops.js'
 import { KIND, item } from './game/items.js'
 import { HUD } from './ui/hud.js'
@@ -66,6 +68,8 @@ const POSES = {
   sheet: { at: [HOME.x, 1.0, HOME.z], size: 3.6, hour: 12 },
   rig: { at: [HOME.x, 1.0, HOME.z], size: 5, hour: 12 },
   pebble: { at: [HOME.x + 2, -0.86, HOME.z + 2], size: 1.4, hour: 12, pebble: true },
+  pond: { at: [HOME.x + 13, -1.1, HOME.z + 2], size: 20, hour: 11 },
+  lake: { at: [N * 0.76, -1.1, N * 0.84], size: 26, hour: 12.5 },
   dawn: { at: [HOME.x, 0, HOME.z], size: 26, hour: 6.2 },
   dusk: { at: [HOME.x, 0, HOME.z], size: 26, hour: 19.4 },
   night: { at: [HOME.x, 0, HOME.z], size: 26, hour: 22.5 },
@@ -150,8 +154,9 @@ function boot() {
   app.props = new Props(grid)
   app.crops = new CropView(grid)
   app.water = new Water(grid)
+  app.life = new Water_Life(grid)
   app.sky = new Sky(app.scene)
-  app.scene.add(app.terrain.group, app.props.group, app.crops.group, app.water.mesh)
+  app.scene.add(app.terrain.group, app.props.group, app.crops.group, app.water.mesh, app.life.group)
 
   app.state = new GameState(grid, seed)
   seedStructures(app.state, grid)
@@ -169,6 +174,11 @@ function boot() {
   app.scene.add(app.player.root)
   const [sx, sz] = grid.nearestStandable(HOME.x, HOME.z + 3)
   app.control = new PlayerController(grid, app.player, sx + 0.5, sz + 0.5)
+
+  // Fishing owns a rod that lives in the player's hand, so it is built after
+  // the rig and before anything asks it for a hint.
+  app.fishing = new Fishing(app.state, grid, app.player, app.life, audio)
+  app.scene.add(app.fishing.group)
 
   app.cast = new Cast(app.scene, grid, app.state, [sx + 0.5, sz + 0.5])
   app.props.rebuild()
@@ -229,6 +239,7 @@ function runCapture(shot) {
     const sky = app.sky.update(shot.hour, focus)
     app.sky.follow(app.camera)
     app.water.update(dt, sky)
+    app.life.update(dt, sky)
     animateStructures(dt, sky)
     app.renderer.render(app.scene, app.camera)
     if (++frames > 20 && !app.grid.dirty.size) window.__shotReady = true
@@ -320,6 +331,8 @@ function runGame() {
     }
 
     app.cast.update(dt, control.pos, state.hour)
+    app.player.anim.rod = state.held === 'rod'
+    app.fishing.update(dt, control.pos, control.facing, state.hour)
     app.pruning.update(dt)
     app.flag.update(dt)
 
@@ -335,6 +348,7 @@ function runGame() {
     const sky = app.sky.update(state.hour, focus)
     app.sky.follow(app.camera)
     app.water.update(dt, sky)
+    app.life.update(dt, sky)
     animateStructures(dt, sky)
 
     if (started) app.hud.tick(state.hour)
@@ -405,6 +419,12 @@ function handleInteraction(talking) {
   else if (heldItem?.kind === KIND.SEED && grid.get('tilled', tx, tz) && !crop) prompt = `<b>F</b> — sow ${item(held.replace('seed_', '')).name}`
   else if (held === 'can' && grid.get('tilled', tx, tz)) prompt = '<b>F</b> — water'
   else if (prop === P.NONE && !grid.isWater(tx, tz)) prompt = '<b>B</b> — raise a cairn here'
+  // A line in the water owns the hint line outright — nothing else the player
+  // could be standing next to matters while a fish is deciding.
+  if (held === 'rod') {
+    prompt = app.fishing.hint()
+      ?? (app.fishing.aim(control.pos, control.facing) ? '<b>F</b> — cast' : 'face open water to cast')
+  }
   hud.setHint(prompt)
 
   // --- E: interact ---------------------------------------------------------
@@ -446,6 +466,19 @@ function handleInteraction(talking) {
       audio.water()
       return talking
     }
+  }
+
+  // --- F: the rod takes the key outright ------------------------------------
+  // One key for cast, strike and reel-in. A fishing minigame with its own
+  // control scheme is a fishing minigame nobody finishes.
+  if (held === 'rod') {
+    if (input.pressed('use')) {
+      const r = app.fishing.press(control.pos, control.facing, state.hour)
+      if (r === 'cast') app.player.play('swing')
+      else if (r === 'strike') app.player.play('swing')
+      else if (!r || r === 'nowater') audio.deny()
+    }
+    return talking
   }
 
   // --- F: use the tool -----------------------------------------------------
