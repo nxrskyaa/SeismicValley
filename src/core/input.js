@@ -12,6 +12,21 @@
  * "the hotbar works but only when the build panel is closed".
  */
 
+/**
+ * The actions a captured input still delivers.
+ *
+ * `captured` is set while a panel is up, and it drops every action so that
+ * walking, swinging and the hotbar all belong to the panel. That is right for
+ * all of them except the keys that OPEN and CLOSE panels — which is how the
+ * homestead card ended up advertising "ESC — CLOSE" while Escape did nothing at
+ * all, and Tab, a toggle, could only ever toggle one way. The only way out was
+ * clicking the scrim, which nothing tells you about.
+ *
+ * A driven playtest found it: thirty seconds of scripted keys, and the panel was
+ * still on screen at the end.
+ */
+const ALWAYS = new Set(['cancel', 'homestead', 'journal', 'build', 'map', 'save'])
+
 const KEY_ACTIONS = {
   KeyF: 'use', KeyE: 'interact', KeyQ: 'rotL', KeyR: 'rotR',
   Tab: 'homestead', KeyJ: 'journal', KeyB: 'build', KeyM: 'map',
@@ -42,7 +57,7 @@ export class Input {
       if (down) {
         this.keys.add(e.code)
         const a = KEY_ACTIONS[e.code]
-        if (a && !this.captured) {
+        if (a && (!this.captured || ALWAYS.has(a))) {
           this.held.add(a)
           this.edges.add(a)
         }

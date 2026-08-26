@@ -28,7 +28,7 @@ const OUT = path.join(ROOT, 'shots')
 const W = 1440
 const H = 900
 
-const ALL = ['valley', 'home', 'gate', 'rocky', 'sheet', 'rig', 'pond', 'lake', 'dawn', 'dusk', 'night', 'pruning', 'pebble', 'play', 'menu', 'hud', 'audio', 'prologue']
+const ALL = ['valley', 'home', 'gate', 'rocky', 'sheet', 'rig', 'pond', 'lake', 'dawn', 'dusk', 'night', 'pruning', 'pebble', 'play', 'menu', 'hud', 'audio', 'prologue', 'drive']
 
 /**
  * Poses that are INTERFACE rather than camera.
@@ -46,6 +46,17 @@ const DOM_POSES = {
   // already fails on a console error.
   audio: { query: '?nomenu=1&audiotest=1', wait: '.hotbar', settle: 4000 },
   prologue: { query: '?nomenu=1&prologue=1', wait: '.prologue-lines', settle: 1600 },
+  /**
+   * Not a picture either — the only test that touches the real input path.
+   *
+   * The soak in `tools/soak.mjs` drives the game logic with a fake input object,
+   * which means it proves nothing about keyboard handling, the camera rig, the
+   * meshers, the HUD, the panels, or anything that only exists in a browser. This
+   * pose opens every panel, walks, runs, jumps, turns the camera, cycles the
+   * whole hotbar and swings at things for half a minute, and fails on the first
+   * console error — which is where a rendering or interface bug actually lands.
+   */
+  drive: { query: '?nomenu=1', wait: '.hotbar', settle: 400, drive: true },
 }
 
 const argv = process.argv.slice(2)
@@ -94,6 +105,81 @@ async function waitForPort(port, ms) {
   return false
 }
 
+/**
+ * Half a minute of somebody actually playing.
+ *
+ * Deliberately clumsy: keys held in overlapping combinations, panels opened and
+ * closed mid-stride, tools swapped in the middle of a swing. A player does all
+ * of that and a scripted happy path does none of it.
+ */
+async function drivePage(page) {
+  const hold = async (keys, ms) => {
+    for (const k of keys) await page.keyboard.down(k)
+    await new Promise((r) => setTimeout(r, ms))
+    for (const k of keys) await page.keyboard.up(k)
+  }
+  const tap = async (k, n = 1) => {
+    for (let i = 0; i < n; i++) {
+      await page.keyboard.press(k)
+      await new Promise((r) => setTimeout(r, 90))
+    }
+  }
+
+  // Walk out, run, turn the camera under the feet, jump off whatever is there.
+  await hold(['KeyW'], 900)
+  await hold(['KeyW', 'ShiftLeft'], 900)
+  await tap('KeyQ')
+  await hold(['KeyA', 'KeyW'], 700)
+  await tap('KeyR', 2)
+  await hold(['KeyS', 'KeyD'], 700)
+  await hold(['Space'], 120)
+  await hold(['KeyD', 'ShiftLeft'], 900)
+
+  // Every tool in the bar, swung at whatever is in front.
+  for (let i = 1; i <= 8; i++) {
+    await tap(`Digit${i}`)
+    await tap('KeyF', 2)
+    await tap('KeyE')
+  }
+
+  /**
+   * Every panel, opened and shut with the key the panel itself advertises.
+   *
+   * Panels capture input, and a captured input used to drop EVERY action —
+   * including the one that closes the panel. The homestead card said "ESC —
+   * CLOSE" and Escape did nothing; the only way out was clicking a scrim nothing
+   * mentions. This loop is what found it, so this loop asserts it.
+   */
+  for (const k of ['Tab', 'KeyB', 'KeyJ']) {
+    await tap(k)
+    await new Promise((r) => setTimeout(r, 300))
+    const opened = await page.evaluate(() => !!window.__app?.panels?.isOpen)
+    if (!opened) throw new Error(`${k} did not open a panel`)
+    await tap('Escape')
+    await new Promise((r) => setTimeout(r, 260))
+    const shut = await page.evaluate(() => !window.__app?.panels?.isOpen)
+    if (!shut) throw new Error(`Escape did not close the panel ${k} opened`)
+  }
+
+  // And walk again afterwards, which is what catches an input capture that was
+  // never released: the panel is gone, and the player still cannot move.
+  const before = await page.evaluate(() => {
+    const c = window.__app.control
+    return { x: c.pos.x, z: c.pos.z }
+  })
+  await hold(['KeyW'], 800)
+  const after = await page.evaluate(() => {
+    const c = window.__app.control
+    return { x: c.pos.x, z: c.pos.z, swimming: !!c.swimming, stuck: !!c.stuck }
+  })
+  if (!Number.isFinite(after.x) || !Number.isFinite(after.z)) throw new Error('player position is not finite after driving')
+  if (Math.hypot(after.x - before.x, after.z - before.z) < 0.5) {
+    throw new Error('the player could not move after the panels were closed — input capture was never released')
+  }
+  if (after.stuck) throw new Error('the player ended the run inside something they cannot leave')
+  await new Promise((r) => setTimeout(r, 400))
+}
+
 async function main() {
   await mkdir(OUT, { recursive: true })
 
@@ -131,7 +217,7 @@ async function main() {
     await page.setViewport({ width, height, deviceScaleFactor: 1 })
     const errors = []
     page.on('console', (m) => m.type() === 'error' && errors.push(m.text()))
-    page.on('pageerror', (e) => errors.push(String(e)))
+    page.on('pageerror', (e) => errors.push(e && e.stack ? e.stack.split(String.fromCharCode(10)).slice(0, 6).join(' | ') : String(e)))
 
     const dom = DOM_POSES[pose]
     await page.goto(`http://${HOST}:${PORT}/${dom ? dom.query : `?shot=${pose}`}`, { waitUntil: 'load', timeout: 40000 })
@@ -146,6 +232,7 @@ async function main() {
       } else {
         await page.waitForFunction('window.__shotReady === true', { timeout: 30000 })
       }
+      if (dom?.drive) await drivePage(page)
       ok = true
     } catch {
       /* fall through to the error dump below */

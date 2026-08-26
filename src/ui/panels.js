@@ -1,5 +1,5 @@
 import { markSvg } from '../core/mark.js'
-import { cropForSeed, SEASON_NAMES, seasonalSeeds } from '../game/crops.js'
+import { cropForSeed, SEASON_DAYS, SEASON_NAMES, seasonalSeeds } from '../game/crops.js'
 import { KIND, item, valueOf } from '../game/items.js'
 import { BUILD_COST, HOME_COST, STAKE_COST } from '../game/state.js'
 import { iconFor } from './icons.js'
@@ -296,11 +296,20 @@ export class Panels {
 
   render_journal(body) {
     const s = this.state
-    body.append(el('p', 'lede', `Year ${s.year}. ${s.tremorsSurvived} tremors behind you. ${s.cairns.length} cairns standing.`))
+    /**
+     * This line used to read `s.tremorsSurvived` and `s.cairns.length`. Neither
+     * has existed since the tremor mechanic was cut and cairns became ordinary
+     * buildings — so opening the journal threw, every time, for as long as the
+     * panel has been in the game. Nothing caught it because Escape could not
+     * close a panel, so no test ever got as far as pressing J.
+     */
+    const cairns = s.buildings.filter((b) => b.kind === 'cairn').length
+    const passes = s.pruningsSeen === 1 ? 'One pass' : `${s.pruningsSeen} passes`
+    body.append(el('p', 'lede', `Year ${s.year}. ${passes} behind you. ${cairns} ${cairns === 1 ? 'cairn' : 'cairns'} standing.`))
     if (!s.journal.length) body.append(el('p', 'muted', 'Nothing written down yet.'))
     const list = el('ul', 'journal-list')
     for (const entry of s.journal) {
-      list.append(el('li', null, `<time>${SEASON_NAMES[entry.season]} ${((entry.day - 1) % 14) + 1}</time><span>${entry.line}</span>`))
+      list.append(el('li', null, `<time>${SEASON_NAMES[entry.season]} ${((entry.day - 1) % SEASON_DAYS) + 1}</time><span>${entry.line}</span>`))
     }
     body.append(list)
   }

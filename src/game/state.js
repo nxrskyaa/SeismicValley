@@ -74,6 +74,10 @@ export class GameState {
      */
     this.stats = { tilled: 0, sown: 0, watered: 0, harvested: 0, chopped: 0, mined: 0, caught: 0, slept: 0, walked: 0 }
 
+    /** The cell the body is standing on, pushed in by the game each frame so
+     *  nothing can be built on top of the player. Null until the game runs. */
+    this.playerCell = null
+
     /** id -> count. Tools live here too, at count 1. */
     this.bag = new Map()
     this.hotbar = [...STARTING_HOTBAR]

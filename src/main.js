@@ -138,6 +138,10 @@ function seedStructures(state, grid) {
 }
 
 function boot() {
+  // The capture harness reads this to drive the real game and to assert on its
+  // state afterwards. Nothing in the game itself touches it.
+  window.__app = app
+
   const seedText = params.get('seed') || 'seismic-valley'
   const seed = hashSeed(seedText)
   const { grid } = generate(seed)
