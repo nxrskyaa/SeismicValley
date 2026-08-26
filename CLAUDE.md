@@ -43,10 +43,36 @@ the same thing. Sample it, do not remember it:
 ffmpeg -ss 20 -i <mp4> -frames:v 1 frame.png
 ```
 
-What it shows: sand tops over pale grey-lilac walls with a dappled olive lip and
-a rust band under it; thin plum trunks under flat cube-cluster canopies; tiny
-pale pebble specks, not grass tufts; deep blue-violet water; a bright violet
-fill; flat per-face shading with no cast shadows at all.
+What it shows: sand tops over pale grey-lilac walls with a sage lip and a rust
+band under it; thin plum trunks under flat cube-cluster canopies; tiny pale
+pebble specks, not grass tufts; deep blue-violet water; flat per-face shading
+with no cast shadows at all.
+
+**Sample it numerically, do not judge it by eye.** Quantised, the footage's open
+ground sits at `#c8c0a9` — R:G:B of 1 : 0.96 : 0.85. That is much less yellow
+than it looks, because most of the warmth in the frame is the sun and not the
+field. Reading the sage as the ground colour is how the meadow once ended up
+dark olive; reading the sun's warmth as the ground colour is how it once ended
+up orange sand. `Image.quantize` on a reference frame and on a capture, then
+compare the two ratios, settles it in one step.
+
+## The other reference is Velion itself
+
+`D:\major plan\Velion` is the Godot build, and the user judges against it. Three
+things were ported back out of it after a long drift:
+
+- **`Palette.gd`'s ground table**, verbatim — four colours per material: top,
+  sage accent, rust band, body.
+- **The per-face tints** in `VoxelMesh.gd`: top 1.0, across X 0.93, across Z
+  0.855. The ASYMMETRY between the two wall directions is the point — at a
+  45-degree camera you see both at once, and with one shared tint they merge and
+  the terraces stop reading as steps.
+- **`SUN_SCALE` 0.72 and `AMBIENT_SCALE` 0.56.** The ratio between them is the
+  modelling of the whole world. This project had drifted to a fill almost as
+  strong as the key, which flattens every terrace face onto the value of the top
+  above it. The palette looked like the problem and it was not; the ratio was.
+- **Wrapped Lambert at 0.42** (`applyWrappedLight` in `core/kit.js`), so a face
+  turned away from the sun is still a face rather than one dark mass.
 
 ## The systems added after the rebuild
 

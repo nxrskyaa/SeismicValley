@@ -377,7 +377,7 @@ export function generate(seed) {
       if (near(HOME, 11) || near(GATE, 8)) continue
 
       const density = forest(x * 0.07, z * 0.07)
-      if ((g === G.MEADOW || g === G.LOAM) && density > 0.42 && chance(r, 0.26 + (density - 0.42) * 0.5)) {
+      if ((g === G.MEADOW || g === G.LOAM) && density > 0.46 && chance(r, 0.26 + (density - 0.46) * 0.5)) {
         grid.prop[i] = P.TREE
         grid.propData[i] = randInt(r, 0, SPECIES - 1)
       } else if (g === G.STONE && chance(r, 0.09)) {
@@ -387,13 +387,11 @@ export function generate(seed) {
         // Geodes seed along the fault. They are the reason to walk it.
         grid.prop[i] = P.GEODE
         grid.propData[i] = randInt(r, 0, 3)
-      } else if ((g === G.MEADOW || g === G.ASH) && chance(r, 0.14)) {
-        // Denser than it was. Thinning the forest to blue noise opened the
-        // ground up, and what filled it was nothing: large flats of one green
-        // with a tree every four cells. The scatter is tiny — a stone or two and
-        // a couple of blades — so twice as much of it is texture rather than
-        // clutter, and it is the layer the reference actually carries its
-        // ground detail in.
+      } else if ((g === G.MEADOW || g === G.ASH) && chance(r, 0.085)) {
+        // Back down again. This was doubled while the ground was dark olive and
+        // the specks barely showed; against the pale sand the footage actually
+        // has, the same density reads as litter. The reference's ground is
+        // mostly EMPTY, with a stone or a blade every few cells.
         grid.prop[i] = P.GRASS
         grid.propData[i] = randInt(r, 0, 3)
       }
@@ -420,7 +418,9 @@ export function generate(seed) {
    * diagonal lattice. The result is blue noise — even spacing, no lattice, and
    * no two canopies touching.
    */
-  const GAP = 4
+  // Five, not four. The canopies are three cells across and the reference keeps
+  // real sky between them; at four they were still touching at this canopy size.
+  const GAP = 5
   const candidates = []
   for (let i = 0; i < N * N; i++) if (grid.prop[i] === P.TREE) candidates.push(i)
   shuffle(r, candidates)

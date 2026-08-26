@@ -1,6 +1,7 @@
 import * as THREE from 'three'
 import { CHUNK, Grid, LEVEL, N } from './grid.js'
 import { G, GROUND, GROUND_KEYS } from '../core/palette.js'
+import { applyWrappedLight } from '../core/kit.js'
 
 /**
  * Chunk meshing.
@@ -28,6 +29,15 @@ import { G, GROUND, GROUND_KEYS } from '../core/palette.js'
 // A level is 1.0 units, so these two together take about a third of a riser and
 // the body takes the rest — which is what the reference shows: a dappled green
 // lip, a band of rust under it, then pale rock all the way down.
+/**
+ * Per-face tints, baked into the vertex colour on top of the real lighting.
+ *
+ * Velion's numbers. Nothing here is textured, so this small extra separation is
+ * what keeps a cube reading as a cube when the sun is low and the haze is thick.
+ */
+const FACE_X = 0.93
+const FACE_Z = 0.855
+
 const ACCENT = 0.14
 const RUST = 0.18
 
@@ -137,7 +147,22 @@ export function meshChunk(grid, cx, cz) {
           const thick = band === 1 ? ACCENT : band === 2 ? RUST : cursor - yBot
           const next = Math.max(yBot, cursor - thick)
           const c = linear(bands[band])
-          const shadeK = g * (band === 3 ? 1 : 1.04)
+          /**
+           * A BAKED TINT PER FACE DIRECTION, ported from Velion.
+           *
+           * The two wall orientations get DIFFERENT constants — 0.93 across X
+           * and 0.855 across Z — and that asymmetry is the whole point. At a
+           * forty-five degree camera you see both sets of risers at once, and
+           * with one shared tint they merge into a single grey band and the
+           * terraces stop reading as steps. Eight per cent apart is enough to
+           * separate a face that turns away from you from one that turns
+           * toward you, at every hour, before any lighting is involved.
+           *
+           * Baked rather than lit, because the sun moves and this distinction
+           * must not: it is what tells you which way the ground is going.
+           */
+          const facing = dx !== 0 ? FACE_X : FACE_Z
+          const shadeK = g * facing * (band === 3 ? 1 : 1.04)
           const colour = [c[0] * shadeK, c[1] * shadeK, c[2] * shadeK]
           emit(dx, dz, next, cursor, colour)
           cursor = next
@@ -170,5 +195,7 @@ export function meshChunk(grid, cx, cz) {
  * draw call per chunk and not one per material.
  */
 export function groundMaterial() {
-  return new THREE.MeshLambertMaterial({ vertexColors: true, dithering: true })
+  // Wrapped, or every riser facing away from the sun crushes into one dark mass
+  // and the terracing this whole file exists to produce stops being visible.
+  return applyWrappedLight(new THREE.MeshLambertMaterial({ vertexColors: true, dithering: true }))
 }

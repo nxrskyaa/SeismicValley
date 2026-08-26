@@ -59,17 +59,20 @@ export const C = {
   // Sampled off the reference: a genuinely saturated blue-violet in the deep,
   // going pale lilac at the shallows. Not a desaturated slate — the water is the
   // one place the world is allowed to be a colour.
-  waterDeep: '#4a3d84', waterShallow: '#7a6d9e', waterFoam: '#b8b0d0',
+  waterDeep: '#6f66a8', waterShallow: '#9c95cf', waterFoam: '#d9d4ee',
 
   // -------------------------------------------------------------- foliage --
   // Trunks are dark plum, near-aubergine. Against a lilac cliff a brown trunk
   // reads as a mistake; the plum is what ties the trees into the ground.
-  trunk: '#4a2c42', trunkDark: '#3a2034',
-  canopyA: '#a8a4c4', canopyB: '#bcaec6', canopyC: '#a0a4c4', canopyDead: '#948a9c',
-  shrub: '#68703a', shrubDeep: '#525a2c', grass: '#767e4a', grassDry: '#928c68',
+  trunk: '#7d5578', trunkDark: '#6a4566',
+  // Sampled off the footage at #b194a6 and #c0a9ae under daylight: the wood is
+  // pink, with lilac in it rather than the other way round. Velion's third tone
+  // was a blue-grey and it was the one that read as the odd tree out.
+  canopyA: '#e0c6d8', canopyB: '#e8cbd6', canopyC: '#d3c4dd', canopyDead: '#bdb0b6',
+  shrub: '#8f9c62', shrubDeep: '#71804a', grass: '#9fb083', grassDry: '#c2b98f',
 
   // ---------------------------------------------------------------- props --
-  stoneProp: '#9c9888', stonePropDark: '#868276',
+  stoneProp: '#c3bccb', stonePropDark: '#a49dae',
 
   // --------------------------------------------------------------- player --
   skin: '#e2b48f', hair: '#3a2b33',
@@ -101,21 +104,44 @@ export const C = {
  * bodies and the world came out as a beige quarry with purple trees in it.
  * Sampled off the reference footage: top #c8c0a8, body #c8b8c8.
  */
+/**
+ * THE GROUND, back to Velion's table.
+ *
+ * Each material is four colours: the flat top, then three strata read
+ * top-to-bottom on any exposed cliff. The thin sage accent and the rust band
+ * under it are what give the terraces their sedimentary look, and they are most
+ * of what makes a step read as a step.
+ *
+ * These are Velion's Godot values verbatim, and they replace a much darker set
+ * this project had drifted into. Sampling the reference footage again settles
+ * it: the ground is PALE SAND, with a sage-green lip and a rust line under it —
+ * the sage is the accent band on the cliff edge, not the colour of the field.
+ * Reading that band as the ground colour is how the meadow ended up dark olive,
+ * and with a dark top the sage lip had nothing to contrast against, so the whole
+ * sedimentary read was lost and the valley went heavy.
+ */
 export const GROUND = {
-  // Sand meadow. The one material with the full four-band read: a pale sand top,
-  // a dappled olive lip, a rust band under it, and pale grey-lilac rock below.
-  MEADOW: ['#6d7240', '#525733', '#a86657', '#8f81a6'],
-  // Snow. Near-white, and NO banding — the reference's snow plateaus are one
-  // white top over one faintly cooler face, and adding strata to them is what
-  // makes a snowfield look like striped rock.
-  ASH: ['#c8c4d6', '#bcb6cc', '#aaa2c0', '#b0a8c4'],
-  // Clay. A darker version of its own top, no rust, no olive.
-  LOAM: ['#9a8078', '#8c746c', '#7e6660', '#78635c'],
-  STONE: ['#a29ab4', '#948aa8', '#847a98', '#8c82a2'],
-  SHORE: ['#c2b0a6', '#b09a90', '#9c8072', '#8f81a6'],
-  TILLED: ['#8d6a55', '#7f5e4a', '#6f5140', '#6b4f42'],
-  WET: ['#6b4c3e', '#604437', '#553c30', '#4e372c'],
-  SCAR: ['#9e8f9e', '#8a788c', '#735a66', '#8a7c94'],
+  // Sand meadow, and the one material with the full four-band read: pale sand
+  // top, sage lip, rust band, warm pale body.
+  // Quantising the reference footage puts its lit ground at #c8c0a9 to #c4bb9e —
+  // greyer and a shade greener than Velion's raw sand, which reads a touch too
+  // yellow next to it. Divided back out of the daylight, that is about this.
+  // Solved rather than eyeballed. Quantised, the footage's open ground sits at
+  // #c8c0a9 — R:G:B of 1 : 0.96 : 0.85. Dividing the daylight back out of that
+  // gives a ground that is far LESS yellow than it looks: the warmth in the
+  // frame is the sun, not the field. Authored at 1 : 0.98 : 0.90.
+  MEADOW: ['#d3d0be', '#9fb083', '#b4553c', '#c6c1ab'],
+  // Snow. Near-white, and almost no banding — the reference's snow plateaus are
+  // one white top over one faintly cooler face, and adding strata to them is
+  // what makes a snowfield look like striped rock.
+  ASH: ['#e9e4ef', '#cfc9dc', '#a08c9c', '#cdc6d4'],
+  // Clay. A darker version of its own top, no sage, no rust.
+  LOAM: ['#c49a86', '#a87f6d', '#8e5e4c', '#b08a78'],
+  STONE: ['#cdc6d2', '#b3aabb', '#8f8595', '#a89fb0'],
+  SHORE: ['#e6dcc2', '#d4c8ae', '#b7a68e', '#cbbda2'],
+  TILLED: ['#8d6a55', '#7a5a48', '#6b4c3c', '#7f5f4c'],
+  WET: ['#6b4c3e', '#5d4034', '#4f352b', '#5e4238'],
+  SCAR: ['#d8cdd6', '#b9a7b4', '#8d6f7e', '#bfb1bb'],
 }
 export const GROUND_KEYS = Object.keys(GROUND)
 export const G = Object.fromEntries(GROUND_KEYS.map((k, i) => [k, i]))
@@ -171,24 +197,40 @@ export const M = {
  * noon is faintly lilac rather than white, and 19:36 has a rose band that lasts
  * about twenty minutes and is the best-looking part of the day.
  *
- * The daytime AMBIENT is violet and strong. That is the second half of why the
- * reference looks the way it does: it is not just that the surfaces are lilac,
- * it is that the fill light is too, and it is bright enough to keep the whole
- * frame low-contrast and pastel. A warm-grey fill at half this energy turns the
- * same surfaces into dusty stone.
+ * ## The two scales, and why the fill is not strong
+ *
+ * `energy` and `ambE` are Velion's raw numbers; `SUN_SCALE` and `AMBIENT_SCALE`
+ * are what turn them into daylight, and the RATIO between them is the whole
+ * modelling of the world. At 0.72 and 0.56 a surface square-on to the sun lands
+ * near its authored colour and a surface turned away lands near half of it.
+ *
+ * This project had drifted to a fill almost as strong as the key, which flattens
+ * every terrace face into the same value as the top it sits under — pale sand
+ * over pale sand — and the terracing stops being visible at all. The palette was
+ * the obvious suspect and it was not the problem; the ratio was.
  */
 const SKY = [
   { t: 0.0, top: '#1d2733', hor: '#2b3540', fog: '#2c3742', sun: '#5d6f8f', energy: 0.16, amb: '#46566e', ambE: 0.62 },
   { t: 4.4, top: '#243046', hor: '#3d4356', fog: '#3a3f52', sun: '#6a7396', energy: 0.22, amb: '#4d5a78', ambE: 0.64 },
-  { t: 6.0, top: '#6d7ba0', hor: '#e0a583', fog: '#c8a496', sun: '#ffb887', energy: 0.82, amb: '#9a90a8', ambE: 0.76 },
-  { t: 8.0, top: '#b9c2dc', hor: '#e8d9c4', fog: '#d9d2e0', sun: '#ffe6c8', energy: 0.96, amb: '#bcb6d2', ambE: 0.9 },
-  { t: 12.0, top: '#c7c6e2', hor: '#e9e2ea', fog: '#d6cfe4', sun: '#fff4e2', energy: 1.06, amb: '#c4bcda', ambE: 0.98 },
-  { t: 16.0, top: '#c2c0dd', hor: '#ecdfd6', fog: '#d3cade', sun: '#ffeeda', energy: 1.0, amb: '#c2b8d4', ambE: 0.94 },
+  { t: 6.0, top: '#6d7ba0', hor: '#e0a583', fog: '#c8a496', sun: '#ffb887', energy: 0.72, amb: '#8c8298', ambE: 0.62 },
+  { t: 8.0, top: '#b9c2dc', hor: '#e8d9c4', fog: '#dcd0cc', sun: '#ffeed9', energy: 1.02, amb: '#c9c0b4', ambE: 0.74 },
+  { t: 12.0, top: '#c7c6e2', hor: '#e9e2ea', fog: '#cfc6dc', sun: '#fff8ec', energy: 1.18, amb: '#ccc2b8', ambE: 0.80 },
+  { t: 16.0, top: '#c2c0dd', hor: '#ecdfd6', fog: '#d3c8d6', sun: '#fff2e4', energy: 1.10, amb: '#cabfb6', ambE: 0.78 },
   { t: 18.2, top: '#8e88b4', hor: '#e9ab84', fog: '#c9a091', sun: '#ffb073', energy: 0.78, amb: '#9a8ba0', ambE: 0.64 },
-  { t: 19.6, top: '#4d4a70', hor: '#a3708b', fog: '#7d6a86', sun: '#c98a8c', energy: 0.4, amb: '#6d6a8a', ambE: 0.62 },
+  { t: 19.6, top: '#4d4a70', hor: '#a3708b', fog: '#7d6a86', sun: '#c98a8c', energy: 0.40, amb: '#6d6a8a', ambE: 0.62 },
   { t: 21.0, top: '#22303a', hor: '#33414a', fog: '#33404a', sun: '#66788f', energy: 0.18, amb: '#495a6e', ambE: 0.62 },
   { t: 24.0, top: '#1d2733', hor: '#2b3540', fog: '#2c3742', sun: '#5d6f8f', energy: 0.16, amb: '#46566e', ambE: 0.62 },
 ]
+
+/**
+ * Daylight units. A surface square-on to the sun displays at roughly
+ * `SUN_SCALE * energy + AMBIENT_SCALE * ambE` times its authored colour, so at
+ * midday those two sum to about 1.3 and the world sits a little above its own
+ * hex values in full sun. Velion's numbers, and the ratio is the load-bearing
+ * part — see the note above the table.
+ */
+export const SUN_SCALE = 0.72
+export const AMBIENT_SCALE = 0.56
 
 const smoothstep01 = (k) => k * k * (3 - 2 * k)
 

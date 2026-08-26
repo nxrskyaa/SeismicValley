@@ -1,5 +1,5 @@
 import * as THREE from 'three'
-import { bake, bakedMat, chamferBox } from '../core/kit.js'
+import { bake, bakedMat, chamferBox, patchShader } from '../core/kit.js'
 import { SEASON_NAMES } from '../game/crops.js'
 import { rng } from '../core/rng.js'
 
@@ -44,11 +44,10 @@ import { rng } from '../core/rng.js'
  */
 export const WIND = { value: new THREE.Vector4(0.7, 0.7, 0, 0.5) }
 
-/** Patch a material to sway with the field. Idempotent. */
+/** Patch a material to sway with the field. Idempotent, and composes with the
+ *  wrapped light — `onBeforeCompile` is one slot and two systems want it. */
 export function applyWindSway(material, amount = 1) {
-  if (material.userData.windPatched) return material
-  material.userData.windPatched = true
-  material.onBeforeCompile = (shader) => {
+  return patchShader(material, 'wind', (shader) => {
     shader.uniforms.uWind = WIND
     shader.uniforms.uSway = { value: amount }
     shader.vertexShader = shader.vertexShader
@@ -74,9 +73,7 @@ export function applyWindSway(material, amount = 1) {
           transformed.x += ws * wamp * uWind.x;
           transformed.z += ws * wamp * uWind.y;
         }`)
-  }
-  material.needsUpdate = true
-  return material
+  })
 }
 
 /**

@@ -1,5 +1,5 @@
 import * as THREE from 'three'
-import { bake, bakedMat, chamferBox, COLUMN, FLARE, FLAT, glowMat, POINT, ROD, shardMat, stoneLump, TAPER, wedge } from '../core/kit.js'
+import { applyWrappedLight, bake, bakedMat, chamferBox, COLUMN, FLARE, FLAT, glowMat, POINT, ROD, shardMat, stoneLump, TAPER, wedge } from '../core/kit.js'
 import { markFlatGeometry, markTexture, shardGeometry } from '../core/mark.js'
 import { C, mix, shade, UI } from '../core/palette.js'
 import { LEVEL } from './grid.js'
@@ -335,7 +335,7 @@ export function flagpole() {
     { geometry: chamferBox(0.6, 0.24, 0.6, 0.06), position: [0, 0.12, 0], color: UI.stoneDark },
     { geometry: POINT, position: [0, 5.34, 0], scale: [0.26, 0.34, 0.26], color: UI.stonePale },
   ])
-  const mastMesh = new THREE.Mesh(mast, bakedMat())
+  const mastMesh = new THREE.Mesh(mast, applyWrappedLight(bakedMat()))
   mastMesh.castShadow = true
   group.add(mastMesh)
 
@@ -393,7 +393,7 @@ export function placeStructure(kind, level, grid, x, z) {
   const built = KINDS[kind](level)
   const group = new THREE.Group()
   group.name = kind
-  const mesh = new THREE.Mesh(built.geometry, bakedMat())
+  const mesh = new THREE.Mesh(built.geometry, applyWrappedLight(bakedMat()))
   mesh.castShadow = true
   mesh.receiveShadow = true
   group.add(mesh)

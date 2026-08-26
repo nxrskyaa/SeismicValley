@@ -207,5 +207,50 @@ export function bake(parts) {
   return merged
 }
 
+/**
+ * Stack a shader patch onto a material.
+ *
+ * `onBeforeCompile` is a single slot, and by now two separate systems want it:
+ * the wind sway and the wrapped light. Assigning it twice silently drops the
+ * first one — the trees stop moving and nothing anywhere says so. This keeps a
+ * list and runs all of them, so a material can carry both.
+ */
+export function patchShader(material, key, fn) {
+  const patches = material.userData.patches ?? (material.userData.patches = new Map())
+  if (patches.has(key)) return material
+  patches.set(key, fn)
+  material.onBeforeCompile = (shader, renderer) => {
+    for (const patch of patches.values()) patch(shader, renderer)
+  }
+  material.needsUpdate = true
+  return material
+}
+
+/**
+ * WRAPPED LAMBERT, ported from Velion's voxel shader.
+ *
+ * Plain Lambert takes a face pointing away from the sun to ambient alone, and in
+ * a world built entirely out of cubes that means every riser, trunk and wall on
+ * the shaded side crushes into one dark mass — the terraces stop reading as
+ * steps and the valley reads as a stain. Wrapping the term keeps the falloff but
+ * lifts the floor, so a shaded face is still a face.
+ *
+ * 0.42 is Velion's number and it is not a small effect: it is most of the
+ * difference between that build's terraces and this one's.
+ */
+export function applyWrappedLight(material, wrap = 0.42) {
+  return patchShader(material, 'wrap', (shader) => {
+    shader.uniforms.uWrap = { value: wrap }
+    shader.fragmentShader = shader.fragmentShader
+      .replace('#include <common>', `#include <common>
+        uniform float uWrap;`)
+      .replace(
+        'float dotNL = saturate( dot( geometryNormal, directLight.direction ) );',
+        `float dotNL = dot( geometryNormal, directLight.direction );
+         dotNL = saturate( dotNL * ( 1.0 - uWrap ) + uWrap );`,
+      )
+  })
+}
+
 /** A mesh whose colours came from `bake`. */
 export const bakedMat = (extra = {}) => new THREE.MeshLambertMaterial({ vertexColors: true, flatShading: true, ...extra })

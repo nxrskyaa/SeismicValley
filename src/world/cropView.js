@@ -1,5 +1,5 @@
 import * as THREE from 'three'
-import { bake, bakedMat, BALL, COLUMN, FLAT, POINT, TAPER } from '../core/kit.js'
+import { applyWrappedLight, bake, bakedMat, BALL, COLUMN, FLAT, POINT, TAPER } from '../core/kit.js'
 import { C } from '../core/palette.js'
 import { cropAt, FORM } from '../game/crops.js'
 import { LEVEL, N } from './grid.js'
@@ -129,7 +129,7 @@ export class CropView {
     this.grid = grid
     this.group = new THREE.Group()
     this.group.name = 'crops'
-    this.material = applyWindSway(bakedMat(), 0.75)
+    this.material = applyWrappedLight(applyWindSway(bakedMat(), 0.75))
     this.dirty = true
 
     const make = (geo) => {

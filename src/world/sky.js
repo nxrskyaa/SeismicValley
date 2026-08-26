@@ -1,5 +1,5 @@
 import * as THREE from 'three'
-import { skyAt, sunDirAt } from '../core/palette.js'
+import { AMBIENT_SCALE, skyAt, sunDirAt , SUN_SCALE } from '../core/palette.js'
 import { N } from './grid.js'
 
 /**
@@ -173,11 +173,16 @@ export class Sky {
     // 1.0 means "fully lit". Without the conversion every value in that table is
     // read at a third of its meaning and the whole world comes out muddy — which
     // is exactly how a pastel palette turns into dusty stone.
-    this.key.intensity = s.keyEnergy * Math.PI
+    // SUN_SCALE and AMBIENT_SCALE are Velion's, and the ratio between them is
+    // what models the world: at parity every terrace face lands on the same
+    // value as the top above it and the terracing stops being visible. The PI is
+    // the separate matter of three.js physical units — a Lambert surface divides
+    // incoming irradiance by PI, so an intensity of 1 arrives as about 0.32.
+    this.key.intensity = s.keyEnergy * SUN_SCALE * Math.PI
     // `ambient` is a COLOUR and `ambientEnergy` is the number. Assigning the
     // colour to `intensity` sets it to NaN, every light goes dark, and the frame
     // comes out solid black with no error anywhere.
-    this.hemi.intensity = s.ambientEnergy * Math.PI
+    this.hemi.intensity = s.ambientEnergy * AMBIENT_SCALE * Math.PI
     this.hemi.color.setStyle(s.ambient, THREE.SRGBColorSpace)
     this.hemi.groundColor.setStyle(s.fog, THREE.SRGBColorSpace)
 

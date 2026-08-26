@@ -1,5 +1,5 @@
 import * as THREE from 'three'
-import { bake, bakedMat, chamferBox, COLUMN, FLAT, POINT, shardMat, stoneLump, TAPER } from '../core/kit.js'
+import { applyWrappedLight, bake, bakedMat, chamferBox, COLUMN, FLAT, POINT, shardMat, stoneLump, TAPER } from '../core/kit.js'
 import { C, shade, UI } from '../core/palette.js'
 import { shardGeometry } from '../core/mark.js'
 import { LEVEL, N, P } from './grid.js'
@@ -77,7 +77,7 @@ function treeGeometry(kind) {
   const tone = [C.canopyA, C.canopyB, C.canopyC][kind % 3]
   const parts = [
     // The trunk is a BOX and it is thin. A tapered prism reads as a conifer.
-    { geometry: chamferBox(0.62, trunkH, 0.62, 0.05), position: [0, trunkH / 2, 0], color: kind === 1 ? C.trunkDark : C.trunk },
+    { geometry: chamferBox(0.7, trunkH, 0.7, 0.05), position: [0, trunkH / 2, 0], color: kind === 1 ? C.trunkDark : C.trunk },
   ]
   for (const [dx, dy, dz] of plan) {
     // ONE tone across the whole canopy. Splitting it by height made the raised
@@ -228,7 +228,7 @@ export class Props {
     // Everything standing in the valley bends in the same wind. One uniform,
     // patched in — see world/weather.js for why this is a vertex shader and not
     // thirty thousand matrices a frame.
-    this.material = applyWindSway(bakedMat(), 1)
+    this.material = applyWrappedLight(applyWindSway(bakedMat(), 1))
     this.dirty = true
 
     this.meshes = KINDS.map((k) => {
@@ -299,6 +299,21 @@ export class Props {
         const yaw = cellRand(x, z, 1) * Math.PI * 2
         const lean = (cellRand(x, z, 2) - 0.5) * 0.09
         const size = 0.84 + cellRand(x, z, 3) * 0.34
+        /**
+         * TRUNK LENGTH, varied independently of canopy size.
+         *
+         * Every prop used to take one uniform scale, so a big tree was a small
+         * tree photographed closer — canopy and trunk grew together and every
+         * canopy in a stand ended up at the same height off the ground. In the
+         * reference the canopies sit at obviously DIFFERENT heights: that is
+         * what gives a wood its depth, and it is why the reference's trees can
+         * be close together without merging into one mass.
+         *
+         * A separate Y stretch does it. The canopy stays about the same size in
+         * plan, which is what the eye uses to read spacing, while the trunk
+         * ranges from two-thirds to half again.
+         */
+        const stretch = prop === P.TREE ? 0.74 + cellRand(x, z, 5) * 0.58 : 1
 
         if (prop === P.GEODE) {
           if (this.geodes.length >= 300) continue
@@ -311,7 +326,7 @@ export class Props {
         if (!variants) continue
         const ki = variants[grid.propData[i] % variants.length]
         if (counts[ki] >= KINDS[ki].max) continue
-        this._place(this.meshes[ki], counts[ki]++, x, y, z, yaw, lean, size)
+        this._place(this.meshes[ki], counts[ki]++, x, y, z, yaw, lean, size, stretch)
       }
     }
 
@@ -325,11 +340,11 @@ export class Props {
     this.dirty = false
   }
 
-  _place(mesh, index, x, y, z, yaw, lean, size) {
+  _place(mesh, index, x, y, z, yaw, lean, size, stretch = 1) {
     this._e.set(lean, yaw, lean * 0.6)
     this._q.setFromEuler(this._e)
     this._p.set(x + 0.5, y, z + 0.5)
-    this._s.setScalar(size)
+    this._s.set(size, size * stretch, size)
     this._m.compose(this._p, this._q, this._s)
     mesh.setMatrixAt(index, this._m)
   }
