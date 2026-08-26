@@ -1,6 +1,6 @@
 import * as THREE from 'three'
 import { CHUNK, Grid, LEVEL, N } from './grid.js'
-import { GROUND, GROUND_KEYS } from '../core/palette.js'
+import { G, GROUND, GROUND_KEYS } from '../core/palette.js'
 
 /**
  * Chunk meshing.
@@ -96,7 +96,22 @@ export function meshChunk(grid, cx, cz) {
       if (grid.h(x + 1, z) > h) occ++
       if (grid.h(x, z - 1) > h) occ++
       if (grid.h(x, z + 1) > h) occ++
-      const k = g * (1 - occ * 0.055)
+      /**
+       * FURROWS.
+       *
+       * Worked ground was a flat brown slab — a field only because the colour
+       * said so. A ploughed field is rows, and at one quad per cell the way to
+       * get rows is to alternate the top tone on a two-cell period along one
+       * axis. Six per cent either way: enough to read as furrows from the play
+       * camera, small enough that it never becomes a stripe pattern the eye
+       * follows instead of the crop standing in it.
+       *
+       * Only worked ground gets it. Alternating the meadow would be the
+       * checkerboard `grain` above exists to avoid.
+       */
+      const worked = grid.ground[i] === G.TILLED || grid.ground[i] === G.WET
+      const furrow = worked ? (z % 2 === 0 ? 1.06 : 0.94) : 1
+      const k = g * furrow * (1 - occ * 0.055)
       const top = linear(bands[0])
       const topCol = [top[0] * k, top[1] * k, top[2] * k]
       quad([x, y, z + 1], [x + 1, y, z + 1], [x + 1, y, z], [x, y, z], [0, 1, 0], topCol)

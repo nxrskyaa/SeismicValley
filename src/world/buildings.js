@@ -151,9 +151,15 @@ export function homestead(tier = 1) {
 
   // Windows, as lune arches in cream — the only cream on the building, so they
   // are what your eye finds from across the valley.
+  const panes = []
   for (const side of [-1, 1]) {
     parts.push({ geometry: luneArch(0.52, 0.8, 0.1), position: [side * (w / 2 + 0.02), h * 0.28, 0], rotation: [0, side * Math.PI / 2, 0], color: UI.creamDeep })
+    panes.push({ at: [side * (w / 2 + 0.1), h * 0.28 + 0.4, 0], size: [0.42, 0.66], rot: side * Math.PI / 2 })
   }
+  // And one in the doorway, which is the one that reads from furthest away —
+  // a lit door is a place somebody lives, and it is the only warm light in a
+  // valley that has nobody else in it.
+  panes.push({ at: [0, h * 0.32, d / 2 + 0.09], size: [0.82, 1.0], rot: 0 })
 
   if (t >= 2) {
     // Porch: two posts and a canopy.
@@ -175,7 +181,14 @@ export function homestead(tier = 1) {
     parts.push({ geometry: FLARE, position: [-w / 2 + 0.7, h + 2.55, -d / 4], scale: [1.9, 0.44, 1.9], color: UI.stoneDeep })
     parts.push({ geometry: shardGeometry(), position: [-w / 2 + 0.7, h + 3.1, -d / 4], scale: [0.42, 0.55, 0.34], color: UI.rose })
   }
-  return { geometry: bake(parts), footprint: [Math.ceil(w) + 2, Math.ceil(d) + 3], height: h }
+  return {
+    geometry: bake(parts),
+    footprint: [Math.ceil(w) + 2, Math.ceil(d) + 3],
+    height: h,
+    panes,
+    // Where the light spills from. Just outside the door, at head height.
+    lamp: [0, h * 0.4, d / 2 + 0.5],
+  }
 }
 
 /**
@@ -393,6 +406,42 @@ export function placeStructure(kind, level, grid, x, z) {
     group.add(shard)
     group.userData.shard = shard
   }
+  /**
+   * WINDOWS AFTER DARK.
+   *
+   * Night was a flat blue wash over the whole valley — technically a night, and
+   * nothing in it to look at. The camera sits at thirty-seven degrees and in
+   * close shots there is no sky in frame at all, so stars cannot help: whatever
+   * makes night worth being out in has to be on the GROUND.
+   *
+   * These are unlit quads sitting a hair proud of each window and the door, off
+   * by day and faded up after dusk. One material per building so the whole set
+   * animates with a single opacity, and `glowMat` is a basic material — a window
+   * that is dimmed by the same darkness it is supposed to be pushing back is not
+   * a lit window.
+   */
+  if (built.panes?.length) {
+    const paneMat = glowMat(C.fireMid, 1)
+    paneMat.transparent = true
+    paneMat.opacity = 0
+    const panes = new THREE.Group()
+    for (const pane of built.panes) {
+      const q = new THREE.Mesh(FLAT, paneMat)
+      q.position.set(...pane.at)
+      q.rotation.y = pane.rot ?? 0
+      q.scale.set(pane.size[0], pane.size[1], 0.04)
+      panes.add(q)
+    }
+    group.add(panes)
+    group.userData.panes = paneMat
+  }
+  if (built.lamp) {
+    const lamp = new THREE.PointLight(new THREE.Color().setStyle(C.ember, THREE.SRGBColorSpace), 0, 9, 2)
+    lamp.position.set(...built.lamp)
+    group.add(lamp)
+    group.userData.lamp = lamp
+  }
+
   if (built.glow) {
     const light = new THREE.PointLight(new THREE.Color().setStyle(C.ember, THREE.SRGBColorSpace), 0, 7, 2)
     light.position.set(...built.glow)

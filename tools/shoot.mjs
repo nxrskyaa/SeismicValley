@@ -28,7 +28,7 @@ const OUT = path.join(ROOT, 'shots')
 const W = 1440
 const H = 900
 
-const ALL = ['valley', 'home', 'gate', 'rocky', 'sheet', 'rig', 'house', 'pond', 'lake', 'dawn', 'dusk', 'night', 'pruning', 'pebble', 'play', 'menu', 'hud', 'audio', 'prologue', 'drive', 'firstrun', 'reload', 'mobile']
+const ALL = ['valley', 'home', 'gate', 'rocky', 'sheet', 'rig', 'house', 'field', 'pond', 'lake', 'dawn', 'dusk', 'night', 'pruning', 'pebble', 'play', 'menu', 'hud', 'audio', 'prologue', 'drive', 'firstrun', 'reload', 'mobile']
 
 /**
  * Poses that are INTERFACE rather than camera.
@@ -382,6 +382,17 @@ async function main() {
       // Without this the AudioContext stays suspended and the score smoke test
       // books nothing at all.
       '--autoplay-policy=no-user-gesture-required',
+      /**
+       * Every pose is its own tab, and Chrome throttles requestAnimationFrame in
+       * a tab that is not in front — down to a frame a second, or to nothing.
+       * The driven poses wait on a frame count to know the world is up, so a
+       * throttled tab meant `drive` timed out about one full run in three. A
+       * flaky check is worse than no check, so this is the mechanism, not a
+       * longer timeout.
+       */
+      '--disable-background-timer-throttling',
+      '--disable-backgrounding-occluded-windows',
+      '--disable-renderer-backgrounding',
       `--window-size=${width},${height}`,
     ],
   })
@@ -389,6 +400,8 @@ async function main() {
   let failures = 0
   for (const pose of shots) {
     const page = await browser.newPage()
+    // And front it, so the throttling heuristics have nothing to act on either.
+    await page.bringToFront()
     const mob = DOM_POSES[pose]?.mobile
     await page.setViewport(mob
       ? { width: 412, height: 892, deviceScaleFactor: 2, isMobile: true, hasTouch: true }

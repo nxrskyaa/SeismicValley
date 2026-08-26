@@ -76,6 +76,7 @@ const POSES = {
   rig: { at: [HOME.x, 1.0, HOME.z], size: 5, hour: 12 },
   pebble: { at: [HOME.x + 2, -0.86, HOME.z + 2], size: 1.4, hour: 12, pebble: true },
   house: { at: [HOME.x, 1.4, HOME.z - 5], size: 6.5, hour: 12 },
+  field: { at: [HOME.x, 0.4, HOME.z + 1], size: 8, hour: 11, field: true },
   pond: { at: [HOME.x + 13, -1.1, HOME.z + 2], size: 20, hour: 11 },
   lake: { at: [N * 0.76, -1.1, N * 0.84], size: 26, hour: 12.5 },
   dawn: { at: [HOME.x, 0, HOME.z], size: 26, hour: 6.2 },
@@ -225,6 +226,36 @@ function runCapture(shot) {
   // Some poses need something in front of the camera that the player would
   // normally have to earn.
   if (shot.pebble) app.state.hatchPebble(Math.round(shot.at[0]), Math.round(shot.at[2]))
+  if (shot.field) {
+    /**
+     * A worked field, at every stage at once.
+     *
+     * The farming is the game and there was no capture of it — every pose was of
+     * scenery. Rows are sown with different crops and grown to different stages
+     * so one frame shows seedling, half-grown and ripe side by side, which is
+     * the only way to see whether the stages actually read apart.
+     */
+    const cx = Math.round(shot.at[0])
+    const cz = Math.round(shot.at[2])
+    const seeds = ['seed_grubwort', 'seed_palewheat', 'seed_grubwort', 'seed_palewheat']
+    for (let row = 0; row < 4; row++) {
+      for (let col = 0; col < 7; col++) {
+        const x = cx - 3 + col
+        const z = cz - 2 + row
+        if (!app.grid.canTill(x, z)) continue
+        app.state.give(seeds[row], 1)
+        app.state.till(x, z)
+        app.state.sow(x, z, seeds[row])
+        app.state.waterTile(x, z)
+        app.state.water = 4
+        // Stage climbs across the row, so one frame carries the whole cycle.
+        app.grid.set('grown', x, z, Math.min(6, Math.floor(col * 1.1)))
+      }
+    }
+    app.crops.dirty = true
+    app.props.dirty = true
+    app.terrain.rebuildAll()
+  }
   const focus = new THREE.Vector3(
     shot.at[0],
     shot.at[1] + grid.y(Math.round(shot.at[0]), Math.round(shot.at[2])),
@@ -528,6 +559,18 @@ function animateStructures(dt, sky) {
     if (node.userData.shard) node.userData.shard.rotation.y += dt * 0.6
     if (node.userData.glow) {
       node.userData.glow.intensity = 1.6 + night * 3.4 + Math.sin(performance.now() * 0.004) * 0.4
+    }
+    // Windows come on at dusk and go off at dawn, on a curve steep enough that
+    // the change reads as somebody lighting a lamp rather than as a dimmer.
+    if (node.userData.panes) {
+      const lit = Math.max(0, Math.min(1, (night - 0.28) / 0.34))
+      node.userData.panes.opacity = lit * 0.92
+      node.userData.panes.visible = lit > 0.01
+    }
+    if (node.userData.lamp) {
+      const lit = Math.max(0, Math.min(1, (night - 0.28) / 0.34))
+      // Physical units: a Lambert surface divides by PI, so this is about six.
+      node.userData.lamp.intensity = lit * 2.0 * Math.PI * (0.94 + Math.sin(performance.now() * 0.0016) * 0.06)
     }
   }
 }
