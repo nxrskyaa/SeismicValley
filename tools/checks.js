@@ -826,6 +826,43 @@ console.log('\nthe touch controls')
     untranslated.join(', '))
 }
 
+// ------------------------------------------------------------ 7e. the bed --
+
+console.log('\nwhat the valley sounds like')
+{
+  const ambience = read(path.join(SRC, 'core/ambience.js'))
+  const { GROUND_KEYS } = await import('../src/core/palette.js')
+
+  // A surface with no entry falls back to grass, which means stone and tilled
+  // soil sound identical and nobody can tell why the game feels flat.
+  const missing = GROUND_KEYS.filter((k) => !ambience.includes(`[G.${k}]`))
+  assert(missing.length === 0, 'every ground type has its own footstep', missing.join(', '))
+
+  /**
+   * No birds, no insects, nothing alive.
+   *
+   * The obvious ambient bed for a farming game is dawn chorus and crickets, and
+   * it is wrong here: the premise is that four hundred and six species are in
+   * the soil in pieces and the valley is empty. A cricket at dusk would be the
+   * loudest contradiction in the game and one most players would feel before
+   * they could name it. This is rule 4 of the premise, applied to sound.
+   */
+  const alive = ['bird', 'cricket', 'chirp', 'insect', 'frog', 'owl']
+    .filter((w) => new RegExp(`\b${w}`, 'i').test(ambience.replace(/\/\*[sS]*?\*\//g, ' ')))
+  assert(alive.length === 0, 'nothing alive is in the ambient bed — the valley is empty', alive.join(', '))
+
+  // The footfall has to come off the gait, or it drifts against the legs the
+  // moment anybody runs.
+  const player = read(path.join(SRC, 'actors/player.js'))
+  assert(/A\.footfall = /.test(player) && /gait \/ Math\.PI/.test(player),
+    'footsteps land on the frame the foot does')
+
+  // And the bed reads the SAME gust the petals and the vertex sway read.
+  const main = read(path.join(SRC, 'main.js'))
+  assert(/gust: app\.weather\.gust/.test(main),
+    'a gust you can hear is a gust you can see bending the trees')
+}
+
 // ------------------------------------------------------- 7d. the terrain shape --
 //
 // Corduroy is the failure this project keeps coming back to, and it has been

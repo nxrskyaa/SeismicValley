@@ -3,6 +3,7 @@ import './ui/ui.css'
 
 import { audio } from './core/audio.js'
 import { Music } from './core/music.js'
+import { Ambience } from './core/ambience.js'
 import { Input } from './core/input.js'
 import { hashSeed } from './core/rng.js'
 import { LEVEL, N, P } from './world/grid.js'
@@ -23,6 +24,7 @@ import { PruningSystem } from './game/pruning.js'
 import { Fishing } from './game/fishing.js'
 import { SEASON_NAMES, stageFor } from './game/crops.js'
 import { KIND, item } from './game/items.js'
+import { G as GROUND_IDS } from './core/palette.js'
 import { HUD } from './ui/hud.js'
 import { Panels } from './ui/panels.js'
 import { showTitle } from './ui/title.js'
@@ -142,6 +144,9 @@ function boot() {
   // The capture harness reads this to drive the real game and to assert on its
   // state afterwards. Nothing in the game itself touches it.
   window.__app = app
+  // Frames rendered, so a harness can wait for the world to be up rather than
+  // for a guessed number of milliseconds.
+  window.__shotFrames = 0
 
   const seedText = params.get('seed') || 'seismic-valley'
   const seed = hashSeed(seedText)
@@ -260,6 +265,7 @@ function runCapture(shot) {
     app.weather.update(dt, focus, SEASON_NAMES[0], sky)
     animateStructures(dt, sky)
     app.renderer.render(app.scene, app.camera)
+    window.__shotFrames++
     if (++frames > 20 && !app.grid.dirty.size) window.__shotReady = true
   })
 }
@@ -268,7 +274,7 @@ function runCapture(shot) {
 
 function runGame() {
   const root = document.getElementById('app')
-  const { state, input, control } = app
+  const { state, input, control, grid } = app
 
   // Audio preferences live outside the save: they are about the room the player
   // is in, not about the valley.
@@ -279,6 +285,7 @@ function runGame() {
   const savePrefs = () => { try { localStorage.setItem(PREF, JSON.stringify(prefs)) } catch { /* private mode */ } }
 
   app.music = new Music(audio)
+  app.ambience = new Ambience(audio)
   audio.setMuted(!prefs.sound)
 
   app.hud = new HUD(root, state, {
@@ -388,10 +395,24 @@ function runGame() {
       'deny', 'ui', 'chime', 'prune', 'golem', 'pebble', 'cast', 'splash', 'nibble', 'bite', 'reel', 'landed']) {
       audio[k]()
     }
+    // A footstep on every surface in the game, plus the ambient bed driven
+    // across its whole range. A filter type this engine does not accept throws;
+    // a gain that never opens does not, so both are checked.
+    for (const ground of Object.values(GROUND_IDS)) {
+      app.ambience.step(ground, false, false)
+      app.ambience.step(ground, true, false)
+    }
+    app.ambience.step(0, false, true)
+    for (const k of [0, 0.5, 1]) {
+      app.ambience.update(0.5, { gust: k, wetness: k, day: k, swimming: k > 0.5 })
+    }
+
     // A score that throws is caught by the console listener; a score that
     // quietly books nothing is not, and that is the more likely failure.
     setTimeout(() => {
       if (app.music.step < 3) console.error(`the score booked ${app.music.step} beats in three seconds`)
+      if (!app.ambience.built) console.error('the ambient bed never built its graph')
+      else if (!(app.ambience.wind > 0)) console.error(`the wind bed is silent (${app.ambience.wind})`)
     }, 3000)
   }
   // The context is suspended until a real gesture, so the score has to be told
@@ -463,10 +484,36 @@ function runGame() {
     app.water.update(dt, sky)
     app.life.update(dt, sky)
     app.weather.update(dt, focus, SEASON_NAMES[state.season], sky)
+
+    /**
+     * The bed, and the feet.
+     *
+     * `wetness` is how much of a small neighbourhood is open water rather than a
+     * trigger radius, so walking a riverbank fades rather than switches. The
+     * gust is the SAME number the petals and the vertex sway read, so a gust you
+     * hear is a gust you can see bending the trees.
+     */
+    {
+      const [cx, cz] = control.cell
+      let wet = 0
+      for (let dz = -3; dz <= 3; dz++) {
+        for (let dx = -3; dx <= 3; dx++) if (grid.isWater(cx + dx, cz + dz)) wet++
+      }
+      app.ambience.update(dt, {
+        gust: app.weather.gust,
+        wetness: Math.min(1, wet / 24),
+        day: sky.day,
+        swimming: control.swimming,
+      })
+      if (app.player.anim.footfall) {
+        app.ambience.step(grid.get('ground', cx, cz), input.run, control.swimming)
+      }
+    }
     animateStructures(dt, sky)
 
     if (started) app.hud.tick(state.hour)
     app.renderer.render(app.scene, app.camera)
+    window.__shotFrames++
     input.endFrame()
     if (playShot && ++playFrames > 90 && !app.grid.dirty.size) window.__shotReady = true
   })

@@ -56,7 +56,7 @@ const DOM_POSES = {
    * whole hotbar and swings at things for half a minute, and fails on the first
    * console error — which is where a rendering or interface bug actually lands.
    */
-  drive: { query: '?nomenu=1', wait: '.hotbar', settle: 400, drive: true },
+  drive: { query: '?nomenu=1', wait: '.hotbar', settle: 700, drive: true },
   /**
    * The path a new player actually takes, which no other pose touches: title
    * card, a settler chosen, Begin, the cold open, and then the game. Every one
@@ -124,6 +124,15 @@ async function waitForPort(port, ms) {
  * of that and a scripted happy path does none of it.
  */
 async function drivePage(page) {
+  // Wait for the GAME, not for a number of milliseconds. `.hotbar` appears as
+  // soon as the HUD is built, which on a cold dev server can be a second before
+  // the world has meshed and the controller exists — and a scripted key press
+  // into that gap does nothing and fails the pose for no reason at all.
+  await page.waitForFunction(
+    () => !!window.__app?.control && !!window.__app?.panels && window.__shotFrames > 30,
+    { timeout: 30000 },
+  )
+
   const hold = async (keys, ms) => {
     for (const k of keys) await page.keyboard.down(k)
     await new Promise((r) => setTimeout(r, ms))

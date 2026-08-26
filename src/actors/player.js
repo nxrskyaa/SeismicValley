@@ -189,7 +189,7 @@ export function buildPlayer(lookKey = 'apprentice') {
     hold.rotation.x = -0.4
   }
 
-  const A = { t: 0, speed: 0, swing: 0, use: 0, useKind: 'swing', carry: null, rod: false, swimming: false, step: 0 }
+  const A = { t: 0, speed: 0, swing: 0, use: 0, useKind: 'swing', carry: null, rod: false, swimming: false, step: 0, footfall: false, _gait: 0 }
   parts.anim = A
   parts.height = 1.55
 
@@ -197,6 +197,33 @@ export function buildPlayer(lookKey = 'apprentice') {
     A.t += dt
     const s = A.speed
     const gait = A.t * (7.2 + s * 2.4)
+
+    /**
+     * FOOTFALLS, off the gait rather than off a timer.
+     *
+     * The legs swing on `sin(gait)`, so a foot is down every time that crosses
+     * zero — twice a cycle, once per foot. Reading the crossing means the sound
+     * lands on the frame the foot lands, at whatever speed the body is moving,
+     * with no second clock to drift against it. A footstep timer that runs at a
+     * fixed interval is audibly wrong the moment anybody sprints.
+     */
+    A.footfall = false
+    if (s > 0.08 && !A.swimming) {
+      const half = Math.floor(gait / Math.PI)
+      if (half !== A._gait) {
+        A._gait = half
+        A.footfall = true
+      }
+    } else if (A.swimming) {
+      // A stroke, at the stroke rate, so swimming is not silent either.
+      const stroke = Math.floor(A.t * 3.1 / Math.PI)
+      if (stroke !== A._gait) {
+        A._gait = stroke
+        A.footfall = true
+      }
+    } else {
+      A._gait = Math.floor(gait / Math.PI)
+    }
 
     // Stubby legs swing less than long ones or the figure looks like it is
     // running on the spot.
