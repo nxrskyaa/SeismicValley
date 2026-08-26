@@ -215,16 +215,36 @@ class PebbleAgent {
     const len = d.length()
     if (len > 0.35) {
       d.divideScalar(len)
-      const cx = Math.floor(this.pos.x + d.x * 0.5)
-      const cz = Math.floor(this.pos.y + d.y * 0.5)
-      if (g.isWater(cx, cz)) {
-        // The shore jobs put the goal one cell in from water and the walk can
-        // still clip a corner of it. Rather than a pathfinder, slide along the
-        // bank: turn ninety degrees and keep going.
-        this.pos.x += -d.y * 2.2 * dt
-        this.pos.y += d.x * 2.2 * dt
+      /**
+       * They obey the terrain, and until the soak ran they did not.
+       *
+       * This tested for water and NOTHING else — no height rule at all — so a
+       * pebble whose job was up on a ridge simply walked up the face of it. The
+       * soak caught one climbing sixteen levels in a single step, which is a
+       * sheer cliff, in front of the player, in the middle of the day.
+       *
+       * Same rule as the dog now: water blocks, and so does anything more than
+       * two levels up. When the direct line is blocked they slide sideways along
+       * it rather than stopping — a pebble vibrating against a wall for a whole
+       * afternoon is worse than one that takes the long way round.
+       */
+      const here = g.h(Math.floor(this.pos.x), Math.floor(this.pos.y))
+      const step = Math.min(len, 3.1 * dt)
+      const ahead = (vx, vz) => g.canStand(
+        Math.floor(this.pos.x + vx * 0.5), Math.floor(this.pos.y + vz * 0.5), here, 2,
+      )
+      if (ahead(d.x, d.y)) {
+        this.pos.addScaledVector(d, step)
+      } else if (ahead(-d.y, d.x)) {
+        this.pos.x += -d.y * step
+        this.pos.y += d.x * step
+      } else if (ahead(d.y, -d.x)) {
+        this.pos.x += d.y * step
+        this.pos.y += -d.x * step
       } else {
-        this.pos.addScaledVector(d, Math.min(len, 3.1 * dt))
+        // Boxed in. Give up on this job and take another one tomorrow rather
+        // than standing here pushing at a wall.
+        this.goal.copy(this.pos)
       }
       this.facing = Math.atan2(d.x, d.y)
       this.speed = damp(this.speed, 1, 8, dt)

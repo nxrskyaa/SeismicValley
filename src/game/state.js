@@ -387,7 +387,22 @@ export class GameState {
 
   // ---------------------------------------------------------- structures --
 
+  /**
+   * Where the body is, so nothing gets built on top of it.
+   *
+   * The state layer knows nothing about three.js and is not about to start, so
+   * the game pushes one cell in per frame. Two integers is a much smaller price
+   * than a player sealed inside their own shed.
+   */
+  occupied(x, z) {
+    return this.playerCell ? this.playerCell[0] === x && this.playerCell[1] === z : false
+  }
+
   build(kind, x, z, level = 1) {
+    if (this.occupied(x, z)) {
+      this.say('You are standing there.', 'warn')
+      return null
+    }
     const cost = BUILD_COST[kind]
     if (!cost) return null
     if (!this.canAfford(cost)) {

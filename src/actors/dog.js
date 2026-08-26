@@ -29,6 +29,11 @@ const FOLLOW_STOP = 2.2 // close enough; stop closing
 const FOLLOW_START = 3.4 // drifted out; start closing again
 const FOLLOW_MAX = 5.0 // too far; run
 const SPEED = 4.4
+/** Past this she is considered out of reach; past `LOST_PATIENCE` seconds of
+ *  that, she catches up off-screen rather than standing at a river forever. */
+const LOST_RANGE = 16
+const LOST_PATIENCE = 9
+
 const DIG_INTERVAL = 42
 
 export function buildSixteen() {
@@ -109,6 +114,8 @@ export class Sixteen {
     this.wanderTimer = 0
     this.digTimer = DIG_INTERVAL
     this.phase = 0
+    /** How long she has been unable to close the gap. See `update`. */
+    this.lostFor = 0
     scene.add(this.rig.root)
   }
 
@@ -120,6 +127,39 @@ export class Sixteen {
     const g = this.grid
     const to = new THREE.Vector2(playerPos.x - this.pos.x, playerPos.z - this.pos.y)
     const dist = to.length()
+
+    /**
+     * THE LEASH.
+     *
+     * She cannot swim and she cannot climb more than two levels, and the player
+     * can now do both. That combination strands her: swim the river once and she
+     * is on the far bank pressing into the water for the rest of the save. The
+     * soak found her sixty-seven cells behind and still walking at a wall.
+     *
+     * There is no pathfinder here and there should not be — she is one Vector2
+     * and a wish direction, and a navmesh for a dog is the wrong three hundred
+     * lines. So: if she has been out of reach for twelve seconds, she catches up
+     * off-screen. Twelve seconds is long enough that it never fires while she is
+     * merely taking the long way round a shelf, and short enough that a player
+     * who crossed water does not have time to notice she is gone.
+     */
+    this.lostFor = dist > LOST_RANGE ? this.lostFor + dt : 0
+    if (this.lostFor > LOST_PATIENCE) {
+      const [tx, tz] = g.nearestStandable(Math.round(playerPos.x), Math.round(playerPos.z), 14)
+      // `nearestStandable` falls back to the cell it was handed, and the cell it
+      // was handed is the player's — which, now that the player swims, is
+      // regularly the middle of a river. Landing her there would replace a dog
+      // stuck on a bank with a dog stuck in a lake. If there is nowhere dry
+      // nearby she waits; the player will be back on land in a moment.
+      if (!g.isWater(tx, tz)) {
+        this.pos.set(tx + 0.5, tz + 0.5)
+        this.lostFor = 0
+        this.closing = false
+        this.sit = 0
+        return this.update(dt, playerPos, onDig)
+      }
+      this.lostFor = LOST_PATIENCE * 0.8
+    }
 
     // Hysteresis. See the header.
     if (dist > FOLLOW_MAX) this.closing = true

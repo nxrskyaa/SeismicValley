@@ -433,6 +433,8 @@ function runGame() {
 
     app.cast.update(dt, control.pos, state.hour)
     app.player.anim.rod = state.held === 'rod'
+    // So nothing can be built on the tile the player is standing on.
+    state.playerCell = control.cell
     app.fishing.update(dt, control.pos, control.facing, state.hour)
     app.pruning.update(dt)
     app.flag.update(dt)

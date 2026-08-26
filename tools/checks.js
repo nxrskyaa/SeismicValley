@@ -772,5 +772,30 @@ console.log('\ngameplay')
   assert(Math.max(...xs) < 0, 'the left lune stays left of the axis — the mark has a gap at its waist')
 }
 
+// ------------------------------------------------------------- 8. the soak --
+//
+// A short run of the real thing. `tools/soak.mjs` drives the player, the dog,
+// the pebbles and the rod against a generated valley with randomised input and
+// watches invariants that should hold no matter what happens: NaN, tunnelling,
+// bodies inside rock, agents up cliffs, the dog stranded, the player wedged,
+// lists that grow without bound. Every one of those is a bug that never throws,
+// which is why nothing else in this file caught any of them.
+//
+// Two valleys and ninety seconds, so it stays inside a normal check run. The
+// full sweep is `npm run soak`.
+
+console.log('\nthe soak')
+{
+  const { execFileSync } = await import('node:child_process')
+  try {
+    execFileSync(process.execPath, [path.join(ROOT, 'tools/soak.mjs'), '2', '90'], { stdio: 'pipe' })
+    ok('two valleys survive ninety seconds of randomised play')
+  } catch (e) {
+    const out = String(e.stdout ?? e)
+    fail('two valleys survive ninety seconds of randomised play',
+      out.split('\n').filter((l) => l.includes('FAIL') || l.trim().startsWith('at ')).join('; ') || out.slice(0, 300))
+  }
+}
+
 console.log(`\n${checks - failures}/${checks} checks passed\n`)
 process.exit(failures ? 1 : 0)

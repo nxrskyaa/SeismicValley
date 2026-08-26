@@ -11,7 +11,8 @@
     "lint": "eslint .",
     "check": "node tools/checks.js",
     "shoot": "node tools/shoot.mjs",
-    "mark": "node tools/mark.mjs"
+    "mark": "node tools/mark.mjs",
+    "soak": "node tools/soak.mjs"
   },
   "dependencies": {
     "three": "^0.185.1"
