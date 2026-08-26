@@ -387,7 +387,13 @@ export function generate(seed) {
         // Geodes seed along the fault. They are the reason to walk it.
         grid.prop[i] = P.GEODE
         grid.propData[i] = randInt(r, 0, 3)
-      } else if ((g === G.MEADOW || g === G.ASH) && chance(r, 0.075)) {
+      } else if ((g === G.MEADOW || g === G.ASH) && chance(r, 0.14)) {
+        // Denser than it was. Thinning the forest to blue noise opened the
+        // ground up, and what filled it was nothing: large flats of one green
+        // with a tree every four cells. The scatter is tiny — a stone or two and
+        // a couple of blades — so twice as much of it is texture rather than
+        // clutter, and it is the layer the reference actually carries its
+        // ground detail in.
         grid.prop[i] = P.GRASS
         grid.propData[i] = randInt(r, 0, 3)
       }

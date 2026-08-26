@@ -28,7 +28,7 @@ const OUT = path.join(ROOT, 'shots')
 const W = 1440
 const H = 900
 
-const ALL = ['valley', 'home', 'gate', 'rocky', 'sheet', 'rig', 'house', 'field', 'pond', 'lake', 'dawn', 'dusk', 'night', 'pruning', 'pebble', 'play', 'menu', 'hud', 'audio', 'prologue', 'drive', 'firstrun', 'reload', 'mobile']
+const ALL = ['valley', 'home', 'gate', 'rocky', 'sheet', 'rig', 'house', 'field', 'pond', 'lake', 'dawn', 'dusk', 'night', 'pruning', 'pebble', 'play', 'menu', 'hud', 'audio', 'prologue', 'drive', 'firstrun', 'reload', 'mobile', 'mobilemenu']
 
 /**
  * Poses that are INTERFACE rather than camera.
@@ -68,6 +68,8 @@ const DOM_POSES = {
   reload: { query: '?nomenu=1', wait: '.hotbar', settle: 400, reload: true },
   /** The same game on a phone: coarse pointer, touch controls, a narrow card. */
   mobile: { query: '?nomenu=1', wait: '.hotbar', settle: 1400, mobile: true },
+  /** The title card on a phone, which is the first thing anybody touches. */
+  mobilemenu: { query: '', wait: '.title-card', settle: 1400, mobile: true, mobileMenu: true },
 }
 
 const argv = process.argv.slice(2)
@@ -330,6 +332,39 @@ async function reloadPage(page) {
  * to every other pose here — which is exactly how a control scheme ships broken.
  */
 async function mobilePage(page) {
+  /**
+   * IS THE INTERFACE ACTUALLY TAPPABLE?
+   *
+   * `#app` is `position: fixed`, which creates a stacking context, so everything
+   * inside it is painted as one unit — and the touch canvas, appended to `body`
+   * at z-index 15, sat above ALL of it. On a phone the title card, the hotbar,
+   * the audio toggles, the skip link and every panel button were covered by a
+   * transparent canvas that swallows pointer events. Nothing was tappable and
+   * nothing logged anything.
+   *
+   * A screenshot cannot see that; `elementFromPoint` can. So every control this
+   * pose cares about is hit-tested rather than looked at.
+   */
+  const tappable = await page.evaluate(() => {
+    const check = (sel, label) => {
+      const el = document.querySelector(sel)
+      if (!el) return `${label}: missing`
+      const r = el.getBoundingClientRect()
+      if (r.width < 1 || r.height < 1) return `${label}: no size`
+      const hit = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2)
+      if (!hit || !(hit === el || el.contains(hit) || hit.contains(el))) {
+        return `${label}: covered by ${hit ? hit.tagName + (hit.id ? '#' + hit.id : '') : 'nothing'}`
+      }
+      return null
+    }
+    return [
+      check('.hotbar .slot', 'a hotbar slot'),
+      check('.sound-btn', 'the sound toggle'),
+      check('.task-skip', 'the tutorial skip'),
+    ].filter(Boolean)
+  })
+  if (tappable.length) throw new Error(`covered on a phone — ${tappable.join('; ')}`)
+
   const stick = await page.$('#touch')
   if (!stick) throw new Error('no touch controls on a coarse pointer')
   const box = await stick.boundingBox()
@@ -353,6 +388,45 @@ async function mobilePage(page) {
   await new Promise((r) => setTimeout(r, 500))
   const b = await page.evaluate(() => ({ x: window.__app.control.pos.x, z: window.__app.control.pos.z }))
   if (Math.hypot(b.x - a.x, b.z - a.z) > 0.15) throw new Error('the player keeps walking after the thumb lifts')
+}
+
+/**
+ * The title card on a phone.
+ *
+ * The first thing anybody touches, and it was completely dead: the touch canvas
+ * covered it, so Begin could not be pressed and the game could not be started at
+ * all on a phone. Pressed here rather than photographed.
+ */
+async function mobileMenuPage(page) {
+  const covered = await page.evaluate(() => {
+    const btn = document.querySelector('.title-actions .btn')
+    if (!btn) return 'the title card has no button'
+    const r = btn.getBoundingClientRect()
+    const hit = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2)
+    if (hit === btn || btn.contains(hit)) return null
+    return `Begin is covered by ${hit ? hit.tagName + (hit.id ? '#' + hit.id : '') : 'nothing'}`
+  })
+  if (covered) throw new Error(covered)
+
+  // And the swatches, which are the other half of what the card is for.
+  const swatch = await page.$('.swatch')
+  if (!swatch) throw new Error('no swatches on the title card')
+  await swatch.tap()
+
+  // Now actually start the game with a tap, the way a phone does.
+  const [begin] = await page.$$('.title-actions .btn')
+  await begin.tap()
+  await page.waitForFunction(() => !document.querySelector('.title'), { timeout: 15000 })
+  await new Promise((r) => setTimeout(r, 800))
+  const prologue = await page.$('.prologue')
+  if (prologue) {
+    const skip = await page.$('.prologue .btn')
+    if (!skip) throw new Error('the cold open has no way out on a phone')
+    await skip.tap()
+    await new Promise((r) => setTimeout(r, 800))
+  }
+  const running = await page.evaluate(() => !!window.__app?.control && !document.body.classList.contains('is-title'))
+  if (!running) throw new Error('tapping Begin on a phone did not start the game')
 }
 
 async function main() {
@@ -426,7 +500,8 @@ async function main() {
       if (dom?.drive) await drivePage(page)
       if (dom?.firstRun) await firstRunPage(page)
       if (dom?.reload) await reloadPage(page)
-      if (dom?.mobile) await mobilePage(page)
+      if (dom?.mobileMenu) await mobileMenuPage(page)
+      else if (dom?.mobile) await mobilePage(page)
       ok = true
     } catch {
       /* fall through to the error dump below */

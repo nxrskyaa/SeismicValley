@@ -65,7 +65,22 @@ export class TouchControls {
     this.canvas = document.createElement('canvas')
     this.canvas.id = 'touch'
     this.ctx = this.canvas.getContext('2d')
-    document.body.append(this.canvas)
+    /**
+     * Into `#app`, NOT into `body`.
+     *
+     * `#app` is `position: fixed`, and a fixed element creates a stacking
+     * context whatever its z-index is. So everything inside it — the HUD, the
+     * panels, the title card — is layered relative to each other and then the
+     * whole subtree is painted as one unit at z-index auto. A canvas appended to
+     * `body` at z-index 15 therefore sat above ALL of it: the title card at 40,
+     * the panels at 20, the hotbar, the audio toggles, the skip link. On a phone
+     * every DOM control in the game was covered by a transparent canvas that
+     * swallows pointer events, and nothing was tappable at all.
+     *
+     * Inside `#app` it competes in the same context as everything else, and the
+     * z-index it was given finally means what it says.
+     */
+    ;(document.getElementById('app') ?? document.body).append(this.canvas)
 
     // `home` is where the ring is CURRENTLY drawn and moves to the thumb; `rest`
     // is where it belongs when nobody is holding it. Without the second one the

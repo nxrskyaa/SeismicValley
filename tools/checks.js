@@ -806,6 +806,42 @@ console.log('\nthe touch controls')
   }
   assert(tightest >= 10, 'no two pads overlap', `${pair} are ${tightest.toFixed(1)} points apart`)
 
+  /**
+   * The pads live INSIDE `#app`.
+   *
+   * `#app` is `position: fixed`, and a fixed element creates a stacking context
+   * whatever its z-index is — so everything inside it is layered against its
+   * siblings and then painted as one unit. A canvas appended to `body` at
+   * z-index 15 therefore sat above the entire interface: the title card at 40,
+   * the panels at 20, the hotbar, the audio toggles, the skip link. On a phone
+   * nothing at all was tappable, and nothing logged anything about it.
+   */
+  const touch = read(path.join(SRC, 'ui/touch.js'))
+  assert(/getElementById\('app'\)/.test(touch),
+    'the touch canvas lives inside #app, not on the body')
+  const css = read(path.join(SRC, 'ui/ui.css'))
+  // Plain string parsing rather than a regex: the block this reads is four
+  // rules and the escaping is not worth the risk of a pattern that quietly
+  // matches nothing and reports every layer as absent.
+  const layer = (sel) => {
+    const at = css.indexOf(`${sel} {`)
+    if (at < 0) return null
+    const rule = css.slice(at, css.indexOf('}', at))
+    const z = rule.indexOf('z-index:')
+    return z < 0 ? null : Number.parseInt(rule.slice(z + 8), 10)
+  }
+  const pads = layer('#touch')
+  const hud = layer('.hud')
+  const panels = layer('.panels')
+  const title = layer('.title')
+  const layers = `#touch ${pads} .hud ${hud} .panels ${panels} .title ${title}`
+  assert([pads, hud, panels, title].every((v) => Number.isInteger(v)),
+    'every interface layer declares a z-index', layers)
+  assert(pads < hud && hud < panels && panels < title,
+    'the pads sit under the interface they are meant to sit under', layers)
+  assert(css.includes('body.is-title #touch { display: none'),
+    'and they are not drawn over the menu at all')
+
   // The cluster has to fit beside the stick on the narrowest phone worth
   // supporting. 320 points is an iPhone SE in portrait.
   const NARROW = 320

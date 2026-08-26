@@ -69,6 +69,7 @@ html, body {
 /* ==================================================================== HUD  */
 
 .hud {
+  z-index: 10;
   position: fixed;
   inset: 0;
   pointer-events: none;
@@ -664,14 +665,19 @@ kbd {
 /* Drawn into their own canvas and hit-tested by hand — see src/ui/touch.js for
    why Button elements cannot be used here. The canvas is the whole viewport and
    is transparent to pointer events except where the stick and pads are. */
+/* The layers inside #app, in one place, because they only make sense together:
+   world 0 · touch pads 5 · HUD 10 · panels 20 · title 40 · cold open 44. */
 #touch {
   position: fixed;
   inset: 0;
-  z-index: 15;
+  z-index: 5;
   display: none;
   touch-action: none;
 }
 body.is-touch #touch { display: block; }
+/* The pads belong to the game, not to the menu. Drawing them over the title
+   card is how the screenshot of an unusable phone menu happened. */
+body.is-title #touch { display: none; }
 body.is-touch .hud .meters { bottom: calc(var(--u) * 10.5); }
 
 @media (prefers-reduced-motion: reduce) {

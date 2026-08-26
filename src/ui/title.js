@@ -3,6 +3,7 @@ import { svgWordmark } from '../core/wordmark.js'
 import { GameState } from '../game/state.js'
 import { loadAppearance, saveAppearance } from '../game/appearance.js'
 import { buildCustomizer } from './customize.js'
+import { isTouch } from './keycaps.js'
 
 /**
  * The title card.
@@ -73,7 +74,21 @@ export function showTitle(root, { onStart, seed }) {
   seedRow.append(seedInput)
   left.append(seedRow)
 
-  left.append(el('div', 'title-keys', `
+  /**
+   * The controls, in the language of whatever is holding the device.
+   *
+   * A phone has no Shift key, no scroll wheel and no number row, so listing them
+   * is not merely unhelpful — it tells a player that controls exist which do
+   * not, while the ones that do sit unlabelled at the bottom of the screen.
+   */
+  left.append(el('div', 'title-keys', isTouch()
+    ? `
+    <div>drag the <b>stick</b> to walk · further to run</div>
+    <div><b>USE</b> the tool in hand · <b>E</b> interact, talk, harvest</div>
+    <div>tap the bar to change tool · <b>TURN</b> the camera · pinch to zoom</div>
+    <div><b>REST</b> homestead · <b>MAKE</b> build and register · <b>LOG</b> journal</div>
+  `
+    : `
     <div><kbd>WASD</kbd> walk <kbd>Shift</kbd> run <kbd>Space</kbd> jump</div>
     <div><kbd>F</kbd> use the tool in hand <kbd>E</kbd> interact, talk, harvest</div>
     <div><kbd>1</kbd>–<kbd>8</kbd> hotbar <kbd>Q</kbd> <kbd>R</kbd> turn the camera <kbd>wheel</kbd> zoom</div>
