@@ -53,11 +53,30 @@ export function generate(seed) {
       // Radial term, on the longer of the two axes so the valley is a bowl and
       // not an ellipse squashed into the map's aspect.
       const d = Math.max(Math.abs(x - mid), Math.abs(z - mid)) / mid
-      const basin = 8.6 + smoothstep(0.62, 1.0, d) * 24
+      /**
+       * How high the valley wall rises, and over how far.
+       *
+       * This used to put twenty-four levels of rise into the outer third of a
+       * ninety-six cell map, and that single number was the corduroy. Terracing
+       * cannot help: thirty-four levels of relief across forty cells is a step
+       * every one-and-a-bit cells no matter how the bands are shaped, so the
+       * whole outer ring came out as stacked one-cell ribbons — a maze rather
+       * than a landscape. Measured, the mean flat run over the whole map was
+       * three cells and a fifth of every cell had three differing neighbours.
+       *
+       * Eleven levels over a band starting at half-radius is the same silhouette
+       * — a bowl with a rim — with room between the steps to stand on.
+       */
+      const basin = 8.6 + smoothstep(0.38, 1.0, d) * 7
       // Low frequencies only. High-frequency terrain in a game whose whole verb
       // is "put a field here" reads as static: every cell a level off its
       // neighbour, no plateau big enough to farm, and a horizon that fizzes.
-      const detail = (land(x * 0.016, z * 0.016) - 0.5) * 6.5 + (rough(x * 0.048, z * 0.048) - 0.5) * 1.2
+      // The second octave is the one that has to be small. At amplitude 1.2 it
+      // wobbles by more than half a terrace band over twenty cells, so the
+      // quantiser crosses a boundary and comes back across it again and again —
+      // which is a ribbon field, drawn by the detail layer, that no amount of
+      // filtering downstream can tell from real landscape.
+      const detail = (land(x * 0.016, z * 0.016) - 0.5) * 6.5 + (rough(x * 0.048, z * 0.048) - 0.5) * 0.45
       // The fault: a short, sharp step, not a slope. Everything on the far side
       // rides about two levels higher.
       const f = faultAt(x, z)
@@ -210,6 +229,83 @@ export function generate(seed) {
         if (h > hi) grid.height[i] = hi
         else if (h < lo) grid.height[i] = lo
       }
+    }
+  }
+
+  /**
+   * WIDENING.
+   *
+   * The median filter above flattens the inside of a slope; this merges what is
+   * left. A cell surrounded by a clear majority at one level off its own is a
+   * ribbon — the last artefact of quantising a gradient — and snapping it onto
+   * the majority turns two one-cell shelves into one two-cell shelf.
+   *
+   * Two guards keep it from eating the landscape it is tidying. It only ever
+   * moves a cell by ONE level, and it only moves it when more than half of a
+   * five-by-five neighbourhood agrees. A real wall has the two heights split
+   * roughly evenly across that window, so no majority exists and the wall stays
+   * exactly where it was.
+   */
+  const tally = new Int16Array(48)
+  for (let pass = 0; pass < 4; pass++) {
+    const src = Int8Array.from(grid.height)
+    for (let z = 2; z < N - 2; z++) {
+      for (let x = 2; x < N - 2; x++) {
+        const i = z * N + x
+        const h = src[i]
+        if (h < WATER_LEVEL) continue
+        tally.fill(0)
+        let seen = 0
+        for (let dz = -2; dz <= 2; dz++) {
+          for (let dx = -2; dx <= 2; dx++) {
+            const v = src[i + dz * N + dx]
+            if (v < WATER_LEVEL) continue
+            tally[v]++
+            seen++
+          }
+        }
+        let mode = h
+        let best = 0
+        for (let v = WATER_LEVEL; v < 48; v++) if (tally[v] > best) { best = tally[v]; mode = v }
+        if (best * 2 > seen && Math.abs(mode - h) === 1) grid.height[i] = mode
+      }
+    }
+  }
+
+  /**
+   * THE EDGE OF THE MAP.
+   *
+   * A height grid stops somewhere, and until now it stopped as a sheer
+   * ninety-six-cell cube standing in an empty background — from any wide shot
+   * the valley read as a diorama on a table.
+   *
+   * The fix is not a bigger map, it is a border that goes UNDER the water. The
+   * last few cells fall below the waterline, the water plane runs well past the
+   * grid, and the valley ends in a shoreline that fades into fog instead of a
+   * wall that ends in nothing. Nobody can walk out there — the collision test
+   * fails out of bounds — so it costs one quad and buys the whole horizon.
+   */
+  /**
+   * Two shelves, not a ramp.
+   *
+   * The first version blended the border down smoothly over six cells, which is
+   * a six-level staircase running the entire perimeter — four hundred cells of
+   * pure corduroy, wrapped around the map, dragging the measured mean flat run
+   * from 5.6 down to 3.6. The fix for corduroy cannot itself be corduroy.
+   *
+   * So the apron is FLAT under the water, the shore inboard of it is FLAT, and
+   * the transition is a wall like every other wall in the valley.
+   */
+  const APRON = 3 // cells of flat lake bed at the very edge
+  const SHORE = 7 // and flat beach inboard of that
+  for (let z = 0; z < N; z++) {
+    for (let x = 0; x < N; x++) {
+      const near = Math.min(x, z, N - 1 - x, N - 1 - z)
+      if (near >= SHORE) continue
+      const i = z * N + x
+      grid.height[i] = near < APRON
+        ? WATER_LEVEL - 3
+        : Math.min(grid.height[i], WATER_LEVEL + 1)
     }
   }
 

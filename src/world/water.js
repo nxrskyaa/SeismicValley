@@ -59,7 +59,22 @@ const FRAG = /* glsl */ `
 
     // Two crossing wave sets, deliberately at odd frequencies so the pattern
     // never lines up into a visible tiling period.
+    //
+    // Faded out with distance, and that is not a nicety. The plane now runs five
+    // map-widths past the grid so the valley ends in open water, and a
+    // four-unit ripple seen from two hundred units away is well under a pixel:
+    // it aliases into a moire that crawls across the whole horizon. Detail you
+    // cannot resolve is not detail, it is noise.
+    // Faded out in DEEP water, and that is the important one. Two perpendicular
+    // sines make a checkerboard, and a checkerboard needs something to break it
+    // up: near a shore the depth gradient does that, and out in the middle of
+    // open water nothing does, so the whole surface reads as a stamped pattern.
+    // Now that the plane runs five map-widths past the grid, "the middle of open
+    // water" is most of the horizon.
+    float lively = 1.0 - smoothstep(1.4, 3.6, depth);
+    float near = 1.0 - smoothstep(26.0, 110.0, length(vWorld - cameraPosition));
     float w = sin(vWorld.x * 1.7 + uTime * 1.15) * 0.5 + sin(vWorld.z * 2.3 - uTime * 0.86) * 0.5;
+    w *= near * lively;
     col += w * 0.035;
 
     // Foam where the bed nearly breaks the surface. Kept to a narrow strip and a
@@ -67,7 +82,8 @@ const FRAG = /* glsl */ `
     // the water having been left out in the sun.
     float shore = 1.0 - smoothstep(0.0, 0.3, depth);
     float band = smoothstep(0.45, 0.85, fract(depth * 4.5 - uTime * 0.3 + w * 0.1));
-    col = mix(col, uFoam, shore * (0.2 + band * 0.4));
+    col = mix(col, uFoam, shore * (0.2 + band * 0.4) * near);
+    // Deep water is one flat colour, which is what deep water looks like.
 
     col *= uLight;
 
@@ -98,6 +114,10 @@ export class Water {
     this.tex = new THREE.DataTexture(this.data, N, N, THREE.RedFormat, THREE.UnsignedByteType)
     this.tex.minFilter = THREE.LinearFilter
     this.tex.magFilter = THREE.LinearFilter
+    // Clamped, so sampling past the map returns the border cell rather than
+    // wrapping the far side of the valley into the horizon.
+    this.tex.wrapS = THREE.ClampToEdgeWrapping
+    this.tex.wrapT = THREE.ClampToEdgeWrapping
     this.tex.needsUpdate = true
     this.refresh()
 
@@ -114,7 +134,16 @@ export class Water {
       uLight: { value: 1 },
     }
 
-    const geo = new THREE.PlaneGeometry(N, N, 1, 1)
+    /**
+     * The plane runs well past the grid.
+     *
+     * The bed texture clamps at its edge, and the edge of the grid is now below
+     * the waterline, so every sample outside the map comes back as deep water.
+     * That is the whole trick: the valley ends in a shore that carries on into
+     * fog rather than in a cliff with nothing behind it.
+     */
+    const SPAN = N * 5
+    const geo = new THREE.PlaneGeometry(SPAN, SPAN, 1, 1)
     geo.rotateX(-Math.PI / 2)
     geo.translate(N / 2, this.surface, N / 2)
     this.mesh = new THREE.Mesh(

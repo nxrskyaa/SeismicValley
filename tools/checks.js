@@ -826,6 +826,44 @@ console.log('\nthe touch controls')
     untranslated.join(', '))
 }
 
+// ------------------------------------------------------- 7d. the terrain shape --
+//
+// Corduroy is the failure this project keeps coming back to, and it has been
+// fixed by eye three times and come back twice, because "it looks better" is
+// not something a check can hold on to. See tools/terrain-stats.mjs.
+
+console.log('\nthe terrain shape')
+{
+  const { terrainStats } = await import('./terrain-stats.mjs')
+  const { generate } = await import('../src/world/worldgen.js')
+  const { N } = await import('../src/world/grid.js')
+
+  for (const seed of [1, 77, 4242]) {
+    const { grid } = generate(seed)
+    const s = terrainStats(grid, N)
+    assert(s.meanRun >= 4.6, `seed ${seed} has shelves you can stand on`, `mean flat run ${s.meanRun.toFixed(2)} cells`)
+    assert(s.ribbonShare <= 0.11, `seed ${seed} is landscape and not corduroy`, `${(s.ribbonShare * 100).toFixed(1)}% of cells are on a one-cell shelf`)
+    // Relief still has to EXIST. Flattening the map until the numbers pass
+    // would satisfy both of the above and produce a car park.
+    assert(s.relief >= 12 && s.relief <= 24, `seed ${seed} is still a valley`, `${s.relief} levels of relief`)
+  }
+
+  // And the border goes under the water, so the map ends in a shoreline that
+  // carries into fog rather than a cliff standing in an empty background.
+  const { WATER_LEVEL } = await import('../src/world/grid.js')
+  const { grid } = generate(9)
+  let dryBorder = 0
+  for (let k = 0; k < N; k++) {
+    if (grid.h(k, 0) >= WATER_LEVEL) dryBorder++
+    if (grid.h(k, N - 1) >= WATER_LEVEL) dryBorder++
+    if (grid.h(0, k) >= WATER_LEVEL) dryBorder++
+    if (grid.h(N - 1, k) >= WATER_LEVEL) dryBorder++
+  }
+  assert(dryBorder === 0, 'the whole map border is under water', `${dryBorder} dry border cells`)
+  const water = read(path.join(SRC, 'world/water.js'))
+  assert(/const SPAN = N \* [2-9]/.test(water), 'and the water plane runs past the grid')
+}
+
 // ------------------------------------------------------------- 8. the soak --
 //
 // A short run of the real thing. `tools/soak.mjs` drives the player, the dog,
