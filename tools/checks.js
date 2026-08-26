@@ -772,6 +772,60 @@ console.log('\ngameplay')
   assert(Math.max(...xs) < 0, 'the left lune stays left of the axis — the mark has a gap at its waist')
 }
 
+// ---------------------------------------------------- 7c. the touch controls --
+//
+// The pads only exist on a coarse pointer, so nothing else here ever sees them
+// and they shipped laid out at fixed pixel offsets measured on a wide window.
+// On a 412-point phone — the only device that ever draws them — they overlapped
+// each other, the hotbar, the audio toggles and the hint line, all at once.
+
+console.log('\nthe touch controls')
+{
+  const { PADS, PAD_PLACE, padScale } = await import('../src/ui/touch.js')
+  const input = read(path.join(SRC, 'core/input.js'))
+  const main = read(path.join(SRC, 'main.js'))
+
+  // A pad wired to an action nothing reads is a button that does nothing.
+  const dead = PADS.filter((p) => !input.includes(`'${p.action}'`)).map((p) => p.label)
+  assert(dead.length === 0, 'every pad fires an action the game knows about', dead.join(', '))
+
+  // Build, on a device with no keyboard. Without a pad for it the stakes, the
+  // cairns and the whole registration mechanic were unreachable on a phone.
+  assert(PADS.some((p) => p.action === 'build'), 'there is a pad for building')
+  assert(main.includes("input.pressed('build')"), 'and something reads it')
+
+  // No two pads may touch. Measured, not eyeballed.
+  let tightest = Infinity
+  let pair = null
+  for (let a = 0; a < PADS.length; a++) {
+    for (let b = a + 1; b < PADS.length; b++) {
+      const d = Math.hypot(PAD_PLACE[a][0] - PAD_PLACE[b][0], PAD_PLACE[a][1] - PAD_PLACE[b][1])
+      const gap = d - PADS[a].r - PADS[b].r
+      if (gap < tightest) { tightest = gap; pair = `${PADS[a].label}/${PADS[b].label}` }
+    }
+  }
+  assert(tightest >= 10, 'no two pads overlap', `${pair} are ${tightest.toFixed(1)} points apart`)
+
+  // The cluster has to fit beside the stick on the narrowest phone worth
+  // supporting. 320 points is an iPhone SE in portrait.
+  const NARROW = 320
+  const sc = padScale(NARROW)
+  const cluster = (Math.max(...PAD_PLACE.map((q, k) => -q[0] + PADS[k].r)) + 58) * sc
+  const stickEdge = 24 + 2 * 62 * sc
+  assert(cluster + stickEdge < NARROW, 'the cluster and the stick both fit on a 320pt screen',
+    `${Math.round(cluster)}pt of pads + ${Math.round(stickEdge)}pt of stick`)
+
+  // And every instruction has a touch translation, or a phone is told to press
+  // keys it does not have.
+  const { STEPS } = await import('../src/game/tutorial.js')
+  const { translate } = await import('../src/ui/keycaps.js')
+  const untranslated = STEPS
+    .filter((step) => /<kbd>/.test(translate(step.keys)))
+    .map((step) => step.id)
+  assert(untranslated.length === 0, 'every key the first morning names has a pad label',
+    untranslated.join(', '))
+}
+
 // ------------------------------------------------------------- 8. the soak --
 //
 // A short run of the real thing. `tools/soak.mjs` drives the player, the dog,

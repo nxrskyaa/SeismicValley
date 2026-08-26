@@ -25,11 +25,11 @@
  * A driven playtest found it: thirty seconds of scripted keys, and the panel was
  * still on screen at the end.
  */
-const ALWAYS = new Set(['cancel', 'homestead', 'journal', 'build', 'map', 'save'])
+const ALWAYS = new Set(['cancel', 'homestead', 'journal', 'build', 'pebbles', 'save'])
 
 const KEY_ACTIONS = {
   KeyF: 'use', KeyE: 'interact', KeyQ: 'rotL', KeyR: 'rotR',
-  Tab: 'homestead', KeyJ: 'journal', KeyB: 'build', KeyM: 'map',
+  Tab: 'homestead', KeyJ: 'journal', KeyB: 'build', KeyP: 'pebbles',
   Escape: 'cancel', Space: 'jump', F5: 'save', Enter: 'confirm',
   Digit1: 'slot1', Digit2: 'slot2', Digit3: 'slot3', Digit4: 'slot4',
   Digit5: 'slot5', Digit6: 'slot6', Digit7: 'slot7', Digit8: 'slot8',

@@ -28,7 +28,7 @@ const OUT = path.join(ROOT, 'shots')
 const W = 1440
 const H = 900
 
-const ALL = ['valley', 'home', 'gate', 'rocky', 'sheet', 'rig', 'pond', 'lake', 'dawn', 'dusk', 'night', 'pruning', 'pebble', 'play', 'menu', 'hud', 'audio', 'prologue', 'drive']
+const ALL = ['valley', 'home', 'gate', 'rocky', 'sheet', 'rig', 'house', 'pond', 'lake', 'dawn', 'dusk', 'night', 'pruning', 'pebble', 'play', 'menu', 'hud', 'audio', 'prologue', 'drive', 'firstrun', 'reload', 'mobile']
 
 /**
  * Poses that are INTERFACE rather than camera.
@@ -57,6 +57,17 @@ const DOM_POSES = {
    * console error — which is where a rendering or interface bug actually lands.
    */
   drive: { query: '?nomenu=1', wait: '.hotbar', settle: 400, drive: true },
+  /**
+   * The path a new player actually takes, which no other pose touches: title
+   * card, a settler chosen, Begin, the cold open, and then the game. Every one
+   * of those is a different code path and the handover between them is where a
+   * first run breaks.
+   */
+  firstrun: { query: '', wait: '.title-card', settle: 900, firstRun: true },
+  /** Play, save, reload, and assert the valley came back the way it was left. */
+  reload: { query: '?nomenu=1', wait: '.hotbar', settle: 400, reload: true },
+  /** The same game on a phone: coarse pointer, touch controls, a narrow card. */
+  mobile: { query: '?nomenu=1', wait: '.hotbar', settle: 1400, mobile: true },
 }
 
 const argv = process.argv.slice(2)
@@ -150,7 +161,7 @@ async function drivePage(page) {
    * CLOSE" and Escape did nothing; the only way out was clicking a scrim nothing
    * mentions. This loop is what found it, so this loop asserts it.
    */
-  for (const k of ['Tab', 'KeyB', 'KeyJ']) {
+  for (const k of ['Tab', 'KeyB', 'KeyJ', 'KeyP']) {
     await tap(k)
     await new Promise((r) => setTimeout(r, 300))
     const opened = await page.evaluate(() => !!window.__app?.panels?.isOpen)
@@ -160,6 +171,29 @@ async function drivePage(page) {
     const shut = await page.evaluate(() => !window.__app?.panels?.isOpen)
     if (!shut) throw new Error(`Escape did not close the panel ${k} opened`)
   }
+
+  /**
+   * EVERY panel, rendered at least once.
+   *
+   * The shop and the pebble roster were both fully written and neither had a
+   * door: nothing anywhere called `open('shop')`, so coin had nothing in the
+   * game to buy, and three seed lines and every sapling were unreachable. This
+   * walks the panel graph by hand and renders each one, so an orphan is a
+   * failing capture rather than something nobody notices for a month.
+   */
+  const opened = await page.evaluate(async () => {
+    const panels = window.__app.panels
+    const seen = []
+    for (const kind of ['homestead', 'build', 'shop', 'crate', 'journal', 'pebbles']) {
+      panels.open(kind, { cell: window.__app.control.target })
+      seen.push(panels.isOpen ? kind : `${kind} FAILED`)
+      await new Promise((r) => requestAnimationFrame(r))
+    }
+    panels.close()
+    return seen
+  })
+  const broken = opened.filter((k) => k.includes('FAILED'))
+  if (broken.length) throw new Error(`panels that would not open: ${broken.join(', ')}`)
 
   // And walk again afterwards, which is what catches an input capture that was
   // never released: the panel is gone, and the player still cannot move.
@@ -178,6 +212,138 @@ async function drivePage(page) {
   }
   if (after.stuck) throw new Error('the player ended the run inside something they cannot leave')
   await new Promise((r) => setTimeout(r, 400))
+}
+
+/**
+ * The first run, end to end.
+ *
+ * A fresh browser profile, so there is no save and no remembered prologue: the
+ * title comes up, a settler is dressed, Begin is pressed, the cold open plays
+ * and is skipped, and the game has to be running and drivable on the far side.
+ */
+async function firstRunPage(page) {
+  // Nothing remembered — otherwise the prologue is skipped and the whole point
+  // of this pose is skipped with it.
+  await page.evaluate(() => localStorage.clear())
+  await page.reload({ waitUntil: 'load' })
+  await page.waitForSelector('.title-card', { timeout: 20000 })
+
+  // Dress somebody, because the swatches repaint a live rig and that is a code
+  // path a screenshot of the card does not exercise.
+  const swatches = await page.$$('.swatch')
+  for (const i of [1, 9, 15, 20]) await swatches[i % swatches.length]?.click()
+  await page.click('.dress-dice')
+  await new Promise((r) => setTimeout(r, 300))
+
+  const [begin] = await page.$$('.title-actions .btn')
+  if (!begin) throw new Error('the title card has no button to press')
+  await begin.click()
+
+  await page.waitForSelector('.prologue-lines', { timeout: 15000 })
+  await new Promise((r) => setTimeout(r, 1200))
+  await page.keyboard.press('Escape')
+  await new Promise((r) => setTimeout(r, 900))
+
+  const gone = await page.evaluate(() => !document.querySelector('.prologue') && !document.body.classList.contains('is-title'))
+  if (!gone) throw new Error('the cold open never handed the game back')
+
+  // And it has to be playable, not merely visible.
+  const before = await page.evaluate(() => ({ x: window.__app.control.pos.x, z: window.__app.control.pos.z }))
+  await page.keyboard.down('KeyW')
+  await new Promise((r) => setTimeout(r, 900))
+  await page.keyboard.up('KeyW')
+  const after = await page.evaluate(() => ({ x: window.__app.control.pos.x, z: window.__app.control.pos.z }))
+  if (Math.hypot(after.x - before.x, after.z - before.z) < 0.5) {
+    throw new Error('the player cannot move after a first run')
+  }
+
+  // The tutorial should be up and on its first job.
+  const task = await page.evaluate(() => document.querySelector('.task-count')?.textContent ?? '')
+  if (!/1 of/.test(task)) throw new Error(`the first morning did not start (card says "${task}")`)
+  await new Promise((r) => setTimeout(r, 400))
+}
+
+/**
+ * Save, reload, and check the valley came back.
+ *
+ * A save that silently drops a field is the worst class of bug in a game like
+ * this: nothing throws, the world just quietly forgets that you tilled anything.
+ * `checks.js` round-trips the state object; this round-trips the real thing
+ * through localStorage and a page load.
+ */
+async function reloadPage(page) {
+  // Change the world in ways that all have to survive: dig, take the day
+  // forward, move somewhere specific.
+  await page.evaluate(() => {
+    const { state, control, grid } = window.__app
+    for (let i = 0; i < 6; i++) {
+      const x = Math.floor(control.pos.x) + i - 3
+      const z = Math.floor(control.pos.z) + 2
+      if (grid.canTill(x, z)) state.till(x, z)
+    }
+    state.give('wood', 17)
+    state.coin = 123
+    state.addJournal('a line to look for after the reload')
+  })
+  const before = await page.evaluate(() => {
+    const { state } = window.__app
+    let tilled = 0
+    for (let i = 0; i < state.grid.tilled.length; i++) tilled += state.grid.tilled[i] ? 1 : 0
+    return { tilled, wood: state.count('wood'), coin: state.coin, day: state.day, journal: state.journal.length }
+  })
+  await page.keyboard.press('F5')
+  await new Promise((r) => setTimeout(r, 500))
+
+  await page.goto(page.url(), { waitUntil: 'load' })
+  await page.waitForSelector('.hotbar', { timeout: 20000 })
+  await new Promise((r) => setTimeout(r, 700))
+  // `?nomenu=1` starts a fresh valley; load the save the way Continue does.
+  const after = await page.evaluate(() => {
+    const { state } = window.__app
+    const blob = JSON.parse(localStorage.getItem('seismic-valley.save') ?? 'null')
+    if (!blob) return null
+    if (!state.load(blob)) return 'load returned false'
+    let tilled = 0
+    for (let i = 0; i < state.grid.tilled.length; i++) tilled += state.grid.tilled[i] ? 1 : 0
+    return { tilled, wood: state.count('wood'), coin: state.coin, day: state.day, journal: state.journal.length }
+  })
+  if (!after) throw new Error('F5 wrote no save')
+  if (typeof after === 'string') throw new Error(after)
+  for (const k of Object.keys(before)) {
+    if (after[k] !== before[k]) throw new Error(`the save lost ${k}: ${before[k]} -> ${after[k]}`)
+  }
+}
+
+/**
+ * The same game on a phone.
+ *
+ * The touch controls only exist when the pointer is coarse, so they are invisible
+ * to every other pose here — which is exactly how a control scheme ships broken.
+ */
+async function mobilePage(page) {
+  const stick = await page.$('#touch')
+  if (!stick) throw new Error('no touch controls on a coarse pointer')
+  const box = await stick.boundingBox()
+  if (!box || box.width < 10) throw new Error('the touch controls have no size')
+
+  const before = await page.evaluate(() => ({ x: window.__app.control.pos.x, z: window.__app.control.pos.z }))
+  // Drag the stick and hold it, which is what a thumb does.
+  const cx = box.x + box.width / 2
+  const cy = box.y + box.height / 2
+  await page.touchscreen.touchStart(cx, cy)
+  await page.touchscreen.touchMove(cx + box.width * 0.4, cy - box.height * 0.4)
+  await new Promise((r) => setTimeout(r, 1200))
+  await page.touchscreen.touchEnd()
+  const after = await page.evaluate(() => ({ x: window.__app.control.pos.x, z: window.__app.control.pos.z }))
+  if (Math.hypot(after.x - before.x, after.z - before.z) < 0.4) {
+    throw new Error('dragging the touch stick did not move the player')
+  }
+  // And it has to STOP when the thumb lifts.
+  await new Promise((r) => setTimeout(r, 500))
+  const a = await page.evaluate(() => ({ x: window.__app.control.pos.x, z: window.__app.control.pos.z }))
+  await new Promise((r) => setTimeout(r, 500))
+  const b = await page.evaluate(() => ({ x: window.__app.control.pos.x, z: window.__app.control.pos.z }))
+  if (Math.hypot(b.x - a.x, b.z - a.z) > 0.15) throw new Error('the player keeps walking after the thumb lifts')
 }
 
 async function main() {
@@ -214,7 +380,10 @@ async function main() {
   let failures = 0
   for (const pose of shots) {
     const page = await browser.newPage()
-    await page.setViewport({ width, height, deviceScaleFactor: 1 })
+    const mob = DOM_POSES[pose]?.mobile
+    await page.setViewport(mob
+      ? { width: 412, height: 892, deviceScaleFactor: 2, isMobile: true, hasTouch: true }
+      : { width, height, deviceScaleFactor: 1 })
     const errors = []
     page.on('console', (m) => m.type() === 'error' && errors.push(m.text()))
     page.on('pageerror', (e) => errors.push(e && e.stack ? e.stack.split(String.fromCharCode(10)).slice(0, 6).join(' | ') : String(e)))
@@ -233,6 +402,9 @@ async function main() {
         await page.waitForFunction('window.__shotReady === true', { timeout: 30000 })
       }
       if (dom?.drive) await drivePage(page)
+      if (dom?.firstRun) await firstRunPage(page)
+      if (dom?.reload) await reloadPage(page)
+      if (dom?.mobile) await mobilePage(page)
       ok = true
     } catch {
       /* fall through to the error dump below */

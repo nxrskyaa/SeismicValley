@@ -824,3 +824,32 @@ body.is-touch .hud .meters { bottom: calc(var(--u) * 10.5); }
 /* A row that is a record rather than a control — no button, no hover. */
 .panels .row-quiet { cursor: default; }
 .panels .row-quiet:hover { background: none; }
+
+
+/* --- on a phone ------------------------------------------------------------
+   The touch pads own the bottom-right corner and the stick owns the
+   bottom-left, so everything else has to move out from under them. This block
+   is the whole reason `is-touch` exists on the body. */
+
+body.is-touch .sound {
+  right: auto;
+  left: calc(var(--u) * 1.1);
+  bottom: auto;
+  top: calc(var(--u) * 6.6);
+  align-items: flex-start;
+}
+body.is-touch .corner { display: none; }
+/* The hint sat exactly where the E pad is drawn. */
+body.is-touch .hud .hint { bottom: calc(var(--u) * 20); }
+body.is-touch .task { width: calc(var(--u) * 15); }
+/* The meters were drawn inside the stick's ring, which is unreadable and makes
+   the ring look broken. On touch they go under the field log — the one corner
+   nothing else wants. `!important` because an earlier `is-touch` rule of the
+   same specificity sets `bottom`, and two of those cancel out into whichever
+   came last in the file. */
+body.is-touch .hud .meters {
+  top: calc(var(--u) * 10.4);
+  bottom: auto !important;
+  left: calc(var(--u) * 1.1);
+  width: calc(var(--u) * 9);
+}

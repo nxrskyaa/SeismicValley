@@ -1,4 +1,5 @@
 import { markSvg } from '../core/mark.js'
+import { keycaps } from './keycaps.js'
 import { SEASON_DAYS, SEASON_NAMES, SEASON_SHORT, WEATHER } from '../game/crops.js'
 import { item } from '../game/items.js'
 import { MANIFEST_TOTAL } from '../game/story.js'
@@ -162,7 +163,7 @@ export class HUD {
     this.taskCount.textContent = closing ? 'The first morning' : `${n} of ${total}`
     this.taskJob.textContent = step.job
     this.taskNote.textContent = step.note
-    this.taskKeys.innerHTML = step.keys ?? ''
+    this.taskKeys.innerHTML = keycaps(step.keys) ?? ''
     this.taskKeys.style.display = step.keys ? '' : 'none'
     this.taskSkip.style.display = closing ? 'none' : ''
     // Re-run the entry animation on every change, so a finished job visibly
@@ -263,7 +264,9 @@ export class HUD {
   setHint(text) {
     if (this._hint === text) return
     this._hint = text
-    this.hint.innerHTML = text ?? ''
+    // Written with keyboard caps; rewritten into pad labels on a phone, where
+    // "press F" names a key that does not exist.
+    this.hint.innerHTML = keycaps(text) ?? ''
     this.hint.classList.toggle('is-on', !!text)
   }
 

@@ -143,6 +143,15 @@ export class Panels {
       }
     }
 
+    // `render_pebbles` was orphaned in exactly the same way the shop was.
+    const roster = el('div', 'row')
+    const n = s.pebbles.length
+    roster.append(el('div', 'row-main', `<strong>The pebbles</strong><span class="muted">${n ? `${n} awake` : 'None yet — break geodes along the scar'}</span>`))
+    const rosterBtn = el('button', 'btn', 'Look')
+    rosterBtn.addEventListener('click', () => this.open('pebbles'))
+    roster.append(rosterBtn)
+    body.append(roster)
+
     body.append(el('h3', null, 'Requests'))
     if (!s.requests.length) body.append(el('p', 'muted', 'Nobody needs anything today.'))
     for (const r of s.requests) {
@@ -216,7 +225,10 @@ export class Panels {
 
   render_shop(body) {
     const s = this.state
-    body.append(el('p', 'lede', `Odile stocks what will take in ${SEASON_NAMES[s.season]}, and nothing that will not.`))
+    // No shopkeeper. There is nobody left to be one — the requisition list is
+    // whatever the seed archive still holds that will take in this season, and
+    // it is filed and shipped by the same machinery that pays for the crate.
+    body.append(el('p', 'lede', `The archive lists what will take in ${SEASON_NAMES[s.season]}, and nothing that will not. ${s.coin} coin.`))
     const grid = el('div', 'grid')
     for (const seedId of seasonalSeeds(s.season)) {
       const price = Math.max(2, Math.round(valueOf(seedId) * 1.6))
@@ -253,13 +265,35 @@ export class Panels {
       grid2.append(card)
     }
     body.append(grid2)
+
+    const back = el('div', 'row row-quiet')
+    back.append(el('div', 'row-main', '<strong>The crate</strong><span class="muted">What is going out at dawn.</span>'))
+    const backBtn = el('button', 'btn', 'Back')
+    backBtn.addEventListener('click', () => this.open('crate'))
+    back.append(backBtn)
+    body.append(back)
   }
 
   // ---------------------------------------------------------------- crate --
 
   render_crate(body) {
     const s = this.state
-    body.append(el('p', 'lede', 'Anything left here is sold overnight. Marn takes no cut, which nobody believes.'))
+    body.append(el('p', 'lede', 'Whatever is in the crate at dawn goes out on the line, and the line still pays. There is nobody at the other end of it.'))
+
+    /**
+     * The requisition, which had no door.
+     *
+     * `render_shop` existed and nothing anywhere opened it — so coin accumulated
+     * with nothing in the game to spend it on, and three seed lines and every
+     * sapling were unreachable. The crate is the trade point in the fiction, so
+     * the crate is where the button goes.
+     */
+    const req = el('div', 'row row-hero')
+    req.append(el('div', 'row-main', `<strong>Requisition</strong><span class="muted">What the archive still has in stock. You have ${s.coin} coin.</span>`))
+    const reqBtn = el('button', 'btn btn-solid', 'Order')
+    reqBtn.addEventListener('click', () => this.open('shop'))
+    req.append(reqBtn)
+    body.append(req)
     const sellable = [...s.bag.keys()].filter((id) => {
       const k = item(id).kind
       return k !== KIND.TOOL && valueOf(id) > 0

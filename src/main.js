@@ -73,6 +73,7 @@ const POSES = {
   sheet: { at: [HOME.x, 1.0, HOME.z], size: 3.6, hour: 12 },
   rig: { at: [HOME.x, 1.0, HOME.z], size: 5, hour: 12 },
   pebble: { at: [HOME.x + 2, -0.86, HOME.z + 2], size: 1.4, hour: 12, pebble: true },
+  house: { at: [HOME.x, 1.4, HOME.z - 5], size: 6.5, hour: 12 },
   pond: { at: [HOME.x + 13, -1.1, HOME.z + 2], size: 20, hour: 11 },
   lake: { at: [N * 0.76, -1.1, N * 0.84], size: 26, hour: 12.5 },
   dawn: { at: [HOME.x, 0, HOME.z], size: 26, hour: 6.2 },
@@ -318,6 +319,9 @@ function runGame() {
   // is still a desktop and should not get a joystick drawn over it.
   app.touch = new TouchControls(input)
   app.touch.setEnabled(matchMedia('(pointer: coarse)').matches)
+  // `is-touch` is set by the line above and every hint is rewritten off it, so
+  // the tutorial card has to be drawn AFTER it rather than before.
+  app.hud.setTask(null)
 
   // `?shot=play` is the one capture that goes through the real game rather than
   // through runCapture, because it is the only way to photograph the HUD.
@@ -495,6 +499,7 @@ function handleInteraction(talking) {
     } else if (panels.isOpen) panels.close()
   }
   if (input.pressed('journal')) panels.toggle('journal')
+  if (input.pressed('pebbles')) panels.toggle('pebbles')
   if (input.pressed('homestead')) panels.toggle('homestead')
   if (input.pressed('build')) panels.toggle('build', { cell: control.target })
   if (input.pressed('save')) state.save()

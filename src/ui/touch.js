@@ -23,17 +23,39 @@ import { UI } from '../core/palette.js'
 
 const STICK_R = 62
 const KNOB_R = 26
+/** How far above the bottom edge both clusters sit, so neither lands on the
+ *  hotbar. The hotbar is about sixty points tall at the smallest type scale. */
+const HOTBAR_CLEARANCE = 96
 const DEAD = 0.16
 const REPEAT = 0.34
 
-/** The pads, in the order they are laid out from the bottom-right corner. */
-const PADS = [
+/** The pads, in the order they are laid out from the anchor. Exported so the
+ *  checks can prove none of them overlap at a phone width. */
+/** Offsets from the anchor, one per pad, in unscaled points. */
+export const PAD_PLACE = [
+  [0, 0], [-86, 4], [-8, -80], [-78, -66], [-150, -14], [-2, -148], [-150, -88],
+]
+
+/**
+ * How much everything shrinks, given a viewport width.
+ *
+ * Exported and pure, so the checks can prove the cluster and the stick still fit
+ * side by side on the narrowest phone worth supporting rather than taking the
+ * word of whoever last looked at one.
+ */
+export const padScale = (w) => Math.max(0.7, Math.min(1.15, w / 430))
+
+export const PADS = [
   { action: 'use', label: 'USE', r: 38, repeat: true, accent: true },
   { action: 'interact', label: 'E', r: 27, repeat: false },
   { action: 'jump', label: 'JUMP', r: 25, repeat: false },
   { action: 'rotR', label: 'TURN', r: 22, repeat: false },
   { action: 'journal', label: 'LOG', r: 20, repeat: false },
   { action: 'homestead', label: 'REST', r: 20, repeat: false },
+  // Without this pad the build panel — stakes, cairns, sheds, the whole
+  // registration mechanic the game is named around — had no way to open at all
+  // on a device with no keyboard.
+  { action: 'build', label: 'MAKE', r: 20, repeat: false },
 ]
 
 export class TouchControls {
@@ -45,7 +67,11 @@ export class TouchControls {
     this.ctx = this.canvas.getContext('2d')
     document.body.append(this.canvas)
 
-    this.stick = { home: [0, 0], at: [0, 0], id: -1, vec: [0, 0] }
+    // `home` is where the ring is CURRENTLY drawn and moves to the thumb; `rest`
+    // is where it belongs when nobody is holding it. Without the second one the
+    // ring stays wherever it was last grabbed — which in practice means a
+    // permanent circle drawn over the middle of the screen, on top of the player.
+    this.stick = { home: [0, 0], rest: [0, 0], at: [0, 0], id: -1, vec: [0, 0] }
     this.pads = PADS.map((p) => ({ ...p, cx: 0, cy: 0, down: false, timer: 0, id: -1 }))
 
     this._onResize = () => this.layout()
@@ -71,22 +97,40 @@ export class TouchControls {
     this.canvas.style.height = `${innerHeight}px`
     this.ctx.setTransform(dpr, 0, 0, dpr, 0, 0)
 
-    // Both clusters sit a thumb's reach in from the bottom corners. The stick's
-    // home is where it RESTS; it re-homes to wherever the thumb lands, which is
-    // what stops a mis-grab from being a mis-step.
-    this.stick.home = [STICK_R + 26, innerHeight - STICK_R - 26]
-    if (this.stick.id < 0) this.stick.at = [...this.stick.home]
+    /**
+     * Both clusters sit a thumb's reach in from the bottom corners, ABOVE the
+     * hotbar, and everything scales with the screen.
+     *
+     * The first version placed the six pads at fixed pixel offsets measured on a
+     * wide window. On a 412-point phone — which is the only kind of device that
+     * ever sees these controls — they overlapped each other, the hotbar, the
+     * audio toggles and the hint line, all at once. Offsets in a layout that
+     * only exists on small screens must be relative to the small screen.
+     */
+    // The floor is what makes an iPhone SE work: at 320 points the cluster and
+    // the stick together need to fit across the screen, and at 0.82 they did not.
+    const s = padScale(innerWidth)
+    const lift = HOTBAR_CLEARANCE * s
 
-    const bx = innerWidth - 66
-    const by = innerHeight - 66
-    const place = [
-      [bx, by], [bx - 82, by + 6], [bx - 14, by - 78],
-      [bx - 78, by - 66], [bx - 118, by - 6], [bx - 6, by - 128],
-    ]
+    this.stick.rest = [STICK_R * s + 24, innerHeight - STICK_R * s - lift]
+    if (this.stick.id < 0) {
+      this.stick.home = [...this.stick.rest]
+      this.stick.at = [...this.stick.rest]
+    }
+
+    // Polar-ish placement around one anchor, so the whole cluster moves and
+    // scales together and the gaps between pads are guaranteed by arithmetic
+    // rather than by having looked at it once.
+    const ax = innerWidth - 58 * s
+    const ay = innerHeight - lift - 30 * s
+    const place = PAD_PLACE
     this.pads.forEach((p, i) => {
-      p.cx = place[i][0]
-      p.cy = place[i][1]
+      p.cx = ax + place[i][0] * s
+      p.cy = ay + place[i][1] * s
+      p.r = PADS[i].r * s
     })
+    this.stickR = STICK_R * s
+    this.knobR = KNOB_R * s
     this.draw()
   }
 
@@ -134,7 +178,8 @@ export class TouchControls {
     if (e.pointerId === this.stick.id) {
       this.stick.id = -1
       this.stick.vec = [0, 0]
-      this.stick.at = [...this.stick.home]
+      this.stick.home = [...this.stick.rest]
+      this.stick.at = [...this.stick.rest]
     }
     for (const p of this.pads) {
       if (p.id === e.pointerId) {
@@ -162,7 +207,7 @@ export class TouchControls {
       const dx = this.stick.at[0] - this.stick.home[0]
       const dy = this.stick.at[1] - this.stick.home[1]
       const len = Math.hypot(dx, dy)
-      const k = Math.min(1, len / STICK_R)
+      const k = Math.min(1, len / (this.stickR ?? STICK_R))
       if (k > DEAD) {
         this.stick.vec = [(dx / (len || 1)) * k, (dy / (len || 1)) * k]
       } else {
@@ -196,7 +241,7 @@ export class TouchControls {
     ctx.globalAlpha = live ? 0.85 : 0.4
     ctx.strokeStyle = UI.cream
     ctx.beginPath()
-    ctx.arc(hx, hy, STICK_R, 0, Math.PI * 2)
+    ctx.arc(hx, hy, this.stickR ?? STICK_R, 0, Math.PI * 2)
     ctx.stroke()
 
     let kx = hx
@@ -211,7 +256,7 @@ export class TouchControls {
     }
     ctx.fillStyle = 'rgba(28, 20, 17, 0.72)'
     ctx.beginPath()
-    ctx.arc(kx, ky, KNOB_R, 0, Math.PI * 2)
+    ctx.arc(kx, ky, this.knobR ?? KNOB_R, 0, Math.PI * 2)
     ctx.fill()
     ctx.stroke()
 
