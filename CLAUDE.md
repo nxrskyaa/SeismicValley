@@ -101,10 +101,13 @@ things were ported back out of it after a long drift:
 - `core/palette.js` — both palettes, and `skyAt(hour)`: a ten-key-frame 24-hour
   grade ported from Velion. Key-framed and **not** computed — a cosine curve
   gives a sky that is technically correct and reads as a lamp on a dimmer.
-- `core/mark.js` — the Seismic mark, solved rather than eyeballed: two circles
-  through the same pair of horns. The arcs are flattened to explicit points on
-  purpose; an arc-direction flag is the easiest thing here to get wrong, and
-  getting it wrong does not fail, it draws the wrong logo.
+- `core/mark.js` — the Seismic mark: a rough-cut **crystal**, seven vertices in
+  four facets, MEASURED off the 128px favicon at seismic.systems rather than
+  drawn. It was two mirrored lunes for most of this project's life — a shape
+  that is on the site nowhere, on the character sheet nowhere, and on nothing
+  the brand has ever put its name to. Two checks required the wrong logo, which
+  is worse than having none: it made the mistake load-bearing. If the mark is
+  ever in doubt again, fetch the favicon and mask it; do not draw from memory.
 - `core/wordmark.js` — the game's own letterforms. No font file anywhere.
 - `core/kit.js` — the primitive vocabulary. Read its header before adding a mesh.
 - `world/camera.js` — the orthographic rig. Its header says why every number is

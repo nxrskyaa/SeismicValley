@@ -195,7 +195,7 @@ export function buildRocky({ cut = 'rocky', chest = 'mark', height = 1.9, outlin
   // ------------------------------------------------------------ the badge --
   // Set INTO a cut recess, never laid on top. The recess is the whole difference
   // between a gem and a sticker.
-  plate(chestG, { geo: FLAT, at: [0, 0.15, 0.128], size: [0.17, 0.105, 0.025], mat: MAT.stone, ink: false })
+  plate(chestG, { geo: FLAT, at: [0, 0.15, 0.128], size: [0.155, 0.155, 0.025], mat: MAT.stone, ink: false })
   if (chest === 'shard') {
     const shard = new THREE.Mesh(shardGeometry(), MAT.shard)
     shard.position.set(0, 0.15, 0.15)
@@ -208,7 +208,7 @@ export function buildRocky({ cut = 'rocky', chest = 'mark', height = 1.9, outlin
     mark.position.set(0, 0.15, 0.143)
     // Uniform: the mark has its own aspect and squashing it to fit a recess is
     // how a logo stops being the logo.
-    mark.scale.setScalar(0.115)
+    mark.scale.setScalar(0.155)
     chestG.add(mark)
     parts.badge = mark
   }

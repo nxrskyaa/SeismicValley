@@ -650,7 +650,7 @@ console.log('\ngameplay')
   const { CROPS, SEASON_NAMES, SEASON_DAYS } = await import('../src/game/crops.js')
   const { P, N } = await import('../src/world/grid.js')
   const { canSet } = await import('../src/core/wordmark.js')
-  const { markShapes } = await import('../src/core/mark.js')
+  const { MARK_FACETS, markShapes } = await import('../src/core/mark.js')
 
   assert(SEASON_NAMES.join() === 'Thaw,Longlight,Rust,Still', 'the seasons are the operations calendar')
   assert(SEASON_DAYS === 21, 'a season is twenty-one days')
@@ -815,11 +815,44 @@ console.log('\ngameplay')
     fail('public/mark.svg matches src/core/mark.js', 'run `npm run mark`')
   }
 
+  /**
+   * THE MARK IS A CRYSTAL, and for the whole life of this project it was not.
+   *
+   * It was two mirrored lunes — a shape that is not on seismic.systems, not on
+   * the character sheet, and not on anything the brand has ever put its name
+   * to. These assertions used to require the wrong logo, which is worse than
+   * having none: they made the mistake load-bearing.
+   *
+   * Measured off the 128px favicon. Seven vertices, one closed silhouette,
+   * taller than it is wide, in four facets running dark to light.
+   */
   const shapes = markShapes()
-  assert(shapes.length === 2, 'the mark is two lunes')
+  assert(shapes.length === 1, 'the mark is one closed silhouette', `${shapes.length} shapes`)
   const pts = shapes[0].getPoints(1)
-  const xs = pts.map((q) => q.x)
-  assert(Math.max(...xs) < 0, 'the left lune stays left of the axis — the mark has a gap at its waist')
+  assert(pts.length >= 7 && pts.length <= 9, `the crystal has seven corners (${pts.length})`)
+  const w = Math.max(...pts.map((q) => q.x)) - Math.min(...pts.map((q) => q.x))
+  const h = Math.max(...pts.map((q) => q.y)) - Math.min(...pts.map((q) => q.y))
+  assert(h > w * 1.2, 'and it is clearly taller than it is wide', `${w.toFixed(2)} x ${h.toFixed(2)}`)
+
+  const lum = (hex) => {
+    const n = Number.parseInt(hex.slice(1), 16)
+    return ((n >> 16) & 255) * 0.299 + ((n >> 8) & 255) * 0.587 + (n & 255) * 0.114
+  }
+  assert(MARK_FACETS.length === 4, `it is cut into four facets (${MARK_FACETS.length})`)
+  const tones = MARK_FACETS.map((f) => lum(f.tone))
+  assert(tones[0] === Math.min(...tones), 'the front facet is the darkest of them')
+  assert(Math.max(...tones) - Math.min(...tones) > 20, 'and the facets are far enough apart to read',
+    `${Math.min(...tones).toFixed(0)}..${Math.max(...tones).toFixed(0)}`)
+
+  // Every corner of the silhouette has to be carried by a facet, or the fill
+  // leaves a wedge of background inside the outline.
+  const used = new Set(MARK_FACETS.flatMap((f) => f.points.map((q) => `${q[0]},${q[1]}`)))
+  const orphan = pts.filter((q) => ![...used].some((u) => {
+    const [ux, uy] = u.split(',').map(Number)
+    return Math.abs(ux - q.x) < 1e-6 && Math.abs(uy - q.y) < 1e-6
+  }))
+  assert(orphan.length === 0, 'and every corner of the outline is carried by a facet',
+    orphan.map((q) => `${q.x},${q.y}`).join(' '))
 }
 
 // ---------------------------------------------------- 7c. the touch controls --

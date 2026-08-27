@@ -142,7 +142,7 @@ export function homestead(tier = 1) {
   // The lintel stone, with the mark cut into it — which the comment has claimed
   // since the building went in, while no mark was ever placed on it.
   parts.push({ geometry: chamferBox(1.7, 0.34, 0.34, 0.06), position: [0, h * 0.68 + 0.34, d / 2], color: UI.stonePale })
-  parts.push({ geometry: markFlatGeometry(), position: [0, h * 0.68 + 0.34, d / 2 + 0.18], scale: [0.44, 0.44, 1], color: UI.stoneDeep })
+  parts.push({ geometry: markFlatGeometry(), position: [0, h * 0.68 + 0.34, d / 2 + 0.18], scale: [0.3, 0.3, 1], color: UI.stoneDeep })
 
   // Roof: a wedge, and a ridge beam that overhangs. The overhang is what stops
   // it reading as a lid.
@@ -411,7 +411,7 @@ export function waymark(level = 1) {
    */
   parts.push({ geometry: chamferBox(1.9, 0.3, 0.42, 0.07), position: [0, h + 0.28, 0], color: UI.stoneDeep })
   parts.push({ geometry: chamferBox(1.5, 0.24, 0.2, 0.05), position: [0, h + 0.02, 0.14], color: UI.stoneShadow })
-  parts.push({ geometry: markFlatGeometry(), position: [0, h + 0.28, 0.24], scale: [0.66, 0.66, 1], color: UI.creamDeep })
+  parts.push({ geometry: markFlatGeometry(), position: [0, h + 0.28, 0.24], scale: [0.34, 0.34, 1], color: UI.creamDeep })
   return { geometry: bake(parts), footprint: [4, 3], height: h + 0.4 }
 }
 
