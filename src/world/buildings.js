@@ -139,8 +139,10 @@ export function homestead(tier = 1) {
   // Doorway: the lune arch, recessed, with a dark reveal behind it.
   parts.push({ geometry: luneArch(1.2, h * 0.62, 0.1), position: [0, 0.28, d / 2 + 0.06], color: UI.stoneShadow })
   parts.push({ geometry: luneArch(1.42, h * 0.68, 0.14), position: [0, 0.24, d / 2 - 0.02], color: UI.stoneLit })
-  // The lintel stone, with the mark cut into it.
+  // The lintel stone, with the mark cut into it — which the comment has claimed
+  // since the building went in, while no mark was ever placed on it.
   parts.push({ geometry: chamferBox(1.7, 0.34, 0.34, 0.06), position: [0, h * 0.68 + 0.34, d / 2], color: UI.stonePale })
+  parts.push({ geometry: markFlatGeometry(), position: [0, h * 0.68 + 0.34, d / 2 + 0.18], scale: [0.44, 0.44, 1], color: UI.stoneDeep })
 
   // Roof: a wedge, and a ridge beam that overhangs. The overhang is what stops
   // it reading as a lid.
@@ -374,7 +376,47 @@ export function flagpole() {
 }
 
 /** Everything a placed structure needs, keyed by the id the save file stores. */
+/**
+ * THE WAYMARKER — the mark, at landscape scale.
+ *
+ * The Seismic mark is two lunes facing each other across a gap, and the gate on
+ * the ridge already builds it out of two monoliths. This is the same idea small
+ * enough to stand anywhere: a pair of cut stones set a stride apart, so the GAP
+ * between them is the logo. Nothing about it is decorated — the negative space
+ * is the whole design, which is also true of the mark itself.
+ *
+ * They exist because the brand was in exactly two places in the entire valley:
+ * the gate lintel and the shipping crate. A game named after a company that you
+ * can cross end to end without seeing its mark is not carrying the brand, it is
+ * mentioning it.
+ */
+export function waymark(level = 1) {
+  const parts = []
+  const h = [2.0, 2.6][Math.min(1, level - 1)]
+  for (const side of [-1, 1]) {
+    parts.push({ geometry: chamferBox(0.5, h, 0.56, 0.09), position: [side * 0.66, h / 2 + 0.12, 0], color: UI.stoneLit })
+    // The half-lune, leaning in toward its twin: the horn of the mark, cut in
+    // stone. It is the reason this is a waymarker and not two posts.
+    parts.push({ geometry: TAPER, position: [side * 0.46, h * 0.6, 0], scale: [0.4, h * 0.78, 0.62], color: UI.stonePale })
+    parts.push({ geometry: chamferBox(0.72, 0.22, 0.78, 0.06), position: [side * 0.66, 0.11, 0], color: UI.stoneDark })
+  }
+  /**
+   * The mark goes on a LINTEL, not on a sill.
+   *
+   * At this camera the ground plane is heavily foreshortened, so anything laid
+   * low reads as a smear and anything below knee height is behind whatever is in
+   * front of it. Up on a bar across the two stones it is at eye level, facing
+   * the way the player walks, and legible from the far side of the field —
+   * which is the entire job.
+   */
+  parts.push({ geometry: chamferBox(1.9, 0.3, 0.42, 0.07), position: [0, h + 0.28, 0], color: UI.stoneDeep })
+  parts.push({ geometry: chamferBox(1.5, 0.24, 0.2, 0.05), position: [0, h + 0.02, 0.14], color: UI.stoneShadow })
+  parts.push({ geometry: markFlatGeometry(), position: [0, h + 0.28, 0.24], scale: [0.66, 0.66, 1], color: UI.creamDeep })
+  return { geometry: bake(parts), footprint: [4, 3], height: h + 0.4 }
+}
+
 export const KINDS = {
+  waymark: (lv) => waymark(lv),
   homestead: (lv) => homestead(lv),
   gate: () => ridgeGate(),
   kiln: () => kiln(),

@@ -1,5 +1,5 @@
 import * as THREE from 'three'
-import { BALL, chamferBox, COLUMN, DISC, FLAT, FLARE, glowMat, POINT, shardMat, stoneMat, TAPER } from '../core/kit.js'
+import { chamferBox, COLUMN, DISC, FLAT, glowMat, POINT, shardMat, stoneMat } from '../core/kit.js'
 import { markFlatGeometry, shardGeometry } from '../core/mark.js'
 import { mix, shade, sunlit, UI } from '../core/palette.js'
 import { damp } from '../core/rng.js'
@@ -187,8 +187,10 @@ export function buildRocky({ cut = 'rocky', chest = 'mark', height = 1.9, outlin
   const chestG = pivot(body, [0, 0.545, 0], 'chest')
   plate(chestG, { geo: POINT, at: [0, 0.05, 0], size: [0.28, 0.1, 0.21], mat: MAT.stone })
   plate(chestG, { geo: FLAT, at: [0, 0.145, 0.005], size: [0.4, 0.13, 0.26], mat: MAT.lit })
-  // The shoulder yoke: the widest plate on the figure, and the top of the flare.
-  plate(chestG, { geo: FLAT, at: [0, 0.208, -0.005], size: [0.42, 0.085, 0.25], mat: MAT.stone })
+  // The yoke is NARROWER than the pauldrons on purpose. It used to be the widest
+  // plate on the figure at 0.42, which meant the pauldrons landed on top of it
+  // and the three fused into one slab with a head sitting on it.
+  plate(chestG, { geo: FLAT, at: [0, 0.208, -0.005], size: [0.3, 0.085, 0.23], mat: MAT.stone })
 
   // ------------------------------------------------------------ the badge --
   // Set INTO a cut recess, never laid on top. The recess is the whole difference
@@ -216,63 +218,110 @@ export function buildRocky({ cut = 'rocky', chest = 'mark', height = 1.9, outlin
   plate(chestG, { geo: FLAT, at: [0, 0.243, 0.005], size: [0.17, 0.035, 0.17], mat: MAT.joint, ink: false })
 
   // ----------------------------------------------------------------- head --
-  const head = pivot(chestG, [0, 0.262, 0], 'head')
-  plate(head, { geo: POINT, at: [0, 0.04, 0], size: [0.185, 0.075, 0.175], mat: MAT.stone })
-  plate(head, { geo: FLAT, at: [0, 0.105, 0], size: [0.205, 0.075, 0.19], mat: MAT.lit })
-  // The crown facet — a smaller plate on top, which is what turns a box into a
-  // carved cap.
-  plate(head, { geo: POINT, at: [0, 0.163, -0.005], size: [0.155, 0.055, 0.145], mat: MAT.lit })
-  // THE BROW. It projects forward and the eyes sit back UNDER it. This overhang
-  // is Rocky; everything else about the head is negotiable.
-  plate(head, { geo: FLAT, at: [0, 0.126, 0.072], size: [0.195, 0.042, 0.08], mat: MAT.deep })
-  // The visor recess the eyes are set into.
-  plate(head, { geo: FLAT, at: [0, 0.082, 0.086], size: [0.165, 0.055, 0.022], mat: MAT.joint, ink: false })
+  /**
+   * THE HEAD: a chamfered cube, wider than tall.
+   *
+   * Not a hex cap. Every reference draws the same solid — a cube with all of its
+   * top edges and corners cut away, leaving a small flat crown, four angled
+   * facets running down from it, and a big flat face. The chamfer is the whole
+   * character of it: an uncut box is a robot and a rounded lump is a boulder.
+   *
+   * The jaw overhangs the front slightly, which is what keeps the eyes sitting
+   * back in shadow the way the drawings have them.
+   */
+  const head = pivot(chestG, [0, 0.242, 0], 'head')
+  // The main mass, cut on every edge.
+  plate(head, { geo: chamferBox(0.225, 0.155, 0.21, 0.045), at: [0, 0.085, 0], size: [1, 1, 1], mat: MAT.stone })
+  // The crown: a smaller flat plate on top, which is the cut the chamfer leaves.
+  plate(head, { geo: chamferBox(0.16, 0.045, 0.15, 0.028), at: [0, 0.176, -0.004], size: [1, 1, 1], mat: MAT.lit })
+  // The face plane, proud of the mass so it catches its own light.
+  plate(head, { geo: chamferBox(0.175, 0.105, 0.02, 0.012), at: [0, 0.092, 0.104], size: [1, 1, 1], mat: MAT.lit })
+  // The jaw, overhanging.
+  plate(head, { geo: chamferBox(0.2, 0.045, 0.19, 0.03), at: [0, 0.022, 0.008], size: [1, 1, 1], mat: MAT.deep })
+  // Two small cut vents on the cheeks — the one piece of surface detail the
+  // drawings agree on, and the thing that stops the face reading as blank.
+  for (const side of [-1, 1]) {
+    plate(head, { geo: FLAT, at: [side * 0.072, 0.062, 0.1], size: [0.038, 0.014, 0.016], mat: MAT.joint, ink: false })
+  }
 
   for (const side of [-1, 1]) {
+    // Big, and they EMIT. At 0.038 across they were two grey specks that read as
+    // damage rather than as a face; the drawings give him eyes about a fifth of
+    // the head's width, and they are the only part of him that glows.
     const eye = new THREE.Mesh(DISC, MAT.eye)
-    eye.position.set(side * 0.04, 0.085, 0.098)
-    eye.scale.set(0.038, 0.03, 0.014)
+    eye.position.set(side * 0.052, 0.098, 0.113)
+    eye.scale.set(0.062, 0.05, 0.014)
     head.add(eye)
     parts[side < 0 ? 'eyeL' : 'eyeR'] = eye
     // The lid: a plate of head-stone that drops over the eye to blink. Cheaper
     // and far more legible than scaling the eye, which just makes it a slot.
     const lid = new THREE.Mesh(FLAT, MAT.deep)
-    lid.position.set(side * 0.04, 0.118, 0.1)
-    lid.scale.set(0.046, 0.038, 0.012)
+    lid.position.set(side * 0.052, 0.142, 0.115)
+    lid.scale.set(0.07, 0.05, 0.012)
     head.add(lid)
     parts[side < 0 ? 'lidL' : 'lidR'] = lid
   }
   // The mouth: one dark bar. In the reference it is barely a line, and any more
   // than that turns him from a stone that is pleased into a cartoon that grins.
   const mouth = new THREE.Mesh(FLAT, MAT.joint)
-  mouth.position.set(0, 0.044, 0.09)
-  mouth.scale.set(0.048, 0.011, 0.016)
+  mouth.position.set(0, 0.05, 0.108)
+  mouth.scale.set(0.056, 0.012, 0.016)
   head.add(mouth)
   parts.mouth = mouth
 
   // ----------------------------------------------------------------- arms --
   for (const side of [-1, 1]) {
     const L = side < 0 ? 'L' : 'R'
-    // Shoulder cap, parented to the body rather than the arm so it does not
-    // swing — a pauldron that swings is a pauldron that leaves a hole.
-    plate(chestG, { geo: BALL, at: [side * 0.178, 0.198, 0], size: [0.115, 0.115, 0.115], mat: MAT.stone })
-    plate(chestG, { geo: FLAT, at: [side * 0.182, 0.198, 0], size: [0.1, 0.035, 0.1], mat: MAT.joint, ink: false })
+    /**
+     * THE PAULDRONS, and they are the whole silhouette.
+     *
+     * Read the sheet as a set and the adult is: a small head sunk between two
+     * ENORMOUS flaring shoulder blocks, with arms hanging off their outer edge
+     * like columns. The shoulders are close to twice the width of the torso, and
+     * they are the thing you recognise at fifty metres — before the head, before
+     * the chest plate, before any of it.
+     *
+     * This had a 0.115 sphere here, which is a shoulder joint rather than a
+     * pauldron, and the result read as a hunched lump with no shape to it at all.
+     *
+     * Built as three stacked slabs that step OUTWARD and narrow going down, so
+     * the flare is in the geometry rather than in a rotation — a rotated Z-axis
+     * prism is the one thing this rig is not allowed to do, and a box that
+     * flares by being three boxes reads better at this scale anyway.
+     *
+     * Parented to the chest, not the arm: a pauldron that swings is a pauldron
+     * that leaves a hole under itself.
+     */
+    plate(chestG, { geo: chamferBox(0.165, 0.075, 0.165, 0.03), at: [side * 0.208, 0.256, 0], size: [1, 1, 1], mat: MAT.stone })
+    plate(chestG, { geo: chamferBox(0.15, 0.07, 0.15, 0.028), at: [side * 0.222, 0.196, 0], size: [1, 1, 1], mat: MAT.lit })
+    plate(chestG, { geo: chamferBox(0.125, 0.055, 0.13, 0.024), at: [side * 0.232, 0.142, 0], size: [1, 1, 1], mat: MAT.stone })
+    // The dark seam where the arm leaves the pauldron.
+    plate(chestG, { geo: FLAT, at: [side * 0.23, 0.112, 0], size: [0.112, 0.028, 0.115], mat: MAT.joint, ink: false })
 
-    const upper = pivot(chestG, [side * 0.178, 0.188, 0], `arm${L}`)
-    plate(upper, { geo: TAPER, at: [0, -0.075, 0], size: [0.1, 0.17, 0.1], mat: MAT.stone })
-    plate(upper, { geo: FLAT, at: [0, -0.168, 0], size: [0.085, 0.028, 0.085], mat: MAT.joint, ink: false })
+    /**
+     * The arms are SLABS, not clubs.
+     *
+     * A hexagonal prism reads as a rolled cylinder from any angle, and with the
+     * ink hull around it the forearm and the fist merged into one boulder. The
+     * sheet draws them as flat quarried blocks — wider across than they are
+     * deep — that step outward at the wrist. Boxes, cut on the edges, with the
+     * step in the geometry.
+     */
+    const upper = pivot(chestG, [side * 0.216, 0.104, 0], `arm${L}`)
+    plate(upper, { geo: chamferBox(0.108, 0.185, 0.098, 0.028), at: [0, -0.082, 0], size: [1, 1, 1], mat: MAT.stone })
+    plate(upper, { geo: FLAT, at: [0, -0.175, 0], size: [0.09, 0.026, 0.086], mat: MAT.joint, ink: false })
 
-    const lower = pivot(upper, [0, -0.175, 0], `fore${L}`)
-    // The forearm is the THICKEST part of the arm and it widens toward the
-    // wrist. That inversion is most of what makes him read as heavy rather than
-    // as a mannequin.
-    plate(lower, { geo: FLARE, at: [0, -0.09, 0], size: [0.11, 0.19, 0.11], mat: MAT.lit })
+    const lower = pivot(upper, [0, -0.182, 0], `fore${L}`)
+    // Widening toward the wrist. That inversion is most of what makes him read
+    // as heavy rather than as a mannequin.
+    plate(lower, { geo: chamferBox(0.118, 0.1, 0.104, 0.026), at: [0, -0.055, 0], size: [1, 1, 1], mat: MAT.lit })
+    plate(lower, { geo: chamferBox(0.132, 0.095, 0.112, 0.028), at: [0, -0.145, 0], size: [1, 1, 1], mat: MAT.lit })
 
-    const hand = pivot(lower, [0, -0.2, 0], `hand${L}`)
-    plate(hand, { geo: chamferBox(0.132, 0.128, 0.128, 0.035), at: [0, -0.05, 0], size: [1, 1, 1], mat: MAT.stone })
+    const hand = pivot(lower, [0, -0.196, 0], `hand${L}`)
+    plate(hand, { geo: chamferBox(0.15, 0.115, 0.128, 0.032), at: [0, -0.05, 0], size: [1, 1, 1], mat: MAT.stone })
     // The thumb ridge. One plate; it is the difference between a mitt that can
     // hold a bouquet and a mitt that is a brick.
-    plate(hand, { geo: COLUMN, at: [side * -0.058, -0.032, 0.036], size: [0.038, 0.075, 0.038], mat: MAT.lit })
+    plate(hand, { geo: chamferBox(0.042, 0.07, 0.05, 0.014), at: [side * -0.07, -0.03, 0.04], size: [1, 1, 1], mat: MAT.lit })
     // Where anything he carries gets parented.
     const socket = pivot(hand, [0, -0.06, 0.06], `hold${L}`)
     socket.rotation.x = -0.3
@@ -338,8 +387,8 @@ export function buildRocky({ cut = 'rocky', chest = 'mark', height = 1.9, outlin
     }
     A.blink = Math.max(0, A.blink - dt * 7)
     const lidDrop = A.blink * 0.058
-    parts.lidL.position.y = 0.118 - lidDrop
-    parts.lidR.position.y = 0.118 - lidDrop
+    parts.lidL.position.y = 0.142 - lidDrop
+    parts.lidR.position.y = 0.142 - lidDrop
 
     // Targets per pose. Nothing is assigned directly — everything is damped
     // toward these, which is what stops a pose change from snapping.

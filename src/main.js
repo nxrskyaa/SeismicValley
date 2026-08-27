@@ -76,6 +76,7 @@ const POSES = {
   rig: { at: [HOME.x, 1.0, HOME.z], size: 5, hour: 12 },
   pebble: { at: [HOME.x + 2, -0.86, HOME.z + 2], size: 1.4, hour: 12, pebble: true },
   house: { at: [HOME.x, 1.4, HOME.z - 5], size: 6.5, hour: 12 },
+  waymark: { at: [Math.round(HOME.x + (GATE.x - HOME.x) * 0.4), 1.2, Math.round(HOME.z + (GATE.z - HOME.z) * 0.4)], size: 7, hour: 11 },
   field: { at: [HOME.x, 0.4, HOME.z + 1], size: 8, hour: 11, field: true },
   pond: { at: [HOME.x + 13, -1.1, HOME.z + 2], size: 20, hour: 11 },
   lake: { at: [N * 0.76, -1.1, N * 0.84], size: 26, hour: 12.5 },
@@ -128,6 +129,18 @@ function seedStructures(state, grid) {
   // takes away the economy before the player has learned what a stake is.
   const put = (kind, x, z, level = 1) => {
     const [cx, cz] = grid.nearestStandable(x, z)
+    // Clear what the forest pass dropped where this is going. A canopy sitting
+    // on top of a waymarker hides the thing the waymarker exists to show, and a
+    // tree growing out of the roof is not something anybody built around.
+    // Five, because a canopy is three cells across: a trunk four cells away
+    // still hangs its canopy over the thing you cleared for.
+    const clear = kind === 'gate' ? 6 : 5
+    for (let dz = -clear; dz <= clear; dz++) {
+      for (let dx = -clear; dx <= clear; dx++) {
+        const nx = cx + dx, nz = cz + dz
+        if (grid.get('prop', nx, nz) === P.TREE) grid.set('prop', nx, nz, P.NONE)
+      }
+    }
     state.buildings.push({ kind, level, x: cx, z: cz, registered: true })
     grid.set('prop', cx, cz, P.BUILDING)
   }
@@ -139,6 +152,22 @@ function seedStructures(state, grid) {
   put('homestead', HOME.x, HOME.z - 5, 1)
   put('crate', HOME.x + 4, HOME.z + 1)
   put('gate', GATE.x, GATE.z)
+
+  /**
+   * Waymarkers along the line from the homestead to the relay.
+   *
+   * The Loom marked its own routes, and the mark it used is the one on the
+   * lintel. Four of them at even intervals do two things at once: they carry the
+   * brand into the middle of the valley, where it was completely absent, and
+   * they point at the ridge — which the first morning now asks the player to
+   * walk to and previously gave them no thread to follow.
+   */
+  for (let i = 1; i <= 4; i++) {
+    const k = i / 5
+    const x = Math.round(HOME.x + (GATE.x - HOME.x) * k)
+    const z = Math.round(HOME.z + (GATE.z - HOME.z) * k)
+    put('waymark', x, z, i === 4 ? 2 : 1)
+  }
 }
 
 function boot() {
@@ -280,6 +309,10 @@ function runCapture(shot) {
     // thing to a player is the camera. Passing the focus point instead makes
     // anyone standing on it turn to face their own feet.
     app.cast.update(dt, shot.pebble ? focus : app.camera.position, shot.hour)
+    // A capture of a character should be of the character, not of whatever beat
+    // of an idle cycle the frame happened to land on.
+    app.cast.rocky.rig.anim.pose = 'idle'
+    app.cast.rocky.facing = Math.PI * 0.15
     if (shot.pebble && app.cast.pebbles[0]) {
       // Pin it. A pebble with a job walks off to do it within a second.
       const p0 = app.cast.pebbles[0]

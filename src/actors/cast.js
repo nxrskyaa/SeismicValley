@@ -36,7 +36,15 @@ export const ROCKY = {
   name: 'Rocky',
   role: 'A Loom construct. Standing at the relay since before you woke up.',
   cut: 'rocky',
-  chest: 'shard',
+  /**
+   * The MARK, not the crystal.
+   *
+   * Both are canon — the sheet has drawings of each — but the adult carries the
+   * incised double-lune on his chest in most of them, and the little ones carry
+   * the rose crystal. Rocky was wired to the crystal, which meant the one place
+   * in the valley the brand should be unmistakable was a small pink blob.
+   */
+  chest: 'mark',
   height: 2.1,
   /** He does not wander. A landmark that moves is not a landmark. */
   at: GATE,

@@ -190,6 +190,56 @@ console.log('\nno network assets at runtime')
   assert(assets.length === 0, 'src/ contains no binary assets', assets.map((f) => path.relative(ROOT, f)).join(', '))
 }
 
+// -------------------------------------------------- 4b. the brand is present --
+//
+// Two complaints in one: Rocky did not look like the reference, and the brand
+// was almost nowhere in the valley. Both had the same shape — a thing that was
+// nominally implemented and effectively absent.
+
+console.log('\nthe brand')
+{
+  const rocky = read(path.join(SRC, 'actors/rocky.js'))
+  const cast = read(path.join(SRC, 'actors/cast.js'))
+  const buildings = read(path.join(SRC, 'world/buildings.js'))
+  const main = read(path.join(SRC, 'main.js'))
+
+  /**
+   * THE PAULDRONS ARE THE SILHOUETTE.
+   *
+   * Read the reference sheet as a set and the adult is a small head sunk
+   * between two enormous flaring shoulder blocks. This had a 0.115 sphere there
+   * — a shoulder joint, not a pauldron — and the figure read as a hunched lump.
+   * The measurable version: the shoulders must be clearly wider than the chest.
+   */
+  const pauldronX = [...rocky.matchAll(/side \* (0\.\d+), 0\.\d+, 0\], size: \[1, 1, 1\]/g)].map((m) => Number(m[1]))
+  const widest = Math.max(0, ...pauldronX)
+  assert(widest >= 0.19, 'Rocky has pauldrons, not shoulder joints', `widest shoulder plate at ${widest}`)
+
+  // The adult carries the MARK; the little ones carry the crystal. Rocky was
+  // wired to the crystal, so the one place the brand should be unmistakable was
+  // a small pink blob.
+  assert(/chest: 'mark'/.test(cast), 'Rocky wears the mark on his chest')
+
+  /**
+   * And it has to be findable in the WORLD, not just on him.
+   *
+   * The mark was in exactly two places in the whole valley — the gate lintel and
+   * the shipping crate — and the homestead had a comment claiming a mark on its
+   * lintel with no mark ever placed on it. A game named after a company you can
+   * cross end to end without seeing its mark is mentioning the brand, not
+   * carrying it.
+   */
+  const placements = (buildings.match(/markFlatGeometry\(\)/g) ?? []).length
+  assert(placements >= 4, 'the mark is cut into several things in the valley', `${placements} placements`)
+  assert(/waymark/.test(buildings) && /put\('waymark'/.test(main),
+    'and there are waymarkers carrying it out into the middle of the map')
+
+  // A structure with a tree growing through it is not something anybody built
+  // around — and a canopy on top of a waymarker hides the thing it exists for.
+  assert(/=== P\.TREE\) grid\.set\('prop'/.test(main),
+    'placing a structure clears the trees it would stand inside')
+}
+
 // --------------------------------------------------------- 5. the rig rule --
 
 console.log('\nrig rule')
