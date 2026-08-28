@@ -34,7 +34,7 @@ const FILES = ['ui/panels.js', 'ui/hud.js', 'ui/title.js', 'ui/customize.js', 'm
 /** `state.js` inside an import path is not a field read. */
 const IGNORE = new Set(['js'])
 
-const stripComments = (src) => src
+export const stripJsComments = (src) => src
   // CRLF first, and it is not cosmetic. `.` in a JavaScript regex does not match
   // a carriage return, so `(.+)$` never matches a line that ends in one — every
   // binding in every file went undetected, silently, and the scan reported
@@ -51,7 +51,7 @@ const stripComments = (src) => src
 export function unknownStateReads(srcDir, live) {
   const unknown = []
   for (const file of FILES) {
-    const src = stripComments(readFileSync(path.join(srcDir, file), 'utf8'))
+    const src = stripJsComments(readFileSync(path.join(srcDir, file), 'utf8'))
     // `s` and `state` are both rebindable, and both are rebound in this
     // codebase: `customize.js` opens with `const state = { ...appearance }`,
     // which is a form and not a valley. Track what each currently points at.

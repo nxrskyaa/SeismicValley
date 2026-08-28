@@ -202,18 +202,51 @@ console.log('\nthe brand')
   const cast = read(path.join(SRC, 'actors/cast.js'))
   const buildings = read(path.join(SRC, 'world/buildings.js'))
   const main = read(path.join(SRC, 'main.js'))
+  const { stripJsComments } = await import('./ui-reads.mjs')
 
   /**
-   * THE PAULDRONS ARE THE SILHOUETTE.
+   * ROCKY IS A BARREL, NOT AN ARMOURED FIGURE.
    *
-   * Read the reference sheet as a set and the adult is a small head sunk
-   * between two enormous flaring shoulder blocks. This had a 0.115 sphere there
-   * — a shoulder joint, not a pauldron — and the figure read as a hunched lump.
-   * The measurable version: the shoulders must be clearly wider than the chest.
+   * This check used to require PAULDRONS — "two enormous flaring shoulder
+   * blocks" — and it passed for months while the model looked nothing like the
+   * sheet, because the sheet has no pauldrons on it anywhere. Rebuilt against
+   * the front-on drawing: a rounded faceted barrel two fifths of his height,
+   * no neck, rounded capsule limbs ending in blunt stumps, and two tiny slit
+   * eyes. An assertion that encodes a wrong design is worse than none.
+   *
+   * Measured off `buildRocky`'s unit rig, where feet are 0 and the crown is 1.
    */
-  const pauldronX = [...rocky.matchAll(/side \* (0\.\d+), 0\.\d+, 0\], size: \[1, 1, 1\]/g)].map((m) => Number(m[1]))
-  const widest = Math.max(0, ...pauldronX)
-  assert(widest >= 0.19, 'Rocky has pauldrons, not shoulder joints', `widest shoulder plate at ${widest}`)
+  const num = (re) => { const m = re.exec(rocky); return m ? Number(m[1]) : null }
+
+  // The torso is the dominant mass and it is a sphere, not a box or a prism.
+  const torso = /geo: BALL, at: \[0, 0\.2, 0\], size: \[([\d.]+), ([\d.]+)/.exec(rocky)
+  assert(!!torso, 'the torso is one rounded barrel')
+  if (torso) {
+    const [w, h] = [Number(torso[1]), Number(torso[2])]
+    assert(w > 0.42, 'and it is broad — he is nearly as wide as he is tall', `${w} across`)
+    assert(h > 0.38, 'and deep enough to be the dominant mass', `${h} tall`)
+  }
+
+  // No neck. The head pivot sits on the torso, and a gap there is the single
+  // fastest way to turn a golem into a robot.
+  const headY = num(/const head = pivot\(chestG, \[0, ([\d.]+), 0\]/)
+  const chestY = num(/const chestG = pivot\(body, \[0, ([\d.]+), 0\]/)
+  assert(headY !== null && chestY !== null && headY + chestY > 0.8,
+    'the head sits high on the torso, with no neck under it', `head at ${(headY + chestY).toFixed(3)}`)
+
+  // The eyes are SLITS. Big ovals under a brow is a different character.
+  const eye = /eye\.scale\.set\(([\d.]+), ([\d.]+)/.exec(rocky)
+  assert(!!eye && Number(eye[1]) < 0.05 && Number(eye[2]) < 0.03,
+    'the eyes are tiny slits, not ovals', eye ? `${eye[1]} x ${eye[2]}` : 'not found')
+
+  // And he has no hands and no feet — every limb ends in a blunt rounded stump.
+  // Comments stripped first: the note above `buildRocky` explaining what the
+  // previous cut got wrong names both of these in prose, and a scanner that
+  // cannot tell code from prose reports its own fix as a failure.
+  const rockyCode = stripJsComments(rocky)
+  assert(!/thumb/i.test(rockyCode), 'he has no thumb — there are no fingers anywhere on the sheet')
+  assert(!/project/i.test(rockyCode), 'and nothing projects forward — no feet, no visor brow')
+
 
   // The adult carries the MARK; the little ones carry the crystal. Rocky was
   // wired to the crystal, so the one place the brand should be unmistakable was
