@@ -79,6 +79,7 @@ const POSES = {
   waymark: { at: [Math.round(HOME.x + (GATE.x - HOME.x) * 0.4), 1.2, Math.round(HOME.z + (GATE.z - HOME.z) * 0.4)], size: 7, hour: 11 },
   field: { at: [HOME.x, 0.4, HOME.z + 1], size: 8, hour: 11, field: true },
   pond: { at: [HOME.x + 13, -1.1, HOME.z + 2], size: 20, hour: 11 },
+  angler: { at: [HOME.x + 13, 0.4, HOME.z + 2], size: 4.2, hour: 11, angler: true },
   lake: { at: [N * 0.76, -1.1, N * 0.84], size: 26, hour: 12.5 },
   dawn: { at: [HOME.x, 0, HOME.z], size: 26, hour: 6.2 },
   dusk: { at: [HOME.x, 0, HOME.z], size: 26, hour: 19.4 },
@@ -255,6 +256,49 @@ function runCapture(shot) {
   // Some poses need something in front of the camera that the player would
   // normally have to earn.
   if (shot.pebble) app.state.hatchPebble(Math.round(shot.at[0]), Math.round(shot.at[2]))
+  if (shot.angler) {
+    /**
+     * The player at the water with a line out, close enough to see the tackle.
+     *
+     * There was no capture of the rod at all — every fishing test was headless
+     * state-machine work, which proves the loop runs and says nothing whatever
+     * about which way the rod is pointing.
+     */
+    const bank = (() => {
+      for (let r = 1; r < 14; r++) {
+        for (let dz = -r; dz <= r; dz++) {
+          for (let dx = -r; dx <= r; dx++) {
+            const x = Math.round(shot.at[0]) + dx
+            const z = Math.round(shot.at[2]) + dz
+            if (grid.isWater(x, z) || !grid.canStand(x, z, grid.h(x, z))) continue
+            for (const [ox, oz] of [[0, 1], [0, -1], [1, 0], [-1, 0]]) {
+              if (grid.isWater(x + ox * 2, z + oz * 2)) return [x, z, Math.atan2(ox, oz)]
+            }
+          }
+        }
+      }
+      return null
+    })()
+    if (bank) {
+      const [bx, bz, face] = bank
+      app.control.teleport(bx + 0.5, bz + 0.5)
+      app.control.facing = face
+      // The capture path never runs the controller, so the rig has to be placed
+      // by hand — otherwise the body stays at the origin and the rod, which is
+      // parented to its hand, casts a line in from off the edge of the world.
+      app.player.root.position.copy(app.control.pos)
+      app.player.root.rotation.y = face
+      app.state.hotbar[app.state.slot] = 'rod'
+      app.player.anim.rod = true
+      app.fishing.press(app.control.pos, face, shot.hour)
+      shot.at[0] = bx + 0.5
+      shot.at[2] = bz + 0.5
+      // Frame the BODY, not the cell. `grid.y` rounds, and half a cell away
+      // from a bank is the water — so the default focus sat four levels down
+      // the pond and pushed the angler off the top of the frame.
+      app.captureY = app.control.pos.y + shot.at[1]
+    }
+  }
   if (shot.field) {
     /**
      * A worked field, at every stage at once.
@@ -287,7 +331,7 @@ function runCapture(shot) {
   }
   const focus = new THREE.Vector3(
     shot.at[0],
-    shot.at[1] + grid.y(Math.round(shot.at[0]), Math.round(shot.at[2])),
+    app.captureY ?? (shot.at[1] + grid.y(Math.round(shot.at[0]), Math.round(shot.at[2]))),
     shot.at[2],
   )
   // Frame through the real rig at a fixed size, so a capture is the game's own
@@ -309,6 +353,11 @@ function runCapture(shot) {
     // thing to a player is the camera. Passing the focus point instead makes
     // anyone standing on it turn to face their own feet.
     app.cast.update(dt, shot.pebble ? focus : app.camera.position, shot.hour)
+    if (shot.angler) {
+      app.player.anim.rod = true
+      app.player.update(dt)
+      app.fishing.update(dt, app.control.pos, app.control.facing, shot.hour)
+    }
     // A capture of a character should be of the character, not of whatever beat
     // of an idle cycle the frame happened to land on.
     app.cast.rocky.rig.anim.pose = 'idle'

@@ -580,6 +580,47 @@ console.log('\nwater')
     assert(missed && rod2.phase === STATE.WAIT, 'missing the bite loses the fish and keeps the line out')
     assert(state.stats.caught === 1, 'a missed bite catches nothing')
 
+    /**
+     * WHICH WAY THE ROD POINTS.
+     *
+     * The state machine ran perfectly for weeks while the rod pointed backwards
+     * into the ground, because every fishing test was headless logic and none of
+     * them ever asked where the tip was. The hand is four pivots deep and those
+     * rotations accumulate to about -1.36 radians about X — the hand's own
+     * up-axis already points behind the body — so a constant rotation written in
+     * the rod's own space is a guess against a moving chain, and it was wrong by
+     * a hundred and seven degrees.
+     *
+     * Measured in WORLD space, which is the only space the answer is obvious in.
+     */
+    {
+      // The REAL rig, not the bare Group the rest of this block uses. The whole
+      // point is the four-pivot arm chain: against a stub `holdR` with no
+      // rotations in it, this test passes no matter what the rod does.
+      const { buildPlayer } = await import('../src/actors/player.js')
+      const rig = buildPlayer('apprentice')
+      const facing = 0 // +Z is forward for this rig
+      rig.root.position.set(0, 0, 0)
+      rig.root.rotation.set(0, facing, 0)
+      rig.anim.rod = true
+      const probe = new Fishing(state, grid, rig, life)
+      probe.state.hotbar[probe.state.slot] = 'rod'
+      // Settle: the aim is damped, so one frame is mid-slerp.
+      for (let f = 0; f < 90; f++) {
+        rig.update(1 / 60)
+        probe.aimRod(facing, 1 / 60)
+      }
+      rig.root.updateWorldMatrix(true, true)
+      const tip = new THREE.Vector3()
+      const hand = new THREE.Vector3()
+      probe.rod.tip.getWorldPosition(tip)
+      probe.rod.root.getWorldPosition(hand)
+      const reach = tip.clone().sub(hand)
+      assert(reach.z > 0.3, 'the rod points FORWARD, over the water', `tip is ${reach.z.toFixed(2)} ahead of the hand`)
+      assert(reach.y > 0.6, 'and upward, not into the ground', `tip is ${reach.y.toFixed(2)} above the hand`)
+      assert(Math.abs(reach.x) < 0.45, 'and roughly in the plane the player is facing', `${reach.x.toFixed(2)} across`)
+    }
+
     // --- the rod left in the water -------------------------------------------
     // It has to land fish with NO input at all, and go straight back in, or it
     // is not unattended fishing, it is fishing with one fewer key press.

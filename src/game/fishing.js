@@ -102,9 +102,28 @@ export class Fishing {
 
     this.rod = buildRod()
     this.rod.root.visible = false
-    // Held in the right hand, angled forward across the body.
     player.holdR.add(this.rod.root)
-    this.rod.root.rotation.set(-0.5, 0, 0.18)
+    /**
+     * THE ROD IS AIMED, NOT POSED.
+     *
+     * It used to carry a fixed `rotation.set(-0.5, 0, 0.18)` in the hand, and it
+     * pointed backwards into the ground. The hand is four pivots deep — shoulder,
+     * elbow, wrist, plus whatever the animation is doing — and those rotations
+     * accumulate to about -1.36 radians about X, which already has the hand's
+     * up-axis pointing behind the body before the rod adds anything of its own.
+     * Any constant written here is a guess against a chain that moves, and the
+     * guess was wrong by a hundred and seven degrees.
+     *
+     * So the rod is aimed every frame instead: pick the direction it should
+     * point in WORLD space, pull that back through the hand's inverse transform,
+     * and orient the rod's own +Y along it. It cannot be backwards, it cannot
+     * drift when the walk cycle changes, and when a fish is on, tipping the rod
+     * is one number rather than a new pose.
+     */
+    this._up = new THREE.Vector3(0, 1, 0)
+    this._aim = new THREE.Vector3()
+    this._local = new THREE.Vector3()
+    this._inv = new THREE.Matrix4()
 
     // The float. Two blocks and it is instantly readable at this camera height:
     // a red top half and a pale bottom half, so the moment it goes under is
@@ -368,6 +387,30 @@ export class Fishing {
     // is the whole difference between "a stick" and "a fishing rod".
     const bend = this.phase === STATE.BITE ? 0.5 : this.phase === STATE.REEL ? 0.34 : 0
     this.rod.pole.rotation.x = damp(this.rod.pole.rotation.x, bend, 9, dt)
+
+    this.aimRod(facing, dt)
+  }
+
+  /**
+   * Point the rod up and out over the water, whatever the arm is doing.
+   *
+   * `lift` is how far from vertical the rod leans forward: nearly upright while
+   * a fish is on, out over the water the rest of the time.
+   */
+  aimRod(facing, dt) {
+    const lift = this.phase === STATE.BITE || this.phase === STATE.REEL ? 0.30 : 0.62
+    this._aim.set(Math.sin(facing) * lift, 1, Math.cos(facing) * lift).normalize()
+
+    const hand = this.rod.root.parent
+    hand.updateWorldMatrix(true, false)
+    this._inv.copy(hand.matrixWorld).invert()
+    // A DIRECTION, so the hand's translation is ignored and only its rotation
+    // and scale apply. Transforming it as a point puts the rod in orbit.
+    this._local.copy(this._aim).transformDirection(this._inv).normalize()
+
+    const want = new THREE.Quaternion().setFromUnitVectors(this._up, this._local)
+    // Damped, so a cast does not snap the rod through ninety degrees in a frame.
+    this.rod.root.quaternion.slerp(want, Math.min(1, dt * 14))
   }
 
   /** What the HUD should say right now. */
