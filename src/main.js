@@ -75,7 +75,7 @@ const POSES = {
   sheet: { at: [HOME.x, 1.0, HOME.z], size: 3.6, hour: 12 },
   rig: { at: [HOME.x, 1.0, HOME.z], size: 5, hour: 12 },
   pebble: { at: [HOME.x + 2, -0.86, HOME.z + 2], size: 1.4, hour: 12, pebble: true },
-  house: { at: [HOME.x, 1.4, HOME.z - 5], size: 6.5, hour: 12 },
+  house: { at: [HOME.x, 1.4, HOME.z - 5], size: 9.5, hour: 11 },
   waymark: { at: [Math.round(HOME.x + (GATE.x - HOME.x) * 0.4), 1.2, Math.round(HOME.z + (GATE.z - HOME.z) * 0.4)], size: 7, hour: 11 },
   field: { at: [HOME.x, 0.4, HOME.z + 1], size: 8, hour: 11, field: true },
   pond: { at: [HOME.x + 13, -1.1, HOME.z + 2], size: 20, hour: 11 },

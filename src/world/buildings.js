@@ -67,50 +67,44 @@ export function luneArch(w, h, depth = 0.12) {
 
 // --- masonry ----------------------------------------------------------------
 
-/** One course of blocks along X. Courses are offset half a block from the one
- *  below by the caller, which is the only thing separating masonry from a
- *  stack of identical bars. */
-function course(parts, { y, z, x0, x1, h, d, tone, seed = 0, gap = 0.045 }) {
-  const span = x1 - x0
-  const n = Math.max(1, Math.round(span / 0.62))
-  const bw = span / n
-  for (let i = 0; i < n; i++) {
-    const k = ((Math.sin((seed + i * 3.7 + y * 11.3) * 12.9898) * 43758.5453) % 1 + 1) % 1
-    parts.push({
-      geometry: chamferBox(bw - gap, h - gap, d, 0.045),
-      position: [x0 + bw * (i + 0.5), y + h / 2, z],
-      color: k < 0.33 ? tone[0] : k < 0.72 ? tone[1] : tone[2],
-    })
-  }
-}
 
 const WALL_TONES = [UI.stone, UI.stoneMid, UI.stoneLit]
 const DARK_TONES = [UI.stoneDeep, UI.stoneDark, UI.stoneMid]
 
-/** Four walls of coursed masonry, with a gap left for a door on +Z. */
-function walls(parts, { w, d, h, doorW = 0, tone = WALL_TONES, courseH = 0.32 }) {
-  const rows = Math.max(1, Math.round(h / courseH))
-  const ch = h / rows
-  for (let r = 0; r < rows; r++) {
-    const y = r * ch
-    const off = r % 2 ? 0.31 : 0
-    // back and sides
-    course(parts, { y, z: -d / 2, x0: -w / 2, x1: w / 2, h: ch, d: 0.26, tone, seed: r + off })
-    for (const side of [-1, 1]) {
-      const sideParts = []
-      course(sideParts, { y, z: 0, x0: -d / 2, x1: d / 2, h: ch, d: 0.26, tone, seed: r + 5 + off })
-      for (const p of sideParts) {
-        parts.push({ ...p, position: [side * (w / 2), p.position[1], p.position[0]], rotation: [0, Math.PI / 2, 0] })
-      }
+
+/**
+ * The roof tone, and the whole reason the house reads.
+ *
+ * A deep oxblood against pale plaster. Reference town builders put a saturated
+ * roof on a pale body and the two masses never merge; this project had brown
+ * walls under a brown roof and the building came out as one lump of stone. It
+ * stays inside the Seismic warm band — separation is about VALUE and saturation,
+ * not about leaving the palette.
+ */
+const ROOF = '#8f4436'
+const ROOF_DARK = '#5f2c24'
+
+/**
+ * A plain plastered shell: four walls in one pale tone, with a stone base
+ * course. The log-coursing routine is still used by the sheds and the crate,
+ * where a stack of rough timbers is right; a dwelling is rendered instead of
+ * built out of logs, and the difference is what makes it read as a HOUSE.
+ */
+function wallShell(parts, { w, d, h, doorW = 0 }) {
+  const base = 0.26
+  parts.push({ geometry: chamferBox(w + 0.12, base, d + 0.12, 0.05), position: [0, base / 2 + 0.14, 0], color: UI.stoneMid })
+  for (const [sx, sz, ww, dd] of [[0, -d / 2, w, 0.28], [0, d / 2, w, 0.28], [-w / 2, 0, 0.28, d], [w / 2, 0, 0.28, d]]) {
+    parts.push({ geometry: chamferBox(ww, h - base, dd, 0.06), position: [sx, base + (h - base) / 2 + 0.14, sz], color: UI.creamWarm })
+  }
+  // Corner pilasters, a shade darker. Cheap, and they stop a big pale box
+  // reading as a single flat plane from any angle.
+  for (const sx of [-1, 1]) {
+    for (const sz of [-1, 1]) {
+      parts.push({ geometry: chamferBox(0.34, h - base, 0.34, 0.06), position: [sx * (w / 2 - 0.02), base + (h - base) / 2 + 0.14, sz * (d / 2 - 0.02)], color: UI.creamShade })
     }
-    // front, split around the doorway
-    const dh = doorW / 2
-    if (doorW && y < h * 0.62) {
-      course(parts, { y, z: d / 2, x0: -w / 2, x1: -dh, h: ch, d: 0.26, tone, seed: r + 9 + off })
-      course(parts, { y, z: d / 2, x0: dh, x1: w / 2, h: ch, d: 0.26, tone, seed: r + 13 + off })
-    } else {
-      course(parts, { y, z: d / 2, x0: -w / 2, x1: w / 2, h: ch, d: 0.26, tone, seed: r + 9 + off })
-    }
+  }
+  if (doorW) {
+    parts.push({ geometry: chamferBox(doorW + 0.1, h * 0.8, 0.34, 0.05), position: [0, 0.14 + h * 0.4, d / 2], color: UI.creamShade })
   }
 }
 
@@ -128,68 +122,123 @@ export function homestead(tier = 1) {
   const t = Math.max(1, Math.min(4, tier))
   const w = [4.4, 5.2, 6.0, 6.8][t - 1]
   const d = [3.6, 4.2, 4.8, 5.4][t - 1]
-  const h = [1.9, 2.1, 3.0, 3.2][t - 1]
+  // Wall height, and it is deliberately LOW relative to the roof — see below.
+  const h = [1.95, 2.15, 2.85, 3.05][t - 1]
   const parts = []
 
-  // Plinth — every building in the valley stands on one, because the ground
+  // Plinth. Every building in the valley stands on one, because the ground
   // moves and a wall that starts at soil level reads as sinking into it.
   parts.push({ geometry: chamferBox(w + 0.5, 0.28, d + 0.5, 0.07), position: [0, 0.14, 0], color: UI.stoneDark })
-  walls(parts, { w, d, h, doorW: 1.2 })
 
-  // Doorway: the lune arch, recessed, with a dark reveal behind it.
-  parts.push({ geometry: luneArch(1.2, h * 0.62, 0.1), position: [0, 0.28, d / 2 + 0.06], color: UI.stoneShadow })
-  parts.push({ geometry: luneArch(1.42, h * 0.68, 0.14), position: [0, 0.24, d / 2 - 0.02], color: UI.stoneLit })
-  // The lintel stone, with the mark cut into it — which the comment has claimed
-  // since the building went in, while no mark was ever placed on it.
-  parts.push({ geometry: chamferBox(1.7, 0.34, 0.34, 0.06), position: [0, h * 0.68 + 0.34, d / 2], color: UI.stonePale })
-  parts.push({ geometry: markFlatGeometry(), position: [0, h * 0.68 + 0.34, d / 2 + 0.18], scale: [0.3, 0.3, 1], color: UI.stoneDeep })
-
-  // Roof: a wedge, and a ridge beam that overhangs. The overhang is what stops
-  // it reading as a lid.
-  parts.push({ geometry: wedge(w + 0.7, 1.15, d + 0.7), position: [0, h, 0], color: UI.stoneDeep })
-  parts.push({ geometry: chamferBox(w + 0.9, 0.14, 0.18, 0.04), position: [0, h + 1.16, 0], color: UI.stoneDark })
-  parts.push({ geometry: chamferBox(w + 0.85, 0.12, 0.16, 0.035), position: [0, h + 0.06, d / 2 + 0.36], color: UI.creamShade })
-  parts.push({ geometry: chamferBox(w + 0.85, 0.12, 0.16, 0.035), position: [0, h + 0.06, -d / 2 - 0.36], color: UI.creamShade })
-
-  // Windows, as lune arches in cream — the only cream on the building, so they
-  // are what your eye finds from across the valley.
+  // --- the walls -------------------------------------------------------------
+  // PALE, and that is the change. They used to be the same brown family as the
+  // roof and the whole building read as one lump of stone.
   const panes = []
-  for (const side of [-1, 1]) {
-    parts.push({ geometry: luneArch(0.52, 0.8, 0.1), position: [side * (w / 2 + 0.02), h * 0.28, 0], rotation: [0, side * Math.PI / 2, 0], color: UI.creamDeep })
-    panes.push({ at: [side * (w / 2 + 0.1), h * 0.28 + 0.4, 0], size: [0.42, 0.66], rot: side * Math.PI / 2 })
+  wallShell(parts, { w, d, h, doorW: 1.3 })
+
+  /**
+   * WINDOWS AS A ROW, not as one feature.
+   *
+   * Small dark panes in light frames, evenly spaced along both long faces. A
+   * building with one window has a window; a building with a row of them has
+   * floors, and the eye reads the storeys off the spacing without being told.
+   */
+  const cols = Math.max(2, Math.round((w - 1.9) / 1.15))
+  const rows = t >= 3 ? 2 : 1
+  for (let r = 0; r < rows; r++) {
+    const y = h * (rows === 1 ? 0.52 : 0.34 + r * 0.4)
+    for (let c = 0; c < cols; c++) {
+      const x = (c - (cols - 1) / 2) * ((w - 1.5) / Math.max(1, cols - 1))
+      // Skip the middle of the front row: that is where the door is.
+      const overDoor = r === 0 && Math.abs(x) < 0.85
+      for (const side of [1, -1]) {
+        if (side === 1 && overDoor) continue
+        parts.push({ geometry: chamferBox(0.62, 0.72, 0.1, 0.03), position: [x, y, side * (d / 2 + 0.15)], color: UI.creamDeep })
+        parts.push({ geometry: chamferBox(0.44, 0.54, 0.06, 0.02), position: [x, y, side * (d / 2 + 0.2)], color: UI.stoneShadow })
+        panes.push({ at: [x, y, side * (d / 2 + 0.23)], size: [0.4, 0.5], rot: side === 1 ? 0 : Math.PI })
+      }
+    }
   }
-  // And one in the doorway, which is the one that reads from furthest away —
-  // a lit door is a place somebody lives, and it is the only warm light in a
-  // valley that has nobody else in it.
-  panes.push({ at: [0, h * 0.32, d / 2 + 0.09], size: [0.82, 1.0], rot: 0 })
+  // And one on each gable end.
+  for (const side of [-1, 1]) {
+    parts.push({ geometry: chamferBox(0.1, 0.62, 0.52, 0.03), position: [side * (w / 2 + 0.15), h * 0.52, 0], color: UI.creamDeep })
+    parts.push({ geometry: chamferBox(0.06, 0.44, 0.36, 0.02), position: [side * (w / 2 + 0.2), h * 0.52, 0], color: UI.stoneShadow })
+    panes.push({ at: [side * (w / 2 + 0.23), h * 0.52, 0], size: [0.32, 0.4], rot: side * Math.PI / 2 })
+  }
+
+  // --- the doorway -----------------------------------------------------------
+  // The lune arch is the game's own motif and it stays: a recessed dark reveal
+  // with a lighter surround, and the mark cut into the lintel above it.
+  parts.push({ geometry: luneArch(1.3, h * 0.74, 0.1), position: [0, 0.28, d / 2 + 0.06], color: UI.stoneShadow })
+  parts.push({ geometry: luneArch(1.52, h * 0.8, 0.14), position: [0, 0.24, d / 2 - 0.02], color: UI.creamDeep })
+  parts.push({ geometry: chamferBox(1.8, 0.3, 0.36, 0.06), position: [0, h * 0.8 + 0.3, d / 2], color: UI.stonePale })
+  parts.push({ geometry: markFlatGeometry(), position: [0, h * 0.8 + 0.3, d / 2 + 0.2], scale: [0.34, 0.34, 1], color: UI.stoneDeep })
+  panes.push({ at: [0, h * 0.36, d / 2 + 0.14], size: [0.9, h * 0.6], rot: 0 })
+
+  /**
+   * THE ROOF, which is now the building.
+   *
+   * Half the height and overhanging the walls by a fifth of a metre on every
+   * side. That proportion is the single biggest thing separating a house that
+   * reads as a house from a box with a lid: the eye finds the roof first, and a
+   * roof that stops flush at the wall reads as a lid.
+   *
+   * A saturated tone against pale walls, for the same reason — one colour for
+   * the roof and one for the body, far apart, so the two masses never merge.
+   */
+  const roofH = h * 0.62
+  const eave = 0.38
+  parts.push({ geometry: wedge(w + eave * 2, roofH, d + eave * 2), position: [0, h, 0], color: ROOF })
+  // The ridge beam, and the two eave boards. Trim in the wall colour, which is
+  // what ties the roof back to the body instead of letting it float.
+  parts.push({ geometry: chamferBox(w + eave * 2 + 0.2, 0.16, 0.2, 0.04), position: [0, h + roofH + 0.02, 0], color: ROOF_DARK })
+  for (const side of [-1, 1]) {
+    parts.push({ geometry: chamferBox(w + eave * 1.2, 0.14, 0.18, 0.035), position: [0, h + 0.06, side * (d / 2 + eave)], color: UI.creamWarm })
+  }
+
+  /**
+   * DORMERS. Two, on the front pitch.
+   *
+   * They break the roof plane, and a roof this size needs breaking or it is a
+   * tent. Each is a small box with its own little wedge on top, pushed far
+   * enough forward that it clears the slope.
+   */
+  const dormerN = 2
+  for (let i = 0; i < dormerN; i++) {
+    const x = dormerN === 1 ? 0 : (i - 0.5) * w * 0.5
+    const y = h + roofH * 0.30
+    const z = d * 0.5 - roofH * 0.42
+    parts.push({ geometry: chamferBox(0.86, 0.62, 0.8, 0.05), position: [x, y, z], color: UI.creamWarm })
+    parts.push({ geometry: wedge(1.02, 0.42, 0.94), position: [x, y + 0.31, z], color: ROOF })
+    parts.push({ geometry: chamferBox(0.42, 0.4, 0.06, 0.02), position: [x, y + 0.02, z + 0.42], color: UI.stoneShadow })
+    panes.push({ at: [x, y + 0.02, z + 0.46], size: [0.38, 0.36], rot: 0 })
+  }
+
+  // --- the chimney -----------------------------------------------------------
+  parts.push({ geometry: chamferBox(0.5, roofH * 0.95 + 0.5, 0.5, 0.06), position: [w / 2 - 0.85, h + roofH * 0.55, -d / 4], color: UI.stoneMid })
+  parts.push({ geometry: chamferBox(0.66, 0.16, 0.66, 0.04), position: [w / 2 - 0.85, h + roofH * 1.05 + 0.28, -d / 4], color: UI.stoneDark })
 
   if (t >= 2) {
-    // Porch: two posts and a canopy.
+    // Porch: two posts and a canopy over the door.
     for (const side of [-1, 1]) {
-      parts.push({ geometry: COLUMN, position: [side * (w / 2 - 0.4), 1.05, d / 2 + 1.1], scale: [0.22, 2.1, 0.22], color: C.trunk })
+      parts.push({ geometry: COLUMN, position: [side * (w / 2 - 0.5), 0.95, d / 2 + 1.05], scale: [0.2, 1.9, 0.2], color: C.trunk })
     }
-    parts.push({ geometry: chamferBox(w - 0.5, 0.16, 1.5, 0.05), position: [0, 2.16, d / 2 + 0.6], color: UI.stoneDeep })
-    parts.push({ geometry: chamferBox(w + 0.2, 0.2, 0.2, 0.05), position: [0, 0.2, d / 2 + 1.3], color: UI.stoneDark })
-  }
-  if (t >= 3) {
-    // Flue, for the kiln that got built into the house.
-    parts.push({ geometry: chamferBox(0.62, 1.5, 0.62, 0.08), position: [w / 2 - 0.9, h + 0.9, -d / 4], color: UI.stoneMid })
-    parts.push({ geometry: chamferBox(0.78, 0.18, 0.78, 0.05), position: [w / 2 - 0.9, h + 1.72, -d / 4], color: UI.stoneDark })
+    parts.push({ geometry: wedge(w - 0.4, 0.5, 1.7), position: [0, 1.9, d / 2 + 0.6], color: ROOF })
+    parts.push({ geometry: chamferBox(w + 0.2, 0.2, 0.2, 0.05), position: [0, 0.2, d / 2 + 1.25], color: UI.stoneDark })
   }
   if (t >= 4) {
     // The tower and its shard lantern — visible from the ridge, which is the
     // point of it.
-    parts.push({ geometry: chamferBox(1.5, 2.4, 1.5, 0.1), position: [-w / 2 + 0.7, h + 1.2, -d / 4], color: UI.stone })
-    parts.push({ geometry: FLARE, position: [-w / 2 + 0.7, h + 2.55, -d / 4], scale: [1.9, 0.44, 1.9], color: UI.stoneDeep })
-    parts.push({ geometry: shardGeometry(), position: [-w / 2 + 0.7, h + 3.1, -d / 4], scale: [0.42, 0.55, 0.34], color: UI.rose })
+    parts.push({ geometry: chamferBox(1.5, 2.4, 1.5, 0.1), position: [-w / 2 + 0.7, h + 1.2, -d / 4], color: UI.creamShade })
+    parts.push({ geometry: wedge(1.9, 0.8, 1.9), position: [-w / 2 + 0.7, h + 2.4, -d / 4], color: ROOF })
+    parts.push({ geometry: shardGeometry(), position: [-w / 2 + 0.7, h + 3.15, -d / 4], scale: [0.42, 0.55, 0.34], color: UI.rose })
   }
   return {
     geometry: bake(parts),
     footprint: [Math.ceil(w) + 2, Math.ceil(d) + 3],
-    height: h,
+    height: h + roofH,
     panes,
-    // Where the light spills from. Just outside the door, at head height.
-    lamp: [0, h * 0.4, d / 2 + 0.5],
+    lamp: [0, h * 0.5, d / 2 + 0.6],
   }
 }
 
