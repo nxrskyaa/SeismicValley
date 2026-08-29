@@ -1,5 +1,5 @@
 import * as THREE from 'three'
-import { BALL, chamferBox, FLAT, glowMat, shardMat, stoneMat } from '../core/kit.js'
+import { chamferBox, FLAT, glowMat, shardMat, stoneMat } from '../core/kit.js'
 import { markFlatGeometry, shardGeometry } from '../core/mark.js'
 import { mix, shade, sunlit, UI } from '../core/palette.js'
 import { damp } from '../core/rng.js'
@@ -70,6 +70,16 @@ export const ROCKY_CUTS = {
   sand: { stone: '#c39a70', trim: UI.stoneDeep, eye: UI.cream },
   basalt: { stone: '#7d5636', trim: UI.creamDeep, eye: UI.cream },
 }
+
+/**
+ * The unit mass every part of him is cut from.
+ *
+ * A chamfered cube scaled to size, NOT a sphere. The sheet draws him as hard
+ * quarried slabs with flat planes and dark seams between them — a rebuild in
+ * smooth ellipsoids had the right proportions and still read as a pile of
+ * pebbles, because the angularity IS the character.
+ */
+const BLOCK = chamferBox(1, 1, 1, 0.16)
 
 const INK = new THREE.MeshBasicMaterial({ color: new THREE.Color().setStyle(UI.ink, THREE.SRGBColorSpace), side: THREE.BackSide })
 
@@ -202,19 +212,19 @@ export function buildRocky({ cut = 'rocky', chest = 'mark', height = 1.9, outlin
   const body = pivot(root, [0, 0, 0], 'body')
 
   // --- hips ------------------------------------------------------------------
-  plate(body, { geo: BALL, at: [0, 0.347, 0], size: [0.3, 0.1, 0.24], mat: MAT.deep })
+  plate(body, { geo: BLOCK, at: [0, 0.347, 0], size: [0.3, 0.1, 0.24], mat: MAT.deep })
   // The waist band. One dark ring, and it is what makes the torso read as a
   // separate quarried mass sitting on the hips rather than one carved lump.
-  plate(body, { geo: BALL, at: [0, 0.407, 0], size: [0.26, 0.05, 0.21], mat: MAT.joint, ink: false })
+  plate(body, { geo: BLOCK, at: [0, 0.407, 0], size: [0.26, 0.05, 0.21], mat: MAT.joint, ink: false })
 
   // --- the torso -------------------------------------------------------------
   const chestG = pivot(body, [0, 0.429, 0], 'chest')
   // One big faceted barrel. Its centre sits low so the mass reads as bottom
   // heavy, which is what the drawing does.
-  plate(chestG, { geo: BALL, at: [0, 0.2, 0], size: [0.50, 0.44, 0.385], mat: MAT.stone })
+  plate(chestG, { geo: BLOCK, at: [0, 0.17, 0], size: [0.50, 0.40, 0.385], mat: MAT.stone })
   // A lighter cap across the top, so the shoulder line catches the sun and the
   // barrel does not read as one flat blob.
-  plate(chestG, { geo: BALL, at: [0, 0.30, -0.02], size: [0.40, 0.16, 0.30], mat: MAT.lit })
+  plate(chestG, { geo: BLOCK, at: [0, 0.325, -0.02], size: [0.40, 0.11, 0.30], mat: MAT.lit })
 
   // ------------------------------------------------------------ the badge --
   // Set INTO a cut recess, never laid on top. The recess is the whole difference
@@ -246,7 +256,7 @@ export function buildRocky({ cut = 'rocky', chest = 'mark', height = 1.9, outlin
   //
   // Straight on the torso. There is no neck on the sheet, and adding one is the
   // fastest way to turn a golem into a robot.
-  const head = pivot(chestG, [0, 0.417, 0], 'head')
+  const head = pivot(chestG, [0, 0.40, 0], 'head')
   plate(head, { geo: chamferBox(0.253, 0.154, 0.225, 0.05), at: [0, 0.077, 0], size: [1, 1, 1], mat: MAT.stone })
   // No second plate on the crown. One was there for faceting and its corners
   // poked through the chamfered box below as pale slivers; `flatShading` on the
@@ -286,13 +296,13 @@ export function buildRocky({ cut = 'rocky', chest = 'mark', height = 1.9, outlin
      * makes his outline read as a barrel with two sausages either side rather
      * than as armour.
      */
-    plate(chestG, { geo: BALL, at: [side * 0.245, 0.275, 0], size: [0.135, 0.16, 0.135], mat: MAT.lit })
+    plate(chestG, { geo: BLOCK, at: [side * 0.25, 0.245, 0], size: [0.145, 0.15, 0.145], mat: MAT.lit })
 
-    const upper = pivot(chestG, [side * 0.253, 0.235, 0], `arm${L}`)
-    plate(upper, { geo: BALL, at: [0, -0.085, 0], size: [0.108, 0.21, 0.108], mat: MAT.stone })
+    const upper = pivot(chestG, [side * 0.258, 0.205, 0], `arm${L}`)
+    plate(upper, { geo: BLOCK, at: [0, -0.085, 0], size: [0.108, 0.21, 0.108], mat: MAT.stone })
 
     const lower = pivot(upper, [0, -0.175, 0], `fore${L}`)
-    plate(lower, { geo: BALL, at: [0, -0.09, 0], size: [0.112, 0.215, 0.112], mat: MAT.lit })
+    plate(lower, { geo: BLOCK, at: [0, -0.09, 0], size: [0.112, 0.215, 0.112], mat: MAT.lit })
 
     /**
      * And it ends there. A blunt rounded stump, no hand.
@@ -303,7 +313,7 @@ export function buildRocky({ cut = 'rocky', chest = 'mark', height = 1.9, outlin
      * have somewhere to attach.
      */
     const hand = pivot(lower, [0, -0.185, 0], `hand${L}`)
-    plate(hand, { geo: BALL, at: [0, -0.045, 0], size: [0.125, 0.115, 0.122], mat: MAT.stone })
+    plate(hand, { geo: BLOCK, at: [0, -0.045, 0], size: [0.125, 0.115, 0.122], mat: MAT.stone })
     const socket = pivot(hand, [0, -0.05, 0.05], `hold${L}`)
     socket.rotation.x = -0.3
   }
@@ -313,14 +323,14 @@ export function buildRocky({ cut = 'rocky', chest = 'mark', height = 1.9, outlin
     const L = side < 0 ? 'L' : 'R'
     // Short, thick and splayed a little, straight out of the hip slab.
     const thigh = pivot(body, [side * 0.095, 0.318, 0], `thigh${L}`)
-    plate(thigh, { geo: BALL, at: [0, -0.075, 0], size: [0.148, 0.185, 0.15], mat: MAT.stone })
+    plate(thigh, { geo: BLOCK, at: [0, -0.075, 0], size: [0.148, 0.185, 0.15], mat: MAT.stone })
 
     const shin = pivot(thigh, [0, -0.155, 0], `shin${L}`)
-    plate(shin, { geo: BALL, at: [0, -0.07, 0], size: [0.14, 0.175, 0.142], mat: MAT.lit })
+    plate(shin, { geo: BLOCK, at: [0, -0.07, 0], size: [0.14, 0.175, 0.142], mat: MAT.lit })
 
     // A blunt rounded end, not a foot. Nothing on the sheet projects forward.
     const foot = pivot(shin, [0, -0.135, 0], `foot${L}`)
-    plate(foot, { geo: BALL, at: [0, -0.028, 0.006], size: [0.15, 0.09, 0.155], mat: MAT.stone })
+    plate(foot, { geo: BLOCK, at: [0, -0.028, 0.006], size: [0.15, 0.09, 0.155], mat: MAT.stone })
   }
 
   root.scale.setScalar(height)

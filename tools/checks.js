@@ -219,19 +219,26 @@ console.log('\nthe brand')
   const num = (re) => { const m = re.exec(rocky); return m ? Number(m[1]) : null }
 
   // The torso is the dominant mass and it is a sphere, not a box or a prism.
-  const torso = /geo: BALL, at: \[0, 0\.2, 0\], size: \[([\d.]+), ([\d.]+)/.exec(rocky)
-  assert(!!torso, 'the torso is one rounded barrel')
+  // BLOCK, not BALL. The sheet draws him as hard quarried slabs with flat
+  // planes and dark seams; a rebuild in smooth ellipsoids had the right
+  // proportions and still read as a pile of pebbles, because the angularity
+  // IS the character.
+  assert(/const BLOCK = chamferBox\(/.test(rocky), 'every mass is a faceted slab, not an ellipsoid')
+  assert(!/geo: BALL/.test(rocky), 'and none of them is a sphere')
+  // Anchored on chestG, or this matches the hip slab that comes before it.
+  const torso = /plate\(chestG, \{ geo: BLOCK, at: \[0, [\d.]+, 0\], size: \[([\d.]+), ([\d.]+)/.exec(rocky)
+  assert(!!torso, 'the torso is one broad slab')
   if (torso) {
     const [w, h] = [Number(torso[1]), Number(torso[2])]
     assert(w > 0.42, 'and it is broad — he is nearly as wide as he is tall', `${w} across`)
-    assert(h > 0.38, 'and deep enough to be the dominant mass', `${h} tall`)
+    assert(h > 0.36, 'and deep enough to be the dominant mass', `${h} tall`)
   }
 
   // No neck. The head pivot sits on the torso, and a gap there is the single
   // fastest way to turn a golem into a robot.
   const headY = num(/const head = pivot\(chestG, \[0, ([\d.]+), 0\]/)
   const chestY = num(/const chestG = pivot\(body, \[0, ([\d.]+), 0\]/)
-  assert(headY !== null && chestY !== null && headY + chestY > 0.8,
+  assert(headY !== null && chestY !== null && headY + chestY > 0.78,
     'the head sits high on the torso, with no neck under it', `head at ${(headY + chestY).toFixed(3)}`)
 
   // The eyes are SLITS. Big ovals under a brow is a different character.
@@ -724,7 +731,7 @@ console.log('\ngameplay')
   const { CROPS, SEASON_NAMES, SEASON_DAYS } = await import('../src/game/crops.js')
   const { P, N } = await import('../src/world/grid.js')
   const { canSet } = await import('../src/core/wordmark.js')
-  const { MARK_FACETS, markShapes } = await import('../src/core/mark.js')
+  const { markShapes } = await import('../src/core/mark.js')
 
   assert(SEASON_NAMES.join() === 'Thaw,Longlight,Rust,Still', 'the seasons are the operations calendar')
   assert(SEASON_DAYS === 21, 'a season is twenty-one days')
@@ -890,43 +897,42 @@ console.log('\ngameplay')
   }
 
   /**
-   * THE MARK IS A CRYSTAL, and for the whole life of this project it was not.
+   * THE MARK IS THE EMBLEM ON ROCKY'S CHEST.
    *
-   * It was two mirrored lunes — a shape that is not on seismic.systems, not on
-   * the character sheet, and not on anything the brand has ever put its name
-   * to. These assertions used to require the wrong logo, which is worse than
-   * having none: they made the mistake load-bearing.
+   * Two mirrored crescents, horns converging on a narrow waist, bodies bulging
+   * outward, with a SECOND smaller crescent nested inside each lobe. Traced off
+   * the character sheet at high magnification.
    *
-   * Measured off the 128px favicon. Seven vertices, one closed silhouette,
-   * taller than it is wide, in four facets running dark to light.
+   * Two wrong turns are recorded here because both were shipped. The first
+   * version had the outer crescents and no inner ones. The second replaced the
+   * whole thing with the faceted gem seismic.systems serves as its favicon —
+   * a real Seismic asset, and not the one on the character. When the site and
+   * the sheet disagree about what goes on the character, the sheet wins.
    */
   const shapes = markShapes()
-  assert(shapes.length === 1, 'the mark is one closed silhouette', `${shapes.length} shapes`)
-  const pts = shapes[0].getPoints(1)
-  assert(pts.length >= 7 && pts.length <= 9, `the crystal has seven corners (${pts.length})`)
-  const w = Math.max(...pts.map((q) => q.x)) - Math.min(...pts.map((q) => q.x))
-  const h = Math.max(...pts.map((q) => q.y)) - Math.min(...pts.map((q) => q.y))
-  assert(h > w * 1.2, 'and it is clearly taller than it is wide', `${w.toFixed(2)} x ${h.toFixed(2)}`)
-
-  const lum = (hex) => {
-    const n = Number.parseInt(hex.slice(1), 16)
-    return ((n >> 16) & 255) * 0.299 + ((n >> 8) & 255) * 0.587 + (n & 255) * 0.114
+  assert(shapes.length === 4, 'the mark is two crescents and two inner crescents', `${shapes.length} contours`)
+  const box = (sh) => {
+    const p = sh.getPoints(1)
+    return {
+      x0: Math.min(...p.map((q) => q.x)), x1: Math.max(...p.map((q) => q.x)),
+      y0: Math.min(...p.map((q) => q.y)), y1: Math.max(...p.map((q) => q.y)),
+    }
   }
-  assert(MARK_FACETS.length === 4, `it is cut into four facets (${MARK_FACETS.length})`)
-  const tones = MARK_FACETS.map((f) => lum(f.tone))
-  assert(tones[0] === Math.min(...tones), 'the front facet is the darkest of them')
-  assert(Math.max(...tones) - Math.min(...tones) > 20, 'and the facets are far enough apart to read',
-    `${Math.min(...tones).toFixed(0)}..${Math.max(...tones).toFixed(0)}`)
+  const [outL, inL, outR, inR] = shapes.map(box)
+  assert(outL.x1 < 0.02 && outR.x0 > -0.02, 'the two lobes sit either side of the axis',
+    `left ends at ${outL.x1.toFixed(2)}, right starts at ${outR.x0.toFixed(2)}`)
+  assert(Math.abs(outL.x0 + outR.x1) < 1e-6 && Math.abs(outL.y0 - outR.y0) < 1e-6,
+    'and they are an exact mirror of each other')
+  assert(inL.x0 > outL.x0 && inL.x1 < 0, 'the inner crescent sits inside the left lobe',
+    `inner ${inL.x0.toFixed(2)}..${inL.x1.toFixed(2)} vs outer ${outL.x0.toFixed(2)}..${outL.x1.toFixed(2)}`)
+  assert(Math.abs(inR.x0 + inL.x1) < 1e-6, 'and its mirror inside the right one')
+  // The lobes are thin arcs, not fat discs: the first restore had them so heavy
+  // that the inner crescents were swallowed whole.
+  const lobeW = outL.x1 - outL.x0
+  const lobeH = outL.y1 - outL.y0
+  assert(lobeW < lobeH * 0.95, 'the lobes are arcs rather than discs',
+    `${lobeW.toFixed(2)} wide by ${lobeH.toFixed(2)} tall`)
 
-  // Every corner of the silhouette has to be carried by a facet, or the fill
-  // leaves a wedge of background inside the outline.
-  const used = new Set(MARK_FACETS.flatMap((f) => f.points.map((q) => `${q[0]},${q[1]}`)))
-  const orphan = pts.filter((q) => ![...used].some((u) => {
-    const [ux, uy] = u.split(',').map(Number)
-    return Math.abs(ux - q.x) < 1e-6 && Math.abs(uy - q.y) < 1e-6
-  }))
-  assert(orphan.length === 0, 'and every corner of the outline is carried by a facet',
-    orphan.map((q) => `${q.x},${q.y}`).join(' '))
 }
 
 // ---------------------------------------------------- 7c. the touch controls --

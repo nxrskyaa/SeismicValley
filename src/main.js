@@ -71,7 +71,7 @@ const POSES = {
   valley: { at: [N / 2, 0, N / 2], size: 62, hour: 9.5 },
   home: { at: [HOME.x, 0, HOME.z], size: 22, hour: 10 },
   gate: { at: [GATE.x, 1, GATE.z], size: 16, hour: 9 },
-  rocky: { at: [GATE.x + 0.5, 1.05, GATE.z + 0.5], size: 2.7, hour: 11 },
+  rocky: { at: [GATE.x + 0.5, 1.0, GATE.z + 0.5], size: 3.6, hour: 11 },
   sheet: { at: [HOME.x, 1.0, HOME.z], size: 3.6, hour: 12 },
   rig: { at: [HOME.x, 1.0, HOME.z], size: 5, hour: 12 },
   pebble: { at: [HOME.x + 2, -0.86, HOME.z + 2], size: 1.4, hour: 12, pebble: true },
