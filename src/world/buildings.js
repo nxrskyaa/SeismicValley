@@ -1,6 +1,6 @@
 import * as THREE from 'three'
 import { applyWrappedLight, bake, bakedMat, chamferBox, COLUMN, FLARE, FLAT, glowMat, POINT, ROD, shardMat, stoneLump, TAPER, wedge } from '../core/kit.js'
-import { markFlatGeometry, markTexture, shardGeometry } from '../core/mark.js'
+import { markFacetGeometry, markFlatGeometry, markTexture, shardGeometry } from '../core/mark.js'
 import { C, mix, shade, UI } from '../core/palette.js'
 import { LEVEL } from './grid.js'
 
@@ -81,8 +81,7 @@ const DARK_TONES = [UI.stoneDeep, UI.stoneDark, UI.stoneMid]
  * stays inside the Seismic warm band — separation is about VALUE and saturation,
  * not about leaving the palette.
  */
-const ROOF = '#8f4436'
-const ROOF_DARK = '#5f2c24'
+const ROOF_DEFAULT = '#8f4436'
 
 /**
  * A plain plastered shell: four walls in one pale tone, with a stone base
@@ -90,17 +89,17 @@ const ROOF_DARK = '#5f2c24'
  * where a stack of rough timbers is right; a dwelling is rendered instead of
  * built out of logs, and the difference is what makes it read as a HOUSE.
  */
-function wallShell(parts, { w, d, h, doorW = 0 }) {
+function wallShell(parts, { w, d, h, doorW = 0, wall = UI.creamWarm }) {
   const base = 0.26
   parts.push({ geometry: chamferBox(w + 0.12, base, d + 0.12, 0.05), position: [0, base / 2 + 0.14, 0], color: UI.stoneMid })
   for (const [sx, sz, ww, dd] of [[0, -d / 2, w, 0.28], [0, d / 2, w, 0.28], [-w / 2, 0, 0.28, d], [w / 2, 0, 0.28, d]]) {
-    parts.push({ geometry: chamferBox(ww, h - base, dd, 0.06), position: [sx, base + (h - base) / 2 + 0.14, sz], color: UI.creamWarm })
+    parts.push({ geometry: chamferBox(ww, h - base, dd, 0.06), position: [sx, base + (h - base) / 2 + 0.14, sz], color: wall })
   }
   // Corner pilasters, a shade darker. Cheap, and they stop a big pale box
   // reading as a single flat plane from any angle.
   for (const sx of [-1, 1]) {
     for (const sz of [-1, 1]) {
-      parts.push({ geometry: chamferBox(0.34, h - base, 0.34, 0.06), position: [sx * (w / 2 - 0.02), base + (h - base) / 2 + 0.14, sz * (d / 2 - 0.02)], color: UI.creamShade })
+      parts.push({ geometry: chamferBox(0.34, h - base, 0.34, 0.06), position: [sx * (w / 2 - 0.02), base + (h - base) / 2 + 0.14, sz * (d / 2 - 0.02)], color: shade(wall, 0.88) })
     }
   }
   if (doorW) {
@@ -118,12 +117,15 @@ function wallShell(parts, { w, d, h, doorW = 0 }) {
  * with the shard lantern. An upgrade that only changes a number in a panel is an
  * upgrade nobody remembers buying.
  */
-export function homestead(tier = 1) {
+export function homestead(tier = 1, opts = {}) {
   const t = Math.max(1, Math.min(4, tier))
-  const w = [4.4, 5.2, 6.0, 6.8][t - 1]
-  const d = [3.6, 4.2, 4.8, 5.4][t - 1]
+  const w = opts.w ?? [4.4, 5.2, 6.0, 6.8][t - 1]
+  const d = opts.d ?? [3.6, 4.2, 4.8, 5.4][t - 1]
   // Wall height, and it is deliberately LOW relative to the roof — see below.
-  const h = [1.95, 2.15, 2.85, 3.05][t - 1]
+  const h = opts.h ?? [1.95, 2.15, 2.85, 3.05][t - 1]
+  const ROOF = opts.roof ?? ROOF_DEFAULT
+  const ROOF_DARK = opts.roofDark ?? shade(ROOF, 0.62)
+  const WALL = opts.wall ?? UI.creamWarm
   const parts = []
 
   // Plinth. Every building in the valley stands on one, because the ground
@@ -134,7 +136,7 @@ export function homestead(tier = 1) {
   // PALE, and that is the change. They used to be the same brown family as the
   // roof and the whole building read as one lump of stone.
   const panes = []
-  wallShell(parts, { w, d, h, doorW: 1.3 })
+  wallShell(parts, { w, d, h, doorW: 1.3, wall: WALL })
 
   /**
    * WINDOWS AS A ROW, not as one feature.
@@ -249,6 +251,97 @@ export function homestead(tier = 1) {
  * between them IS the mark at building scale. Nothing about it is decorated;
  * the shape is the decoration.
  */
+/**
+ * THE ROOFS OF THE OLD STREET.
+ *
+ * Four tones, so a row of houses is a row of houses rather than one house
+ * stamped four times. All of them sit in the warm band and all of them are far
+ * enough from the pale plaster that the two masses never merge — which is the
+ * whole lesson of the reference town: saturated roof, pale body, no exceptions.
+ */
+export const COTTAGE_ROOFS = ['#8f4436', '#6d5a86', '#4f6b62', '#a8703a']
+
+/**
+ * A COTTAGE. The same building as the homestead, smaller and in somebody
+ * else's colours.
+ *
+ * These are the colony's, and they are EMPTY. A tidy street of houses with
+ * nobody in any of them says more about what happened here than another ruin
+ * would: the rollback did not knock anything down, it simply removed everyone.
+ */
+export function cottage(variant = 0) {
+  const v = Math.abs(Math.round(variant)) % 4
+  return homestead(1, {
+    w: [3.6, 4.0, 3.4, 4.4][v],
+    d: [3.0, 3.2, 3.0, 3.4][v],
+    h: [1.75, 1.9, 1.65, 2.0][v],
+    roof: COTTAGE_ROOFS[v],
+    wall: [UI.creamWarm, UI.parchment, UI.cream, UI.creamShade][v],
+  })
+}
+
+/**
+ * THE SEISMIC RELAY — the one building that carries the brand.
+ *
+ * A monument rather than a dwelling: a stepped stone mass, a tall lune arch cut
+ * clean through it, and the mark set into the head of the arch in its own five
+ * facets. The crystal on the finial is the only lit thing in the valley that is
+ * not somebody's window.
+ *
+ * It is the Loom's, not yours. Everything about it is squarer, taller and more
+ * deliberate than the houses — the houses were built by people and this was
+ * assembled by the lattice, and the silhouette should say so before any text
+ * does.
+ */
+export function relay() {
+  const parts = []
+  const w = 5.2
+  const d = 3.4
+  const h = 5.6
+
+  // A three-step plinth. The steps are the thing that reads as ceremony.
+  for (let i = 0; i < 3; i++) {
+    const k = 1 - i * 0.12
+    parts.push({
+      geometry: chamferBox((w + 1.8) * k, 0.3, (d + 1.8) * k, 0.06),
+      position: [0, 0.15 + i * 0.3, 0],
+      color: i === 2 ? UI.stoneMid : UI.stoneDark,
+    })
+  }
+
+  // Two piers and a lintel: the gap between them IS the arch.
+  for (const side of [-1, 1]) {
+    parts.push({ geometry: chamferBox(1.5, h, d, 0.12), position: [side * (w / 2 - 0.15), h / 2 + 0.9, 0], color: UI.stone })
+    parts.push({ geometry: chamferBox(1.7, 0.36, d + 0.2, 0.08), position: [side * (w / 2 - 0.15), h + 0.72, 0], color: UI.stonePale })
+    // A vertical seam of darker stone down each pier, so a five-metre face is
+    // not one flat plane.
+    parts.push({ geometry: chamferBox(0.34, h - 0.8, 0.06, 0.03), position: [side * (w / 2 - 0.15), h / 2 + 0.9, d / 2 + 0.02], color: UI.stoneDeep })
+  }
+  parts.push({ geometry: chamferBox(w + 1.4, 0.8, d + 0.4, 0.12), position: [0, h + 1.3, 0], color: UI.stoneDeep })
+  parts.push({ geometry: chamferBox(w + 1.0, 0.3, d + 0.1, 0.07), position: [0, h + 1.85, 0], color: UI.stoneMid })
+
+  // The arch, cut through, with a dark reveal behind it.
+  parts.push({ geometry: luneArch(2.5, 4.2, 0.4), position: [0, 1.0, -0.2], color: UI.stoneShadow })
+  parts.push({ geometry: luneArch(2.9, 4.6, 0.3), position: [0, 0.9, d / 2 - 0.1], color: UI.stoneLit })
+
+  // The finial: a stepped cap and the crystal above it.
+  parts.push({ geometry: FLARE, position: [0, h + 2.3, 0], scale: [2.2, 0.7, 2.0], color: UI.stonePale })
+
+  return {
+    geometry: bake(parts),
+    footprint: [8, 6],
+    height: h + 3.4,
+    // The mark, in its own five facets, on the lintel. Not a stencil: this is
+    // the one building in the valley that carries the brand rather than
+    // referring to it.
+    facetMark: { at: [0, h + 1.3, d / 2 + 0.25], scale: 1.5 },
+    shardAt: [0, h + 3.1, 0],
+    shardScale: 0.62,
+    lamp: [0, h + 3.1, 0],
+    panes: [{ at: [0, 2.6, d / 2 + 0.22], size: [1.9, 3.0], rot: 0 }],
+  }
+}
+
 export function ridgeGate() {
   const parts = []
   for (const side of [-1, 1]) {
@@ -474,6 +567,8 @@ export const KINDS = {
   cairn: (lv) => cairn(lv),
   crate: () => crate(),
   well: () => well(),
+  cottage: (lv) => cottage(lv),
+  relay: () => relay(),
 }
 
 /**
@@ -511,6 +606,14 @@ export function placeStructure(kind, level, grid, x, z) {
    * that is dimmed by the same darkness it is supposed to be pushing back is not
    * a lit window.
    */
+  if (built.facetMark) {
+    // The brand, in its own tones, rather than a one-colour stencil.
+    const g = new THREE.Group()
+    for (const geo of markFacetGeometry()) g.add(new THREE.Mesh(geo, bakedMat()))
+    g.position.set(...built.facetMark.at)
+    g.scale.setScalar(built.facetMark.scale ?? 1)
+    group.add(g)
+  }
   if (built.panes?.length) {
     const paneMat = glowMat(C.fireMid, 1)
     paneMat.transparent = true

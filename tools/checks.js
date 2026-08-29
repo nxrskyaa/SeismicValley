@@ -252,9 +252,35 @@ console.log('\nthe brand')
   const torso = /plate\(chestG, \{ geo: BLOCK, at: \[0, [\d.]+, 0\], size: \[([\d.]+), ([\d.]+)/.exec(rocky)
   assert(!!torso, 'the torso is one broad slab')
   if (torso) {
-    const [w, h] = [Number(torso[1]), Number(torso[2])]
-    assert(w > 0.42, 'and it is broad — he is nearly as wide as he is tall', `${w} across`)
-    assert(h > 0.36, 'and deep enough to be the dominant mass', `${h} tall`)
+    const [tw, th] = [Number(torso[1]), Number(torso[2])]
+    // Measured off the isolated drawing: the torso is a touch over a third of
+    // his height across, and it is the widest single mass on the figure.
+    assert(tw > 0.34 && tw < 0.5, 'the torso is broad without being the whole figure',
+      `${tw} across`)
+    assert(th > 0.28, 'and deep enough to be the dominant mass', `${th} tall`)
+    assert(tw > th, 'and wider than it is tall', `${tw} x ${th}`)
+  }
+
+  /**
+   * THE ONE DELIBERATE DISTORTION.
+   *
+   * The camera is locked at a 37-degree downward pitch, so every vertical
+   * dimension is foreshortened by cos(37) — about four fifths. A figure built
+   * to a straight-on elevation therefore reads a fifth shorter and
+   * correspondingly wider than the drawing, which is most of why he kept
+   * coming out squat however carefully the elevation was measured.
+   *
+   * The rig answers that with a Y stretch. This asserts it is still there, and
+   * that it is a COMPENSATION rather than a fudge: within a few per cent of
+   * 1/cos(37).
+   */
+  const stretch = /body\.scale\.y = ([\d.]+)/.exec(rocky)
+  assert(!!stretch, 'the rig compensates for the camera pitch')
+  if (stretch) {
+    const want = 1 / Math.cos((37 * Math.PI) / 180)
+    assert(Math.abs(Number(stretch[1]) - want) < 0.12,
+      'and the stretch is the pitch, not a guess',
+      `${stretch[1]} against 1/cos(37) = ${want.toFixed(3)}`)
   }
 
   // No neck. The head pivot sits on the torso, and a gap there is the single
@@ -754,7 +780,7 @@ console.log('\ngameplay')
   const { CROPS, SEASON_NAMES, SEASON_DAYS } = await import('../src/game/crops.js')
   const { P, N } = await import('../src/world/grid.js')
   const { canSet } = await import('../src/core/wordmark.js')
-  const { markShapes } = await import('../src/core/mark.js')
+  const { MARK_FACETS, markShapes } = await import('../src/core/mark.js')
 
   assert(SEASON_NAMES.join() === 'Thaw,Longlight,Rust,Still', 'the seasons are the operations calendar')
   assert(SEASON_DAYS === 21, 'a season is twenty-one days')
@@ -920,41 +946,41 @@ console.log('\ngameplay')
   }
 
   /**
-   * THE MARK IS THE EMBLEM ON ROCKY'S CHEST.
+   * THE MARK IS THE BRAND'S OWN VECTOR.
    *
-   * Two mirrored crescents, horns converging on a narrow waist, bodies bulging
-   * outward, with a SECOND smaller crescent nested inside each lobe. Traced off
-   * the character sheet at high magnification.
+   * Taken from the logo lockup at seismic.systems — a faceted crystal, five
+   * flat facets, 284 units across by 420 tall. The facet coordinates in
+   * mark.js ARE that file's own, parsed rather than traced.
    *
-   * Two wrong turns are recorded here because both were shipped. The first
-   * version had the outer crescents and no inner ones. The second replaced the
-   * whole thing with the faceted gem seismic.systems serves as its favicon —
-   * a real Seismic asset, and not the one on the character. When the site and
-   * the sheet disagree about what goes on the character, the sheet wins.
+   * It has been wrong three times and every wrong version shipped, so these
+   * assert what distinguishes it from all three: five facets rather than two
+   * lunes, the logo's real 0.677 aspect, and real tonal range across the
+   * facets rather than one flat fill.
    */
   const shapes = markShapes()
-  assert(shapes.length === 4, 'the mark is two crescents and two inner crescents', `${shapes.length} contours`)
-  const box = (sh) => {
-    const p = sh.getPoints(1)
-    return {
-      x0: Math.min(...p.map((q) => q.x)), x1: Math.max(...p.map((q) => q.x)),
-      y0: Math.min(...p.map((q) => q.y)), y1: Math.max(...p.map((q) => q.y)),
-    }
+  assert(shapes.length === 1, 'the mark is one closed silhouette')
+  const pts = shapes[0].getPoints(1)
+  const w = Math.max(...pts.map((q) => q.x)) - Math.min(...pts.map((q) => q.x))
+  const h = Math.max(...pts.map((q) => q.y)) - Math.min(...pts.map((q) => q.y))
+  assert(Math.abs(w / h - 0.677) < 0.02, 'and it is the logo aspect',
+    `${(w / h).toFixed(3)} against 0.677`)
+
+  assert(MARK_FACETS.length === 5, `the crystal is cut into five facets (${MARK_FACETS.length})`)
+  assert(MARK_FACETS.every((f) => f.points.length >= 3 && f.points.length <= 4),
+    'each facet is a triangle or a quad')
+  const lum = (hex) => {
+    const n = Number.parseInt(hex.slice(1), 16)
+    return ((n >> 16) & 255) * 0.299 + ((n >> 8) & 255) * 0.587 + (n & 255) * 0.114
   }
-  const [outL, inL, outR, inR] = shapes.map(box)
-  assert(outL.x1 < 0.02 && outR.x0 > -0.02, 'the two lobes sit either side of the axis',
-    `left ends at ${outL.x1.toFixed(2)}, right starts at ${outR.x0.toFixed(2)}`)
-  assert(Math.abs(outL.x0 + outR.x1) < 1e-6 && Math.abs(outL.y0 - outR.y0) < 1e-6,
-    'and they are an exact mirror of each other')
-  assert(inL.x0 > outL.x0 && inL.x1 < 0, 'the inner crescent sits inside the left lobe',
-    `inner ${inL.x0.toFixed(2)}..${inL.x1.toFixed(2)} vs outer ${outL.x0.toFixed(2)}..${outL.x1.toFixed(2)}`)
-  assert(Math.abs(inR.x0 + inL.x1) < 1e-6, 'and its mirror inside the right one')
-  // The lobes are thin arcs, not fat discs: the first restore had them so heavy
-  // that the inner crescents were swallowed whole.
-  const lobeW = outL.x1 - outL.x0
-  const lobeH = outL.y1 - outL.y0
-  assert(lobeW < lobeH * 0.95, 'the lobes are arcs rather than discs',
-    `${lobeW.toFixed(2)} wide by ${lobeH.toFixed(2)} tall`)
+  const tones = MARK_FACETS.map((f) => lum(f.tone))
+  assert(Math.max(...tones) - Math.min(...tones) > 25, 'and the facets read apart from each other',
+    `${Math.min(...tones).toFixed(0)}..${Math.max(...tones).toFixed(0)}`)
+  // Every facet has to sit inside the silhouette, or the fill spills past the
+  // outline and the mark grows a spur.
+  const stray = MARK_FACETS.flatMap((f) => f.points)
+    .filter(([x, y]) => Math.abs(x) > w / 2 + 0.02 || Math.abs(y) > h / 2 + 0.02)
+  assert(stray.length === 0, 'and every facet lies inside the outline',
+    `${stray.length} stray points`)
 
 }
 
@@ -1078,6 +1104,54 @@ console.log('\nwhat the valley sounds like')
   const player = read(path.join(SRC, 'actors/player.js'))
   assert(/A\.footfall = /.test(player) && /gait \/ Math\.PI/.test(player),
     'footsteps land on the frame the foot does')
+
+  /**
+   * NO ANIMATION PHASE MAY JUMP WHEN SPEED CHANGES.
+   *
+   * The walk cycle ran on `A.t * (7.2 + speed * 2.4)` — elapsed time times a
+   * frequency that depends on speed. Change the speed and the whole phase
+   * moves: a minute in, walk-to-run shifted it by a hundred and forty-four
+   * radians in a single frame. And speed is damped, so it changes EVERY frame
+   * you accelerate or stop — the legs snapped continuously and it read as the
+   * character glitching.
+   *
+   * Driven rather than read off the source, because the shape of the bug is
+   * 'the number is wrong', not 'the code says the wrong words'. The rig is run
+   * at a fixed step through an abrupt change of pace and the knee angle is
+   * watched for a discontinuity.
+   */
+  {
+    const { buildPlayer } = await import('../src/actors/player.js')
+    const rig = buildPlayer('apprentice')
+    let worst = 0
+    let prev = null
+    for (let f = 0; f < 900; f++) {
+      // Speed DAMPED toward the target, exactly as the controller does it —
+      // slamming it in one frame is an amplitude step the real game never
+      // produces, and it would swamp the phase jump this is looking for.
+      const want = f < 300 ? 0.35 : f < 600 ? 1 : 0.2
+      rig.anim.speed += (want - rig.anim.speed) * (1 - Math.exp(-12 / 30))
+      rig.update(1 / 30)
+      const a = rig.thighL.rotation.x
+      if (prev !== null) worst = Math.max(worst, Math.abs(a - prev))
+      prev = a
+    }
+    // One frame of a 9.6 rad/s gait is 0.32 rad of phase, and the leg swings
+    // +-0.5, so a legitimate frame moves well under 0.2. A teleported phase
+    // lands anywhere.
+    assert(worst < 0.2, 'the walk phase never jumps when the pace changes',
+      `worst single-frame swing ${worst.toFixed(3)} rad`)
+
+    // And the knees actually bend. The shin pivots were in the rig from the
+    // start and nothing ever rotated them, so the legs swung as rigid sticks.
+    rig.anim.speed = 1
+    let bend = 0
+    for (let f = 0; f < 120; f++) {
+      rig.update(1 / 30)
+      bend = Math.max(bend, rig.shinL.rotation.x, rig.shinR.rotation.x)
+    }
+    assert(bend > 0.3, 'and the knees bend while walking', `peak ${bend.toFixed(2)} rad`)
+  }
 
   // And the bed reads the SAME gust the petals and the vertex sway read.
   const main = read(path.join(SRC, 'main.js'))

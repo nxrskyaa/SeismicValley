@@ -6,7 +6,7 @@ import { Music } from './core/music.js'
 import { Ambience } from './core/ambience.js'
 import { Input } from './core/input.js'
 import { hashSeed } from './core/rng.js'
-import { LEVEL, N, P } from './world/grid.js'
+import { Grid, LEVEL, N, P } from './world/grid.js'
 import { GATE, HOME, generate } from './world/worldgen.js'
 import { Terrain } from './world/terrain.js'
 import { Props } from './world/props.js'
@@ -76,6 +76,8 @@ const POSES = {
   rig: { at: [HOME.x, 1.0, HOME.z], size: 5, hour: 12 },
   pebble: { at: [HOME.x + 2, -0.86, HOME.z + 2], size: 1.4, hour: 12, pebble: true },
   house: { at: [HOME.x, 1.4, HOME.z - 5], size: 9.5, hour: 11 },
+  street: { at: [HOME.x + 2, 1.5, HOME.z - 14], size: 26, hour: 11 },
+  relay: { at: [HOME.x + 22, 2.6, HOME.z - 14], size: 9, hour: 11 },
   waymark: { at: [Math.round(HOME.x + (GATE.x - HOME.x) * 0.4), 1.2, Math.round(HOME.z + (GATE.z - HOME.z) * 0.4)], size: 7, hour: 11 },
   field: { at: [HOME.x, 0.4, HOME.z + 1], size: 8, hour: 11, field: true },
   pond: { at: [HOME.x + 13, -1.1, HOME.z + 2], size: 20, hour: 11 },
@@ -147,28 +149,76 @@ function seedStructures(state, grid) {
   }
   // The homestead and the crate are YOURS. The relay on the ridge is the Loom's
   // — it was standing before the rollback and is one of the few things the
-  // checkpoint had a record of. There is no village: you are the only person in
-  // the valley, and the setting stops working the moment there is a market
-  // square in it.
+  // checkpoint had a record of.
   put('homestead', HOME.x, HOME.z - 5, 1)
   put('crate', HOME.x + 4, HOME.z + 1)
   put('gate', GATE.x, GATE.z)
 
   /**
-   * Waymarkers along the line from the homestead to the relay.
+   * THE OLD STREET.
    *
-   * The Loom marked its own routes, and the mark it used is the one on the
-   * lintel. Four of them at even intervals do two things at once: they carry the
-   * brand into the middle of the valley, where it was completely absent, and
-   * they point at the ridge — which the first morning now asks the player to
-   * walk to and previously gave them no thread to follow.
+   * A row of the colony's cottages, laid out on a line with even gaps and a
+   * path down the middle — because a settlement reads as a settlement when the
+   * buildings AGREE with each other, and reads as scattered props when they do
+   * not. That is the whole lesson of the reference town: alignment and spacing
+   * before any amount of detail on an individual house.
+   *
+   * They are empty and they stay empty. Rule 4 is not bent by this — there are
+   * no villagers in them and there never will be. A tidy street with nobody in
+   * it says more about what happened here than a ruin would: the rollback did
+   * not knock anything down, it removed everyone and left the doors shut.
+   *
+   * The row runs along +X on the terrace west of the homestead, flipping side
+   * each house so the street has two frontages, and every plot is levelled to
+   * the row's own height so the line of roofs does not stagger.
    */
-  for (let i = 1; i <= 4; i++) {
-    const k = i / 5
-    const x = Math.round(HOME.x + (GATE.x - HOME.x) * k)
-    const z = Math.round(HOME.z + (GATE.z - HOME.z) * k)
-    put('waymark', x, z, i === 4 ? 2 : 1)
+  const STREET_Z = HOME.z - 14
+  const rowH = grid.h(...grid.nearestStandable(HOME.x - 8, STREET_Z))
+  for (let i = 0; i < 7; i++) {
+    const x = HOME.x - 14 + i * 5
+    const side = i % 2 === 0 ? -1 : 1
+    const z = STREET_Z + side * 4
+    // Level the plot to the row, so a street of houses is a street and not a
+    // staircase. Six by six, which is a cottage footprint plus its verge.
+    for (let dz = -3; dz <= 3; dz++) {
+      for (let dx = -3; dx <= 3; dx++) {
+        const nx = x + dx
+        const nz = z + dz
+        if (!Grid.inBounds(nx, nz) || grid.isWater(nx, nz)) continue
+        grid.setH(nx, nz, rowH)
+      }
+    }
+    put('cottage', x, z, i)
   }
+  // The path between the two frontages, as tilled-looking track rather than
+  // grass: a street with nothing running down it is two rows of houses.
+  for (let x = HOME.x - 18; x <= HOME.x + 20; x++) {
+    for (let dz = -1; dz <= 1; dz++) {
+      const nz = STREET_Z + dz
+      if (!Grid.inBounds(x, nz) || grid.isWater(x, nz)) continue
+      grid.setH(x, nz, rowH)
+      grid.set('ground', x, nz, GROUND_IDS.LOAM)
+      if (grid.get('prop', x, nz) === P.TREE) grid.set('prop', x, nz, P.NONE)
+    }
+  }
+
+  // The village works: a well on the street, a kiln and a shed behind it.
+  put('well', HOME.x - 2, STREET_Z - 4)
+  put('kiln', HOME.x + 9, STREET_Z + 5)
+  put('shed', HOME.x - 20, STREET_Z + 5)
+
+  /**
+   * THE SEISMIC RELAY, at the head of the street.
+   *
+   * The one building that carries the brand, and it is placed where a monument
+   * goes: on the axis, at the end, facing down the row. Everything else in the
+   * valley is somebody's building; this one is the lattice's.
+   */
+  put('relay', HOME.x + 22, STREET_Z)
+  put('vault', HOME.x + 26, STREET_Z + 6)
+  // Waymarkers along the road out, so the street points somewhere.
+  put('waymark', HOME.x + 14, STREET_Z - 3)
+  put('waymark', HOME.x - 16, STREET_Z - 3)
 }
 
 function boot() {

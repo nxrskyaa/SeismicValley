@@ -2,116 +2,70 @@ import * as THREE from 'three'
 import { UI } from './palette.js'
 
 /**
- * THE SEISMIC MARK, traced off the emblem on Rocky's chest.
+ * THE SEISMIC MARK — the real one, taken from the brand's own vector.
  *
- * Two mirrored crescents, horns converging on a narrow waist, bodies bulging
- * outward — and a SECOND, smaller crescent nested inside each one. Read as a
- * whole it is an hourglass of four arcs with a small eye in each lobe.
+ * This has been wrong three times and each wrong version shipped, so the source
+ * is written down. The logo lockup at seismic.systems is
+ * `framerusercontent.com/images/2cg0d3xmnPDzLY9KL9p8XXPi0.svg`: a 1474x428
+ * wordmark whose glyph is a **faceted crystal**, five flat facets, 284 units
+ * across by 420 tall. The FACET POLYGONS BELOW ARE THAT FILE'S OWN COORDINATES,
+ * normalised to height 1 and centred — not traced, not remembered, parsed.
  *
- * ## Two wrong turns, recorded so neither happens again
+ * The three wrong versions, so none of them comes back:
  *
- * The first version had the outer crescents and no inner ones. Close, and
- * missing the detail that makes the emblem read as itself at any size.
+ *   1. Two mirrored lunes. Not on the site and not on the character.
+ *   2. The crystal, traced by eye off the 128px favicon. Right shape, and the
+ *      trace is in fact accurate — overlaid on the official vector it lands on
+ *      the facet boundaries — but it had no facets and read flat.
+ *   3. Back to lunes with inner crescents, on the reasoning that the emblem on
+ *      Rocky's chest is what the brand is. It is not: that emblem is a chest
+ *      decoration on fan art, and the BRAND is the crystal.
  *
- * The second was worse: seismic.systems serves a faceted grey-plum GEM as its
- * favicon, so the mark was rebuilt as that gem. It is a real Seismic asset and
- * it is not this one — the emblem on the character sheet is what goes on the
- * character, and swapping in the site icon made the game less like the
- * reference rather than more. When these disagree, the sheet wins.
+ * The silhouette is kept from the pixel trace because the vector's facets are
+ * drawn with seam gaps and share no exact vertices, so their union cannot be
+ * chained from the edges. Overlaid, the two agree.
  *
- * The pink crystal is a THIRD thing and it is separate: an elongated hexagon,
- * set into the chest of the little ones and held in hand in the flying drawing.
- * It lives at the bottom of this file and it was always right.
+ * The pink shard at the bottom of this file is a THIRD thing and is unrelated:
+ * an elongated hexagon set into the little ones' chests. It was always right.
  */
 
-// One lune, solved rather than eyeballed.
-//
-// Both edges are circles centred on the x-axis, so the horns land at exactly
-// ±HORN_Y and the two tips are guaranteed symmetrical — hand-placed bezier
-// handles never quite are. The numbers below are for the LEFT lune; the right
-// one is its mirror and nothing else.
-//
-//   horns    (-0.04, ±0.44)
-//   outer    centre (-0.04, 0) radius 0.44   — bulges left to x = -0.48
-//   inner    centre ( 0.6396, 0) radius 0.8096 — bulges left to x = -0.17
-//
-// Solved from `(hx-cx)² + hy² = r²` with `r = |bx-cx|`, which is why the outer
-// edge comes out an exact semicircle.
-const HORN_X = 0.0
-const HORN_Y = 0.30
+/** The silhouette, height 1.0, width 0.677 — the logo's real aspect. +Y up. */
+const CRYSTAL = [
+  [0.012, 0.5],
+  [0.257, 0.384],
+  [0.339, 0.058],
+  [0.339, -0.151],
+  [0.199, -0.5],
+  [-0.094, -0.5],
+  [-0.339, -0.116],
+]
 
-/** The circle through (HORN_X, ±HORN_Y) whose leftmost point is `bulge`.
- *  Solved from `(hx-cx)² + hy² = r²` with `r = |bulge - cx|`. */
-function edgeCircle(bulge) {
-  const cx = (HORN_X * HORN_X + HORN_Y * HORN_Y - bulge * bulge) / (2 * (HORN_X - bulge))
-  const r = Math.abs(bulge - cx)
-  return { cx, r, a: Math.atan2(HORN_Y, HORN_X - cx) }
-}
+/** The five facets, exactly as the brand's vector draws them, darkest first. */
+export const MARK_FACETS = [
+  { tone: '#5a3e49', points: [[0.2181, 0.0012], [-0.1045, -0.4754], [-0.3384, -0.1084], [-0.021, 0.3135]] },
+  { tone: '#725a63', points: [[0.2081, -0.5], [-0.0942, -0.5], [0.2314, -0.0116], [0.3384, -0.1419]] },
+  { tone: '#7a646d', points: [[0.2544, 0.3861], [0.2222, 0.0262], [-0.0118, 0.3317], [-0.0012, 0.5]] },
+  { tone: '#928087', points: [[0.3384, -0.1147], [0.2389, 0.0046], [0.267, 0.3181]] },
+  { tone: '#4c333d', points: [[-0.0303, 0.3322], [-0.28, 0.0005], [-0.0215, 0.4728]] },
+]
 
-const OUTER = edgeCircle(-0.50) // the back of the crescent
-const INNER = edgeCircle(-0.355) // the bite out of it
-
-/**
- * The left lune as a closed polyline.
- *
- * Flattened here rather than handed to `Shape.absarc`, on purpose. Arc
- * direction flags are the single easiest thing to get wrong in this shape —
- * one wrong sweep turns a lune into a disc with a bite out of it, and it does
- * not fail, it just draws the wrong logo — so the sweep is written out as
- * explicit angles that can be read and checked.
- */
-function lunePoints(seg = 26) {
-  const pts = []
-  // Outer: top horn counter-clockwise round the LONG way, through π — the
-  // leftmost point of the outer circle, and the back of the crescent.
-  const outSweep = Math.PI * 2 - 2 * OUTER.a
-  for (let i = 0; i <= seg; i++) {
-    const a = OUTER.a + outSweep * (i / seg)
-    pts.push([OUTER.cx + Math.cos(a) * OUTER.r, Math.sin(a) * OUTER.r])
-  }
-  // Inner: back from the bottom horn to the top one the SHORT way, clockwise,
-  // through π again — the bite. Both arcs pass the same side of the axis, which
-  // is what makes the result a crescent and not a ring.
-  const inSweep = 2 * INNER.a - Math.PI * 2
-  for (let i = 1; i < seg; i++) {
-    const a = -INNER.a + inSweep * (i / seg)
-    pts.push([INNER.cx + Math.cos(a) * INNER.r, Math.sin(a) * INNER.r])
-  }
-  return pts
-}
-
-/** Both lunes. Hand these to ExtrudeGeometry or ShapeGeometry as one array and
- *  the mark comes out as a single draw call. */
-/**
- * The small crescent nested inside each lobe.
- *
- * Same construction as the outer lune at a smaller radius, pushed out toward
- * the belly of the lobe it sits in. On the emblem it is a thick little `C`
- * facing the centre, and it is the difference between the mark and a pair of
- * plain crescents.
- */
-function innerPoints(seg = 20) {
-  const S = 0.34 // scale against the outer lune
-  const OX = -0.145 // pushed out into the belly of the lobe
-  return lunePoints(seg).map(([x, y]) => [x * S + OX, y * S])
-}
-
-/** Both lunes and both inner crescents, as four contours. Hand them to
- *  ExtrudeGeometry as one array and the mark is a single draw call. */
+/** The outline as a THREE.Shape. An array of one, so every caller that used to
+ *  spread two lunes still works unchanged. */
 export function markShapes() {
-  const left = lunePoints()
-  const inner = innerPoints()
-  const shape = (pts, flip) => new THREE.Shape(pts.map(([x, y]) => new THREE.Vector2(flip ? -x : x, y)))
-  return [shape(left, false), shape(inner, false), shape(left, true), shape(inner, true)]
+  const s = new THREE.Shape()
+  s.moveTo(CRYSTAL[0][0], CRYSTAL[0][1])
+  for (let i = 1; i < CRYSTAL.length; i++) s.lineTo(CRYSTAL[i][0], CRYSTAL[i][1])
+  s.closePath()
+  return [s]
 }
 
 let markGeoCache = null
-/** The mark as a bevelled slab, one unit wide, facing +Z. Cached — a mark on a
- *  flag, a gate and forty coins is one geometry, not forty-two. */
+/** The mark as a bevelled slab facing +Z. Cached — a mark on a flag, a gate and
+ *  forty coins is one geometry, not forty-two. */
 export function markGeometry(depth = 0.16) {
   if (markGeoCache) return markGeoCache
   const geo = new THREE.ExtrudeGeometry(markShapes(), {
-    depth, bevelEnabled: true, bevelSize: 0.035, bevelThickness: 0.035, bevelSegments: 1, curveSegments: 14,
+    depth, bevelEnabled: true, bevelSize: 0.03, bevelThickness: 0.03, bevelSegments: 1, curveSegments: 1,
   })
   geo.center()
   geo.computeVertexNormals()
@@ -121,40 +75,71 @@ export function markGeometry(depth = 0.16) {
 
 /** Flat, for anything that only needs the silhouette (decals, HUD plates). */
 export function markFlatGeometry() {
-  const geo = new THREE.ShapeGeometry(markShapes(), 14)
+  const geo = new THREE.ShapeGeometry(markShapes(), 1)
   geo.center()
   return geo
 }
 
-/** Both lunes as plain point arrays at `size`, y already flipped for screen
- *  space. One flattening routine feeds the canvas path and the SVG path, so a
- *  logo on the HUD and a logo on a flag cannot end up different shapes. */
-function screenLunes(size) {
-  const left = lunePoints(24)
-  const inner = innerPoints(18)
-  const at = (pts, flip) => pts.map(([x, y]) => [(flip ? -x : x) * size, -y * size])
-  return [at(left, false), at(inner, false), at(left, true), at(inner, true)]
+/**
+ * The mark as vertex-coloured flat geometry — all five facets, in their own
+ * tones. For the places that carry the BRAND rather than a stencil cut into
+ * stone: the flag, the gate lintel, the title card.
+ */
+export function markFacetGeometry() {
+  const geos = []
+  for (const { tone, points } of MARK_FACETS) {
+    const shape = new THREE.Shape()
+    shape.moveTo(points[0][0], points[0][1])
+    for (let i = 1; i < points.length; i++) shape.lineTo(points[i][0], points[i][1])
+    shape.closePath()
+    const g = new THREE.ShapeGeometry(shape, 1)
+    const c = new THREE.Color().setStyle(tone, THREE.SRGBColorSpace)
+    const n = g.attributes.position.count
+    const col = new Float32Array(n * 3)
+    for (let i = 0; i < n; i++) col.set([c.r, c.g, c.b], i * 3)
+    g.setAttribute('color', new THREE.BufferAttribute(col, 3))
+    geos.push(g)
+  }
+  return geos
 }
+
+const screenPts = (pts, size) => pts.map(([x, y]) => [x * size, -y * size])
 
 /** The mark traced into a Path2D, centred on the origin at `size` across. */
 export function markPath2D(size = 1) {
   const p = new Path2D()
-  for (const pts of screenLunes(size)) {
-    pts.forEach(([x, y], i) => (i ? p.lineTo(x, y) : p.moveTo(x, y)))
-    p.closePath()
-  }
+  screenPts(CRYSTAL, size).forEach(([x, y], i) => (i ? p.lineTo(x, y) : p.moveTo(x, y)))
+  p.closePath()
   return p
+}
+
+/** Each facet as its own Path2D, with the tone to fill it. */
+export function markFacetPaths(size = 1) {
+  return MARK_FACETS.map(({ tone, points }) => {
+    const p = new Path2D()
+    screenPts(points, size).forEach(([x, y], i) => (i ? p.lineTo(x, y) : p.moveTo(x, y)))
+    p.closePath()
+    return { tone, path: p }
+  })
 }
 
 /** The mark as an SVG path string, for the DOM. */
 export function markSvgPath(size = 100) {
-  return screenLunes(size)
-    .map((pts) => pts.map(([x, y], i) => `${i ? 'L' : 'M'}${x.toFixed(2)} ${y.toFixed(2)}`).join(' ') + 'Z')
-    .join(' ')
+  return screenPts(CRYSTAL, size)
+    .map(([x, y], i) => `${i ? 'L' : 'M'}${x.toFixed(2)} ${y.toFixed(2)}`)
+    .join(' ') + 'Z'
 }
 
-export function markSvg({ fill = 'currentColor', className = '' } = {}) {
-  return `<svg class="${className}" viewBox="-52 -50 104 100" role="img" aria-label="Seismic" fill="${fill}"><path d="${markSvgPath(100)}"/></svg>`
+/** The mark as SVG. `flat` draws the silhouette in one colour — which is what a
+ *  stencil cut into stone is; otherwise it draws all five facets. */
+export function markSvg({ fill = 'currentColor', className = '', flat = true } = {}) {
+  const body = flat
+    ? `<path d="${markSvgPath(100)}"/>`
+    : MARK_FACETS.map(({ tone, points }) => {
+      const d = screenPts(points, 100).map(([x, y], i) => `${i ? 'L' : 'M'}${x.toFixed(2)} ${y.toFixed(2)}`).join(' ')
+      return `<path fill="${tone}" d="${d}Z"/>`
+    }).join('')
+  return `<svg class="${className}" viewBox="-40 -55 80 110" role="img" aria-label="Seismic" fill="${fill}">${body}</svg>`
 }
 
 /**

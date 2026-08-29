@@ -1,6 +1,6 @@
 import * as THREE from 'three'
-import { chamferBox, FLAT, glowMat, shardMat, stoneMat } from '../core/kit.js'
-import { markFlatGeometry, shardGeometry } from '../core/mark.js'
+import { bakedMat, chamferBox, DISC, FLAT, glowMat, shardMat, stoneMat } from '../core/kit.js'
+import { markFacetGeometry, shardGeometry } from '../core/mark.js'
 import { mix, shade, sunlit, UI } from '../core/palette.js'
 import { damp } from '../core/rng.js'
 
@@ -135,7 +135,7 @@ export function buildRocky({ cut = 'rocky', chest = 'mark', height = 1.9, outlin
     // Inlay, not a lamp. In the reference the mark is CUT into the plate and
     // catches the light like the stone around it; an emissive mark turns the
     // chest into a torch and pulls every eye off his face.
-    mark: stoneMat(UI.creamShade),
+    badge: bakedMat(),
     shard: shardMat(),
   }
 
@@ -144,7 +144,7 @@ export function buildRocky({ cut = 'rocky', chest = 'mark', height = 1.9, outlin
   const parts = { root, materials: MAT }
   // Outline width is a fraction of the figure so a pebble and the gate golem
   // carry the same weight of line, which is what a drawn set does.
-  const inkW = outline ? 0.014 : 0
+  const inkW = outline ? 0.009 : 0
 
   /** One plate. `geo` defaults to the slab prism; limbs pass a Y-axis one. */
   const plate = (parent, { geo = FLAT, at = [0, 0, 0], size = [1, 1, 1], mat = MAT.stone, ink = true, name }) => {
@@ -174,62 +174,74 @@ export function buildRocky({ cut = 'rocky', chest = 'mark', height = 1.9, outlin
   }
 
   /**
-   * THE FIGURE, MEASURED OFF THE SHEET.
+   * THE FIGURE, MEASURED.
    *
-   * Every number below is a fraction of total height, read from the front-on
-   * cave drawing rather than remembered. Feet at 0, top of head at 1.
+   * Not read off by eye this time. The reference sheet has one drawing of him
+   * alone on a plain gradient — no scenery, no props — so the figure can be
+   * separated from the background by comparing each row against its own median
+   * and the silhouette profile read out band by band. Every number below came
+   * out of that scan. Feet at 0, crown at 1.
    *
-   *   lower leg   0.000 -> 0.155   blunt rounded stump, no separate foot
-   *   upper leg   0.155 -> 0.308
-   *   hips        0.308 -> 0.385   a wide slab, 0.30 across
-   *   waist band  0.385 -> 0.429   the dark joint ring
-   *   TORSO       0.429 -> 0.846   0.47 at the shoulders, 0.37 deep
-   *   head        0.846 -> 1.000   0.253 wide, 0.154 tall, sitting ON the torso
+   *   feet        0.000 -> 0.125   SPLAYED, and much wider than the shin
+   *   shin        0.125 -> 0.285
+   *   thigh       0.285 -> 0.440
+   *   hips        0.440 -> 0.505
+   *   waist band  0.505 -> 0.545
+   *   TORSO       0.545 -> 0.885
+   *   head        0.885 -> 1.000
    *
-   * Width across the shoulders including the arm masses is 0.78 of the height.
-   * He is SQUAT: a bit over three head-heights, and nearly as wide as he is tall.
+   * Overall he is 0.83 as wide as he is tall with the arms out.
    *
-   * ## What the previous cut got wrong
+   * ## What the scan corrected
    *
-   * It was a different character. A trapezoidal chest, enormous flaring
-   * pauldrons, a projecting visor brow, big mitts with thumbs, and feet that
-   * stuck forward. None of that is on the sheet. What is on the sheet:
+   * The previous cut was eyeballed off a busy illustration and it had the legs
+   * at 31% of his height. They are 44%. That one number is most of why he read
+   * as a squat blob: everything below the waist was two thirds the length it
+   * should be, so the mass piled up into the torso and the whole figure lost its
+   * stance. The head was too tall, the hips sat too low, and the feet were blunt
+   * stumps where the drawing has wide splayed slabs carrying the weight.
    *
-   *   - The torso is a ROUNDED BARREL, faceted — not a box and not a trapezoid.
-   *     It is the dominant mass, two fifths of his whole height.
-   *   - There is NO NECK and no collar. The head sits straight on the torso.
-   *   - The arms are rounded capsules hanging off the top outside corners of the
-   *     torso, and they end in BLUNT STUMPS. He has no hands and no fingers.
-   *   - The legs are short rounded capsules ending in blunt stumps. No feet.
-   *   - The eyes are two tiny white SLITS set wide and high, not big ovals, and
-   *     there is no brow over them.
+   * Masking the busy illustration was the mistake — the scan caught a tree trunk
+   * in the background and reported the figure as 93% as wide as it is tall. The
+   * isolated drawing is the one to measure.
+   */
+  /**
+   * ONE DELIBERATE DISTORTION, and it is the camera's fault.
    *
-   * Every mass here is a low-poly sphere scaled into an ellipsoid, which gives
-   * the faceted rounded stone of the drawings for free under `flatShading` —
-   * and, incidentally, sidesteps the rig rule entirely, because a sphere has no
-   * prism axis to get wrong.
+   * The game camera is locked at a 37-degree downward pitch, so every vertical
+   * dimension on screen is foreshortened by cos(37) — about four fifths. A
+   * figure built to match a straight-on elevation therefore reads a fifth
+   * shorter and correspondingly wider than the drawing does, and that is most of
+   * why he kept coming out squat however carefully the elevation was measured.
+   *
+   * So the rig is stretched 1.16 in Y against the measured proportions. It is
+   * wrong as an elevation and right as a thing you look at, and since this game
+   * has exactly one camera angle, the thing you look at is the only version that
+   * exists.
    */
   const body = pivot(root, [0, 0, 0], 'body')
+  body.scale.y = 1.16
 
   // --- hips ------------------------------------------------------------------
-  plate(body, { geo: BLOCK, at: [0, 0.347, 0], size: [0.3, 0.1, 0.24], mat: MAT.deep })
+  plate(body, { geo: BLOCK, at: [0, 0.472, 0], size: [0.355, 0.065, 0.285], mat: MAT.deep })
   // The waist band. One dark ring, and it is what makes the torso read as a
   // separate quarried mass sitting on the hips rather than one carved lump.
-  plate(body, { geo: BLOCK, at: [0, 0.407, 0], size: [0.26, 0.05, 0.21], mat: MAT.joint, ink: false })
+  plate(body, { geo: BLOCK, at: [0, 0.525, 0], size: [0.34, 0.04, 0.26], mat: MAT.joint, ink: false })
 
   // --- the torso -------------------------------------------------------------
-  const chestG = pivot(body, [0, 0.429, 0], 'chest')
-  // One big faceted barrel. Its centre sits low so the mass reads as bottom
-  // heavy, which is what the drawing does.
-  plate(chestG, { geo: BLOCK, at: [0, 0.17, 0], size: [0.50, 0.40, 0.385], mat: MAT.stone })
-  // A lighter cap across the top, so the shoulder line catches the sun and the
-  // barrel does not read as one flat blob.
-  plate(chestG, { geo: BLOCK, at: [0, 0.315, -0.015], size: [0.34, 0.10, 0.26], mat: MAT.lit })
+  const chestG = pivot(body, [0, 0.545, 0], 'chest')
+  plate(chestG, { geo: BLOCK, at: [0, 0.155, 0], size: [0.40, 0.32, 0.33], mat: MAT.stone })
+  // A lighter chest panel, inset. The drawing has a clear plate across the
+  // front with a seam round it, and it is what the crystal is set into.
+  plate(chestG, { geo: BLOCK, at: [0, 0.165, 0.155], size: [0.33, 0.24, 0.06], mat: MAT.lit })
+  // Shoulder line, a shade lighter, so the top of the barrel catches the sun.
+  plate(chestG, { geo: BLOCK, at: [0, 0.30, -0.01], size: [0.35, 0.075, 0.29], mat: MAT.lit })
 
   // ------------------------------------------------------------ the badge --
-  // Set INTO a cut recess, never laid on top. The recess is the whole difference
-  // between a gem and a sticker.
-  plate(chestG, { geo: FLAT, at: [0, 0.215, 0.176], size: [0.15, 0.15, 0.025], mat: MAT.stone, ink: false })
+  // Set INTO a cut recess with a pale rim. On the sheet the crystal is drawn
+  // with a white outline round it, and the rim is what reproduces that.
+  plate(chestG, { geo: FLAT, at: [0, 0.168, 0.19], size: [0.115, 0.155, 0.02], mat: MAT.trim, ink: false })
+  plate(chestG, { geo: FLAT, at: [0, 0.168, 0.20], size: [0.095, 0.135, 0.02], mat: MAT.deep, ink: false })
   if (chest === 'shard') {
     const shard = new THREE.Mesh(shardGeometry(), MAT.shard)
     shard.position.set(0, 0.15, 0.15)
@@ -238,11 +250,20 @@ export function buildRocky({ cut = 'rocky', chest = 'mark', height = 1.9, outlin
     chestG.add(shard)
     parts.badge = shard
   } else {
-    const mark = new THREE.Mesh(markFlatGeometry(), MAT.mark)
-    mark.position.set(0, 0.15, 0.143)
+    /**
+     * The brand, in its own five facets, not a flat stencil.
+     *
+     * A one-colour silhouette on a pale recess read as a blank hexagonal
+     * plaque — the biggest thing on his chest and saying nothing. The faceted
+     * geometry carries the logo's own tonal range, so it reads AS the logo at
+     * the size a chest badge actually gets on screen.
+     */
+    const mark = new THREE.Group()
+    for (const geo of markFacetGeometry()) mark.add(new THREE.Mesh(geo, MAT.badge))
+    mark.position.set(0, 0.168, 0.212)
     // Uniform: the mark has its own aspect and squashing it to fit a recess is
     // how a logo stops being the logo.
-    mark.scale.setScalar(0.155)
+    mark.scale.setScalar(0.125)
     chestG.add(mark)
     parts.badge = mark
   }
@@ -252,35 +273,31 @@ export function buildRocky({ cut = 'rocky', chest = 'mark', height = 1.9, outlin
   plate(chestG, { geo: FLAT, at: [0, 0.243, 0.005], size: [0.17, 0.035, 0.17], mat: MAT.joint, ink: false })
 
 
+
   // ----------------------------------------------------------------- head --
   //
-  // Straight on the torso. There is no neck on the sheet, and adding one is the
-  // fastest way to turn a golem into a robot.
-  const head = pivot(chestG, [0, 0.445, 0], 'head')
-  plate(head, { geo: chamferBox(0.26, 0.175, 0.235, 0.05), at: [0, 0.088, 0], size: [1, 1, 1], mat: MAT.stone })
-  // No second plate on the crown. One was there for faceting and its corners
-  // poked through the chamfered box below as pale slivers; `flatShading` on the
-  // chamfer already gives the head the cut planes the drawing has.
+  // Straight on the torso, and SHORTER than the last cut had it. There is no
+  // neck on the sheet and adding one turns a golem into a robot.
+  const head = pivot(chestG, [0, 0.34, 0], 'head')
+  plate(head, { geo: chamferBox(0.25, 0.115, 0.23, 0.045), at: [0, 0.058, 0], size: [1, 1, 1], mat: MAT.stone })
 
   for (const side of [-1, 1]) {
     /**
-     * The eyes are SLITS. Two of them, tiny, set wide and high.
+     * The eyes are small round DOTS of cream, set wide and high.
      *
-     * On the sheet they are a couple of pixels of white on a brown face — no
-     * pupil, no socket, no brow above them. The previous cut had big ivory ovals
-     * under a projecting visor, which is a different character's face and it is
-     * most of why he did not read as the drawing.
+     * At full magnification on the sheet that is exactly what they are: one
+     * pale dot each, no pupil, no socket, no brow. Slits were closer than the
+     * big ivory ovals before them and still not it.
      */
-    const eye = new THREE.Mesh(FLAT, MAT.eye)
-    eye.position.set(side * 0.05, 0.088, 0.122)
-    eye.scale.set(0.024, 0.013, 0.012)
+    const eye = new THREE.Mesh(DISC, MAT.eye)
+    eye.position.set(side * 0.052, 0.062, 0.113)
+    eye.scale.set(0.021, 0.021, 0.012)
     head.add(eye)
     parts[side < 0 ? 'eyeL' : 'eyeR'] = eye
 
-    // The lid: a plate of head-stone that drops over the eye to blink.
     const lid = new THREE.Mesh(FLAT, MAT.stone)
-    lid.position.set(side * 0.05, 0.104, 0.125)
-    lid.scale.set(0.03, 0.001, 0.014)
+    lid.position.set(side * 0.052, 0.078, 0.116)
+    lid.scale.set(0.026, 0.001, 0.014)
     head.add(lid)
     parts[side < 0 ? 'lidL' : 'lidR'] = lid
   }
@@ -289,31 +306,30 @@ export function buildRocky({ cut = 'rocky', chest = 'mark', height = 1.9, outlin
   for (const side of [-1, 1]) {
     const L = side < 0 ? 'L' : 'R'
     /**
-     * Rounded capsules off the top outside corner of the barrel.
+     * A lighter SHOULDER CAP sitting on the arm, then two long slabs.
      *
-     * No pauldron. The shoulder on the sheet is a small rounded lump sitting
-     * just outside the torso, and the arm hangs straight off it — which is what
-     * makes his outline read as a barrel with two sausages either side rather
-     * than as armour.
+     * The cap is a separate piece in every drawing — lighter stone, its own ink
+     * outline, a dark seam under it — and it is what stops the arm reading as a
+     * tube pushed into the side of a barrel.
      */
-    plate(chestG, { geo: BLOCK, at: [side * 0.252, 0.225, 0], size: [0.15, 0.145, 0.15], mat: MAT.lit })
+    plate(chestG, { geo: BLOCK, at: [side * 0.215, 0.275, 0], size: [0.145, 0.13, 0.155], mat: MAT.lit })
+    plate(chestG, { geo: BLOCK, at: [side * 0.22, 0.205, 0], size: [0.125, 0.03, 0.135], mat: MAT.joint, ink: false })
 
-    const upper = pivot(chestG, [side * 0.262, 0.185, 0], `arm${L}`)
-    plate(upper, { geo: BLOCK, at: [0, -0.085, 0], size: [0.108, 0.21, 0.108], mat: MAT.stone })
+    // The arm hangs to below the hip — long, and tapering slightly.
+    const upper = pivot(chestG, [side * 0.22, 0.225, 0], `arm${L}`)
+    plate(upper, { geo: BLOCK, at: [0, -0.115, 0], size: [0.125, 0.235, 0.135], mat: MAT.stone })
+    plate(upper, { geo: BLOCK, at: [0, -0.235, 0], size: [0.115, 0.025, 0.125], mat: MAT.joint, ink: false })
 
-    const lower = pivot(upper, [0, -0.175, 0], `fore${L}`)
-    plate(lower, { geo: BLOCK, at: [0, -0.09, 0], size: [0.112, 0.215, 0.112], mat: MAT.lit })
+    const lower = pivot(upper, [0, -0.225, 0], `fore${L}`)
+    plate(lower, { geo: BLOCK, at: [0, -0.1, 0], size: [0.135, 0.21, 0.14], mat: MAT.lit })
 
     /**
-     * And it ends there. A blunt rounded stump, no hand.
-     *
-     * He has no fingers anywhere on the sheet — every drawing that has him
-     * carrying something has it wedged against the end of the arm. `hand` and
-     * `hold` stay as pivot names so the animation and anything he picks up still
-     * have somewhere to attach.
+     * And it ends in a blunt slab. He has no fingers anywhere on the sheet —
+     * every drawing that has him carrying something has it wedged against the
+     * end of the arm.
      */
     const hand = pivot(lower, [0, -0.185, 0], `hand${L}`)
-    plate(hand, { geo: BLOCK, at: [0, -0.045, 0], size: [0.125, 0.115, 0.122], mat: MAT.stone })
+    plate(hand, { geo: BLOCK, at: [0, -0.04, 0], size: [0.155, 0.105, 0.15], mat: MAT.stone })
     const socket = pivot(hand, [0, -0.05, 0.05], `hold${L}`)
     socket.rotation.x = -0.3
   }
@@ -321,16 +337,29 @@ export function buildRocky({ cut = 'rocky', chest = 'mark', height = 1.9, outlin
   // ----------------------------------------------------------------- legs --
   for (const side of [-1, 1]) {
     const L = side < 0 ? 'L' : 'R'
-    // Short, thick and splayed a little, straight out of the hip slab.
-    const thigh = pivot(body, [side * 0.095, 0.318, 0], `thigh${L}`)
-    plate(thigh, { geo: BLOCK, at: [0, -0.075, 0], size: [0.148, 0.185, 0.15], mat: MAT.stone })
+    /**
+     * LONG legs — nearly half his height — and they carry the stance.
+     *
+     * The previous cut had them at 31% and he read as a squat blob. Thigh and
+     * shin are separate slabs with a dark knee seam between them, which is how
+     * every drawing on the sheet builds them.
+     */
+    const thigh = pivot(body, [side * 0.105, 0.445, 0], `thigh${L}`)
+    plate(thigh, { geo: BLOCK, at: [0, -0.08, 0], size: [0.17, 0.155, 0.175], mat: MAT.stone })
+    plate(thigh, { geo: BLOCK, at: [0, -0.16, 0], size: [0.15, 0.03, 0.155], mat: MAT.joint, ink: false })
 
-    const shin = pivot(thigh, [0, -0.155, 0], `shin${L}`)
-    plate(shin, { geo: BLOCK, at: [0, -0.07, 0], size: [0.14, 0.175, 0.142], mat: MAT.lit })
+    const shin = pivot(thigh, [0, -0.145, 0], `shin${L}`)
+    plate(shin, { geo: BLOCK, at: [0, -0.08, 0], size: [0.155, 0.16, 0.16], mat: MAT.lit })
 
-    // A blunt rounded end, not a foot. Nothing on the sheet projects forward.
-    const foot = pivot(shin, [0, -0.135, 0], `foot${L}`)
-    plate(foot, { geo: BLOCK, at: [0, -0.028, 0.006], size: [0.15, 0.09, 0.155], mat: MAT.stone })
+    /**
+     * The FOOT is a wide splayed slab, not a stump.
+     *
+     * The bottom eighth of the figure, and clearly broader than the shin above
+     * it — that flare is what makes him look planted. It was a small rounded
+     * lump and he looked like he was standing on two pegs.
+     */
+    const foot = pivot(shin, [0, -0.145, 0], `foot${L}`)
+    plate(foot, { geo: BLOCK, at: [0, -0.06, 0.012], size: [0.21, 0.115, 0.245], mat: MAT.stone })
   }
 
   root.scale.setScalar(height)

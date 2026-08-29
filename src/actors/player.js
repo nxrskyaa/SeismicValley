@@ -189,14 +189,30 @@ export function buildPlayer(lookKey = 'apprentice') {
     hold.rotation.x = -0.4
   }
 
-  const A = { t: 0, speed: 0, swing: 0, use: 0, useKind: 'swing', carry: null, rod: false, swimming: false, step: 0, footfall: false, _gait: 0 }
+  const A = { t: 0, speed: 0, swing: 0, use: 0, useKind: 'swing', carry: null, rod: false, swimming: false, step: 0, footfall: false, gait: 0, _gait: 0 }
   parts.anim = A
   parts.height = 1.55
 
   parts.update = (dt) => {
     A.t += dt
     const s = A.speed
-    const gait = A.t * (7.2 + s * 2.4)
+    /**
+     * THE WALK PHASE IS INTEGRATED, NOT MULTIPLIED.
+     *
+     * This was `A.t * (7.2 + s * 2.4)` — a product of elapsed time and a
+     * frequency that depends on speed. Change the speed and the whole phase
+     * jumps: at sixty seconds in, going from walk to run shifts it by sixty
+     * times 2.4, which is a hundred and forty-four radians in one frame. And
+     * `speed` is damped, so it moves EVERY frame you are accelerating or
+     * stopping — the legs were snapping to a new position continuously any time
+     * the player changed pace, which is most of the time.
+     *
+     * Accumulating dt times the current frequency makes a frequency change
+     * continuous by construction: the phase can never jump, whatever the speed
+     * does. The dog and the pebbles already did it this way.
+     */
+    A.gait += dt * (7.2 + s * 2.4)
+    const gait = A.gait
 
     /**
      * FOOTFALLS, off the gait rather than off a timer.
@@ -229,8 +245,19 @@ export function buildPlayer(lookKey = 'apprentice') {
     // running on the spot.
     parts.thighL.rotation.x = Math.sin(gait) * 0.5 * s
     parts.thighR.rotation.x = -Math.sin(gait) * 0.5 * s
-    parts.footL.rotation.x = -parts.thighL.rotation.x * 0.3
-    parts.footR.rotation.x = -parts.thighR.rotation.x * 0.3
+    /**
+     * The knees bend, and they only bend one way.
+     *
+     * The shin pivots have been in this rig from the start and nothing ever
+     * rotated them, so the legs swung as rigid sticks from the hip — which is
+     * most of what made the walk read as a puppet. `max(0, -sin)` bends the
+     * knee only on the back half of the stride, which is what a knee does; a
+     * plain sine bends it forwards through the middle of the step.
+     */
+    parts.shinL.rotation.x = Math.max(0, -Math.sin(gait - 0.6)) * 0.75 * s
+    parts.shinR.rotation.x = Math.max(0, Math.sin(gait - 0.6)) * 0.75 * s
+    parts.footL.rotation.x = -parts.thighL.rotation.x * 0.3 - parts.shinL.rotation.x * 0.5
+    parts.footR.rotation.x = -parts.thighR.rotation.x * 0.3 - parts.shinR.rotation.x * 0.5
     // The bob runs at DOUBLE the stride, because it peaks once per foot. At
     // stride frequency it reads as a limp.
     parts.body.position.y = Math.abs(Math.sin(gait)) * 0.045 * s
