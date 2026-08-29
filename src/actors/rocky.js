@@ -224,7 +224,7 @@ export function buildRocky({ cut = 'rocky', chest = 'mark', height = 1.9, outlin
   plate(chestG, { geo: BLOCK, at: [0, 0.17, 0], size: [0.50, 0.40, 0.385], mat: MAT.stone })
   // A lighter cap across the top, so the shoulder line catches the sun and the
   // barrel does not read as one flat blob.
-  plate(chestG, { geo: BLOCK, at: [0, 0.325, -0.02], size: [0.40, 0.11, 0.30], mat: MAT.lit })
+  plate(chestG, { geo: BLOCK, at: [0, 0.315, -0.015], size: [0.34, 0.10, 0.26], mat: MAT.lit })
 
   // ------------------------------------------------------------ the badge --
   // Set INTO a cut recess, never laid on top. The recess is the whole difference
@@ -256,8 +256,8 @@ export function buildRocky({ cut = 'rocky', chest = 'mark', height = 1.9, outlin
   //
   // Straight on the torso. There is no neck on the sheet, and adding one is the
   // fastest way to turn a golem into a robot.
-  const head = pivot(chestG, [0, 0.40, 0], 'head')
-  plate(head, { geo: chamferBox(0.253, 0.154, 0.225, 0.05), at: [0, 0.077, 0], size: [1, 1, 1], mat: MAT.stone })
+  const head = pivot(chestG, [0, 0.445, 0], 'head')
+  plate(head, { geo: chamferBox(0.26, 0.175, 0.235, 0.05), at: [0, 0.088, 0], size: [1, 1, 1], mat: MAT.stone })
   // No second plate on the crown. One was there for faceting and its corners
   // poked through the chamfered box below as pale slivers; `flatShading` on the
   // chamfer already gives the head the cut planes the drawing has.
@@ -272,14 +272,14 @@ export function buildRocky({ cut = 'rocky', chest = 'mark', height = 1.9, outlin
      * most of why he did not read as the drawing.
      */
     const eye = new THREE.Mesh(FLAT, MAT.eye)
-    eye.position.set(side * 0.045, 0.079, 0.115)
+    eye.position.set(side * 0.05, 0.088, 0.122)
     eye.scale.set(0.024, 0.013, 0.012)
     head.add(eye)
     parts[side < 0 ? 'eyeL' : 'eyeR'] = eye
 
     // The lid: a plate of head-stone that drops over the eye to blink.
     const lid = new THREE.Mesh(FLAT, MAT.stone)
-    lid.position.set(side * 0.045, 0.093, 0.118)
+    lid.position.set(side * 0.05, 0.104, 0.125)
     lid.scale.set(0.03, 0.001, 0.014)
     head.add(lid)
     parts[side < 0 ? 'lidL' : 'lidR'] = lid
@@ -296,9 +296,9 @@ export function buildRocky({ cut = 'rocky', chest = 'mark', height = 1.9, outlin
      * makes his outline read as a barrel with two sausages either side rather
      * than as armour.
      */
-    plate(chestG, { geo: BLOCK, at: [side * 0.25, 0.245, 0], size: [0.145, 0.15, 0.145], mat: MAT.lit })
+    plate(chestG, { geo: BLOCK, at: [side * 0.252, 0.225, 0], size: [0.15, 0.145, 0.15], mat: MAT.lit })
 
-    const upper = pivot(chestG, [side * 0.258, 0.205, 0], `arm${L}`)
+    const upper = pivot(chestG, [side * 0.262, 0.185, 0], `arm${L}`)
     plate(upper, { geo: BLOCK, at: [0, -0.085, 0], size: [0.108, 0.21, 0.108], mat: MAT.stone })
 
     const lower = pivot(upper, [0, -0.175, 0], `fore${L}`)

@@ -166,6 +166,29 @@ console.log('the premise')
   const world = read(path.join(SRC, 'world/worldgen.js'))
   assert(!/export const VILLAGE/.test(world), 'the generator does not place a village')
   assert(/Sixteen/.test(cast), 'Sixteen is in the cast')
+
+  /**
+   * MORE THAN ONE CONSTRUCT.
+   *
+   * There was exactly one, and one construct is not a population — the valley
+   * read as empty with a single statue in it. They do not break rule 4: no
+   * other PEOPLE are left, and these are stone the lattice assembled. A valley
+   * with five of them in it is still a valley with nobody in it.
+   */
+  const { CONSTRUCTS } = await import('../src/actors/cast.js')
+  assert(CONSTRUCTS.length >= 4, `the valley has more than one construct (${CONSTRUCTS.length})`)
+  const ids = CONSTRUCTS.map((c) => c.id)
+  assert(new Set(ids).size === ids.length, 'and each is a distinct one', ids.join(', '))
+  assert(CONSTRUCTS.every((c) => c.lines.length >= 3), 'each has something of its own to say')
+  const cuts = new Set(CONSTRUCTS.map((c) => c.cut))
+  assert(cuts.size >= 3, `they are cut from different stone (${cuts.size} cuts)`)
+  const heights = CONSTRUCTS.map((c) => c.height)
+  assert(Math.max(...heights) - Math.min(...heights) > 0.6,
+    'and they are not all the same size', `${Math.min(...heights)}..${Math.max(...heights)}`)
+  // Nobody may be placed in the river: the spec carries a SEED cell and the
+  // Construct resolves it to the nearest standable ground.
+  assert(/nearestStandable\(seed\.x, seed\.z/.test(cast), 'each resolves to standable ground')
+
 }
 
 // ------------------------------------------------------- 4. no net assets --

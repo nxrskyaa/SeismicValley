@@ -739,9 +739,16 @@ function handleInteraction(talking) {
         : near.speak())
       near.line++
       audio.golem(1)
-      if (!state.flags.has('met-rocky')) {
+      // Specifically Rocky, and specifically at the relay. There are five
+      // constructs now and the ridge step has to mean the ridge — meeting Cairn
+      // on the home terrace would otherwise tick it off without a walk.
+      if (near.spec.id === 'rocky' && !state.flags.has('met-rocky')) {
         state.flags.add('met-rocky')
         state.addJournal('Met the construct at the relay. It calls itself Rocky and it does not leave the ridge.')
+      }
+      if (!state.flags.has(`met-${near.spec.id}`)) {
+        state.flags.add(`met-${near.spec.id}`)
+        state.addJournal(`Met ${near.spec.name}. ${near.spec.role}`)
       }
       return near
     }

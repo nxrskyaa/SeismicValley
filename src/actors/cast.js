@@ -4,7 +4,9 @@ import { buildPebble } from './pebble.js'
 import { Sixteen } from './dog.js'
 import { clamp, damp, pick, rng } from '../core/rng.js'
 import { findSpot, JOBS } from './jobs.js'
-import { GATE } from '../world/worldgen.js'
+import { GATE, HOME } from '../world/worldgen.js'
+import { N, P } from '../world/grid.js'
+import { G } from '../core/palette.js'
 
 /**
  * THE CAST — and it is a short list, on purpose.
@@ -19,42 +21,169 @@ import { GATE } from '../world/worldgen.js'
  * What moves in the valley:
  *
  *   SIXTEEN   the survey dog. The only living thing besides you.
- *   ROCKY     not a person. A Loom construct — stone the lattice assembled,
- *             still walking because unlike everything the colony built he was
- *             IN the checkpoint. He stands at the relay on the north ridge and
- *             does not leave it.
+ *   CONSTRUCTS  not people. Loom constructs — stone the lattice assembled,
+ *             still walking because unlike everything the colony built they
+ *             were IN the checkpoint. Five of them, each standing at a
+ *             landmark and none of them leaving it.
  *   PEBBLES   smaller constructs, found sealed in geodes, which wake up if you
  *             break one open.
  *
- * Rocky exists in exactly one instance. He is an NPC and a landmark; he is not
- * the player, he has no family here, and he does not run a shop.
+ * None of them is the player, none of them runs a shop, and none of them is a
+ * quest-giver. They are landmarks that talk.
  */
 
-/** The one construct. Everything about him is fixed except what he says. */
-export const ROCKY = {
-  id: 'rocky',
-  name: 'Rocky',
-  role: 'A Loom construct. Standing at the relay since before you woke up.',
-  cut: 'rocky',
-  /**
-   * The MARK, not the crystal.
-   *
-   * Both are canon — the sheet has drawings of each — but the adult carries the
-   * incised double-lune on his chest in most of them, and the little ones carry
-   * the rose crystal. Rocky was wired to the crystal, which meant the one place
-   * in the valley the brand should be unmistakable was a small pink blob.
-   */
-  chest: 'mark',
-  height: 2.1,
-  /** He does not wander. A landmark that moves is not a landmark. */
-  at: GATE,
-  face: 0,
-  lines: [
-    'You are the first thing to come up this ridge in forty days that the lattice did not put here.',
-    'It takes apart what it has no record of. Register the structure, or do not build it.',
-    'I am in the checkpoint. That is the only reason there is enough of me left to ask.',
-    'The relay still carries her logs. It will not tell me what is in them, and I have asked.',
-  ],
+/**
+ * THE CONSTRUCTS.
+ *
+ * There was exactly one of these, and one construct is not a population — the
+ * valley read as empty with a single statue in it. The sheet has a whole family:
+ * a big one, several small ones, different stone in each drawing.
+ *
+ * They do not break the premise. Rule 4 is that no other PEOPLE are left; these
+ * are Loom constructs, stone the lattice assembled, and the reason they are
+ * still walking is the same reason you are — they were inside the checkpoint
+ * when it rolled back. A valley with five of them in it is still a valley with
+ * nobody in it, which is the point, and it is a good deal less lonely to look at.
+ *
+ * Each stands at a landmark and does not wander. A landmark that moves is not a
+ * landmark. What differs between them is the stone, the height, what they carry
+ * on the chest, and what they have to say.
+ *
+ * `at` is a seed cell; the real position is the nearest standable ground to it,
+ * so a construct can never end up in the river.
+ */
+export const CONSTRUCTS = [
+  {
+    id: 'rocky',
+    name: 'Rocky',
+    role: 'A Loom construct. Standing at the relay since before you woke up.',
+    cut: 'rocky',
+    /**
+     * The MARK, not the crystal. Both are canon — the sheet has drawings of
+     * each — but the adult carries the incised double-crescent in most of them
+     * and the little ones carry the rose crystal.
+     */
+    chest: 'mark',
+    height: 2.1,
+    at: () => GATE,
+    face: 0,
+    lines: [
+      'You are the first thing to come up this ridge in forty days that the lattice did not put here.',
+      'It takes apart what it has no record of. Register the structure, or do not build it.',
+      'I am in the checkpoint. That is the only reason there is enough of me left to ask.',
+      'The relay still carries her logs. It will not tell me what is in them, and I have asked.',
+    ],
+  },
+  {
+    id: 'cairn',
+    name: 'Cairn',
+    role: 'Smaller, and older than Rocky. Has not moved off the home terrace in forty days.',
+    cut: 'cairn',
+    chest: 'shard',
+    height: 1.55,
+    at: () => ({ x: HOME.x - 7, z: HOME.z - 9 }),
+    face: Math.PI * 0.75,
+    lines: [
+      'You were down there a long time. I counted.',
+      'Rocky says the lattice keeps a record. It kept me. It did not keep the orchard.',
+      'The soil here is wrong and it has always been wrong. Plant anyway.',
+    ],
+  },
+  {
+    id: 'warden',
+    name: 'Warden',
+    role: 'The tallest of them, on the high ground, facing the weather.',
+    cut: 'basalt',
+    chest: 'mark',
+    height: 2.6,
+    at: (grid) => highestNear(grid, N * 0.3, N * 0.28),
+    face: Math.PI * 1.15,
+    lines: [
+      'From here you can see every one of the passes, and nothing has come through any of them.',
+      'I am not waiting for anybody. I am the thing that would see them.',
+      'The weather still works. That is not nothing.',
+    ],
+  },
+  {
+    id: 'tide',
+    name: 'Tide',
+    role: 'Stands in the shallows at the south lake and will not say why.',
+    cut: 'sand',
+    chest: 'shard',
+    height: 1.8,
+    at: (grid) => shoreNear(grid, Math.round(N * 0.72), Math.round(N * 0.78)),
+    face: Math.PI * 0.25,
+    lines: [
+      'There is something under this lake that the rollback did not reach.',
+      'No, I have not been in. I said I stand here.',
+      'The water is the only part of the valley that was already like this.',
+    ],
+  },
+  {
+    id: 'ember',
+    name: 'Ember',
+    role: 'Walks the fault, or would, if it ever finished counting.',
+    cut: 'ember',
+    chest: 'shard',
+    height: 1.95,
+    at: (grid) => scarNear(grid, Math.round(N * 0.55), Math.round(N * 0.55)),
+    face: Math.PI * 1.6,
+    lines: [
+      'Nine hundred and six geodes along this line. I have opened none of them.',
+      'They are eggs. You have worked that out by now.',
+      'When one hatches near you, it is because it chose to.',
+    ],
+  },
+]
+
+/** Kept for anything that still wants the one by name. */
+export const ROCKY = CONSTRUCTS[0]
+
+/** The highest standable cell near a seed point — where a lookout would stand. */
+function highestNear(grid, sx, sz) {
+  let best = null
+  let bestH = -1
+  for (let z = Math.max(2, sz - 16); z < Math.min(N - 2, sz + 16); z++) {
+    for (let x = Math.max(2, sx - 16); x < Math.min(N - 2, sx + 16); x++) {
+      const h = grid.h(x, z)
+      if (h > bestH && !grid.isWater(x, z) && grid.prop[z * N + x] === P.NONE) { bestH = h; best = { x, z } }
+    }
+  }
+  return best ?? { x: Math.round(sx), z: Math.round(sz) }
+}
+
+/** Dry ground with water within two cells of it. */
+function shoreNear(grid, sx, sz) {
+  for (let r = 1; r < 26; r++) {
+    for (let dz = -r; dz <= r; dz++) {
+      for (let dx = -r; dx <= r; dx++) {
+        if (Math.max(Math.abs(dx), Math.abs(dz)) !== r) continue
+        const x = sx + dx
+        const z = sz + dz
+        if (x < 2 || z < 2 || x >= N - 2 || z >= N - 2) continue
+        if (grid.isWater(x, z) || grid.prop[z * N + x] !== P.NONE) continue
+        if (grid.nearWater(x, z, 2)) return { x, z }
+      }
+    }
+  }
+  return { x: sx, z: sz }
+}
+
+/** The scarred band along the fault. */
+function scarNear(grid, sx, sz) {
+  for (let r = 1; r < 40; r++) {
+    for (let dz = -r; dz <= r; dz++) {
+      for (let dx = -r; dx <= r; dx++) {
+        if (Math.max(Math.abs(dx), Math.abs(dz)) !== r) continue
+        const x = sx + dx
+        const z = sz + dz
+        if (x < 2 || z < 2 || x >= N - 2 || z >= N - 2) continue
+        if (grid.isWater(x, z) || grid.prop[z * N + x] !== P.NONE) continue
+        if (grid.ground[z * N + x] === G.SCAR) return { x, z }
+      }
+    }
+  }
+  return { x: sx, z: sz }
 }
 
 // --- Rocky, standing --------------------------------------------------------
@@ -64,7 +193,9 @@ class Construct {
     this.spec = spec
     this.grid = grid
     this.rig = buildRocky({ cut: spec.cut, chest: spec.chest, height: spec.height, outline: true })
-    this.pos = new THREE.Vector2(spec.at.x + 0.5, spec.at.z + 0.5)
+    const seed = typeof spec.at === 'function' ? spec.at(grid) : spec.at
+    const [cx, cz] = grid.nearestStandable(seed.x, seed.z, 18)
+    this.pos = new THREE.Vector2(cx + 0.5, cz + 0.5)
     this.facing = spec.face ?? 0
     this.near = Infinity
     this.line = 0
@@ -293,7 +424,9 @@ export class Cast {
     this.scene = scene
     this.grid = grid
     this.state = state
-    this.rocky = new Construct(ROCKY, grid, scene)
+    this.constructs = CONSTRUCTS.map((spec) => new Construct(spec, grid, scene))
+    // The one at the relay, for anything that wants him by name.
+    this.rocky = this.constructs[0]
     this.sixteen = new Sixteen(grid, scene, [playerAt[0] + 1.4, playerAt[1] + 1.2])
     this.pebbles = []
     this.t = 0
@@ -312,14 +445,19 @@ export class Cast {
   update(dt, playerPos, hour) {
     this.t += dt
     const night = hour < 5.6 || hour > 21
-    this.rocky.update(dt, playerPos)
+    for (const c of this.constructs) c.update(dt, playerPos)
     this.sixteen.update(dt, playerPos, (x, z) => this.state.dogFound(x, z))
     for (const p of this.pebbles) p.update(dt, playerPos, night, this.state.day)
   }
 
-  /** Whoever is within reach, or null. Rocky is the only thing you can talk to. */
+  /** The nearest construct within reach, or null. Five of them now, so this
+   *  picks the closest rather than assuming there is only one. */
   nearest(playerPos, range = 3) {
-    return this.rocky.near < range ? this.rocky : null
+    let best = null
+    for (const c of this.constructs) {
+      if (c.near < range && (!best || c.near < best.near)) best = c
+    }
+    return best
   }
 
   /** What Rocky says about the next pruning — the one piece of information the
