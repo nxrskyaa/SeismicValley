@@ -101,12 +101,23 @@ export class Grid {
    * they are standing on by definition.
    */
   sampleY(fx, fz) {
-    const x = Math.floor(fx), z = Math.floor(fz)
-    const tx = fx - x, tz = fz - z
-    const here = this.h(x, z)
-    const cap = (v) => (Math.abs(v - here) > 1 ? here : v)
-    const A = cap(here), B = cap(this.h(x + 1, z)), Cc = cap(this.h(x, z + 1)), D = cap(this.h(x + 1, z + 1))
-    return ((A + (B - A) * tx) * (1 - tz) + (Cc + (D - Cc) * tx) * tz) * LEVEL
+    /**
+     * THE EXACT CELL HEIGHT. No blend.
+     *
+     * This used to bilinearly blend the four corners under the body, and that is
+     * wrong for this world: the mesher draws FLAT tops and VERTICAL faces, so
+     * there is no ramp anywhere for a blended height to follow. Standing on the
+     * boundary between a cell and a neighbour one level down, the body was
+     * placed halfway between them — half buried in a step that is actually a
+     * sheer face. That is the "ground clips through when you move".
+     *
+     * The collision surface has to be the surface that is DRAWN. So this returns
+     * the cell's own height and nothing else, and the smoothing that used to
+     * live here now lives in the rig: `PlayerController` damps the RENDERED y
+     * toward this, which looks the same on a slope and cannot bury anything,
+     * because what is damped is the picture rather than the collision.
+     */
+    return this.h(Math.floor(fx), Math.floor(fz)) * LEVEL
   }
 
   // --------------------------------------------------------------- layers --

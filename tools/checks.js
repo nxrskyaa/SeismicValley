@@ -224,7 +224,6 @@ console.log('\nthe brand')
   const rocky = read(path.join(SRC, 'actors/rocky.js'))
   const cast = read(path.join(SRC, 'actors/cast.js'))
   const buildings = read(path.join(SRC, 'world/buildings.js'))
-  const main = read(path.join(SRC, 'main.js'))
   const { stripJsComments } = await import('./ui-reads.mjs')
 
   /**
@@ -320,13 +319,47 @@ console.log('\nthe brand')
    */
   const placements = (buildings.match(/markFlatGeometry\(\)/g) ?? []).length
   assert(placements >= 4, 'the mark is cut into several things in the valley', `${placements} placements`)
-  assert(/waymark/.test(buildings) && /put\('waymark'/.test(main),
+  // The layout moved out of main.js into world/settlement.js so it could be
+  // tested without a renderer; these read it there.
+  const settlement = read(path.join(SRC, 'world/settlement.js'))
+  assert(/waymark/.test(buildings) && /put\('waymark'/.test(settlement),
     'and there are waymarkers carrying it out into the middle of the map')
 
   // A structure with a tree growing through it is not something anybody built
   // around — and a canopy on top of a waymarker hides the thing it exists for.
-  assert(/=== P\.TREE\) grid\.set\('prop'/.test(main),
+  assert(/=== P\.TREE\) grid\.set\('prop'/.test(settlement),
     'placing a structure clears the trees it would stand inside')
+
+  /**
+   * AND NO TWO STRUCTURES MAY OCCUPY THE SAME GROUND.
+   *
+   * The first street was hand-picked coordinates: cottages nine cells apart in
+   * the plan and seven-cell footprints spaced five, so every house overlapped
+   * its neighbour and the row shared walls. A capture of that looks like a
+   * street until you walk into it, which is why it shipped.
+   *
+   * `planSettlement` is pure, so the real plan can be run here and measured.
+   */
+  const { planSettlement } = await import('../src/world/settlement.js')
+  const { KINDS } = await import('../src/world/buildings.js')
+  for (const seed of [1, 77, 4242]) {
+    const { grid: g2 } = (await import('../src/world/worldgen.js')).generate(seed)
+    const plan = planSettlement(g2)
+    assert(plan.refused.length === 0, `seed ${seed} places every structure it plans`, plan.refused.join(', '))
+    const boxes = plan.placed.map((b) => {
+      const [fw, fd] = KINDS[b.kind](b.level).footprint
+      return { k: b.kind, x0: b.x - fw / 2, x1: b.x + fw / 2, z0: b.z - fd / 2, z1: b.z + fd / 2 }
+    })
+    const clash = []
+    for (let i = 0; i < boxes.length; i++) {
+      for (let j = i + 1; j < boxes.length; j++) {
+        const a2 = boxes[i]
+        const b2 = boxes[j]
+        if (a2.x0 < b2.x1 && a2.x1 > b2.x0 && a2.z0 < b2.z1 && a2.z1 > b2.z0) clash.push(`${a2.k}/${b2.k}`)
+      }
+    }
+    assert(clash.length === 0, `seed ${seed}: no two structures share ground`, clash.slice(0, 5).join(', '))
+  }
 }
 
 // --------------------------------------------------------- 5. the rig rule --

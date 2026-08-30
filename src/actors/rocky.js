@@ -312,12 +312,19 @@ export function buildRocky({ cut = 'rocky', chest = 'mark', height = 1.9, outlin
      * outline, a dark seam under it — and it is what stops the arm reading as a
      * tube pushed into the side of a barrel.
      */
-    plate(chestG, { geo: BLOCK, at: [side * 0.215, 0.275, 0], size: [0.145, 0.13, 0.155], mat: MAT.lit })
-    plate(chestG, { geo: BLOCK, at: [side * 0.22, 0.205, 0], size: [0.125, 0.03, 0.135], mat: MAT.joint, ink: false })
-
-    // The arm hangs to below the hip — long, and tapering slightly.
-    const upper = pivot(chestG, [side * 0.22, 0.225, 0], `arm${L}`)
-    plate(upper, { geo: BLOCK, at: [0, -0.115, 0], size: [0.125, 0.235, 0.135], mat: MAT.stone })
+    /**
+     * The cap is parented to the ARM, not to the chest.
+     *
+     * On the chest it swung nothing and, worse, it made the torso's own bounding
+     * box reach out over the shoulder — so an arm sitting correctly beside the
+     * body measured as 0.145 buried inside it. A shoulder pad belongs to the
+     * shoulder: it moves when the arm moves, and it stops the torso claiming
+     * space it does not occupy.
+     */
+    const upper = pivot(chestG, [side * 0.30, 0.225, 0], `arm${L}`)
+    plate(upper, { geo: BLOCK, at: [0, 0.05, 0], size: [0.145, 0.13, 0.155], mat: MAT.lit })
+    plate(upper, { geo: BLOCK, at: [0, -0.02, 0], size: [0.125, 0.03, 0.135], mat: MAT.joint, ink: false })
+    plate(upper, { geo: BLOCK, at: [0, -0.14, 0], size: [0.125, 0.235, 0.135], mat: MAT.stone })
     plate(upper, { geo: BLOCK, at: [0, -0.235, 0], size: [0.115, 0.025, 0.125], mat: MAT.joint, ink: false })
 
     const lower = pivot(upper, [0, -0.225, 0], `fore${L}`)
@@ -344,7 +351,7 @@ export function buildRocky({ cut = 'rocky', chest = 'mark', height = 1.9, outlin
      * shin are separate slabs with a dark knee seam between them, which is how
      * every drawing on the sheet builds them.
      */
-    const thigh = pivot(body, [side * 0.105, 0.445, 0], `thigh${L}`)
+    const thigh = pivot(body, [side * 0.125, 0.445, 0], `thigh${L}`)
     plate(thigh, { geo: BLOCK, at: [0, -0.08, 0], size: [0.17, 0.155, 0.175], mat: MAT.stone })
     plate(thigh, { geo: BLOCK, at: [0, -0.16, 0], size: [0.15, 0.03, 0.155], mat: MAT.joint, ink: false })
 

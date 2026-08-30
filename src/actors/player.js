@@ -504,7 +504,26 @@ export class PlayerController {
       }
     }
 
-    this.rig.root.position.copy(this.pos)
+    /**
+     * The body stands at the exact cell height; only the PICTURE is smoothed.
+     *
+     * `sampleY` no longer blends, because the ground it is describing is drawn
+     * as flat tops and sheer faces and a blended height put the body inside the
+     * step. Damping the rendered y instead gives the same smooth climb without
+     * ever placing the collision surface somewhere the terrain is not.
+     *
+     * Snapped rather than damped when falling or swimming: a damped fall reads
+     * as floating down, and in water the y IS the surface.
+     */
+    if (this.onGround && !this.swimming) {
+      this.renderY = damp(this.renderY ?? this.pos.y, this.pos.y, 16, dt)
+      // Never let the picture lag so far that the feet leave the ground behind
+      // — half a level is a step, more than that is a mistake.
+      this.renderY = clamp(this.renderY, this.pos.y - 0.5, this.pos.y + 0.5)
+    } else {
+      this.renderY = this.pos.y
+    }
+    this.rig.root.position.set(this.pos.x, this.renderY, this.pos.z)
     this.rig.root.rotation.y = damp(this.rig.root.rotation.y, this.facing, 14, dt)
     // Unwrap, or turning past ±π sends the rig the long way round.
     const d = this.facing - this.rig.root.rotation.y

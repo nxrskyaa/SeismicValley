@@ -12,7 +12,8 @@
     "check": "node tools/checks.js",
     "shoot": "node tools/shoot.mjs",
     "mark": "node tools/mark.mjs",
-    "soak": "node tools/soak.mjs"
+    "soak": "node tools/soak.mjs",
+    "overlap": "node tools/overlap.mjs"
   },
   "dependencies": {
     "three": "^0.185.1"

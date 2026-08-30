@@ -6,7 +6,7 @@ import { Music } from './core/music.js'
 import { Ambience } from './core/ambience.js'
 import { Input } from './core/input.js'
 import { hashSeed } from './core/rng.js'
-import { Grid, LEVEL, N, P } from './world/grid.js'
+import { LEVEL, N, P } from './world/grid.js'
 import { GATE, HOME, generate } from './world/worldgen.js'
 import { Terrain } from './world/terrain.js'
 import { Props } from './world/props.js'
@@ -17,6 +17,7 @@ import { Weather } from './world/weather.js'
 import { Sky } from './world/sky.js'
 import { CameraRig } from './world/camera.js'
 import { flagpole, placeStructure } from './world/buildings.js'
+import { buildSettlement } from './world/settlement.js'
 import { PlayerController, buildPlayer } from './actors/player.js'
 import { Cast } from './actors/cast.js'
 import { GameState } from './game/state.js'
@@ -125,100 +126,18 @@ function syncStructures() {
 }
 
 /** The fixed cast of buildings a new valley starts with. */
+/**
+ * Everything the generator places is REGISTERED — it was standing when the
+ * rollback ran, so the Loom has a record of it. That is the fiction, and it is
+ * also the only sane rule: a first pruning night that eats the shipping crate
+ * takes the economy away before the player has learned what a stake is.
+ *
+ * The layout itself lives in `world/settlement.js` so it can be tested without a
+ * renderer. It used to be a loop of hand-picked coordinates here, and the houses
+ * went through each other.
+ */
 function seedStructures(state, grid) {
-  // Everything the generator places is REGISTERED. It was standing when the
-  // rollback ran, so the Loom has a record of it — which is the fiction, and is
-  // also the only sane rule: a first pruning night that eats the shipping crate
-  // takes away the economy before the player has learned what a stake is.
-  const put = (kind, x, z, level = 1) => {
-    const [cx, cz] = grid.nearestStandable(x, z)
-    // Clear what the forest pass dropped where this is going. A canopy sitting
-    // on top of a waymarker hides the thing the waymarker exists to show, and a
-    // tree growing out of the roof is not something anybody built around.
-    // Five, because a canopy is three cells across: a trunk four cells away
-    // still hangs its canopy over the thing you cleared for.
-    const clear = kind === 'gate' ? 6 : 5
-    for (let dz = -clear; dz <= clear; dz++) {
-      for (let dx = -clear; dx <= clear; dx++) {
-        const nx = cx + dx, nz = cz + dz
-        if (grid.get('prop', nx, nz) === P.TREE) grid.set('prop', nx, nz, P.NONE)
-      }
-    }
-    state.buildings.push({ kind, level, x: cx, z: cz, registered: true })
-    grid.set('prop', cx, cz, P.BUILDING)
-  }
-  // The homestead and the crate are YOURS. The relay on the ridge is the Loom's
-  // — it was standing before the rollback and is one of the few things the
-  // checkpoint had a record of.
-  put('homestead', HOME.x, HOME.z - 5, 1)
-  put('crate', HOME.x + 4, HOME.z + 1)
-  put('gate', GATE.x, GATE.z)
-
-  /**
-   * THE OLD STREET.
-   *
-   * A row of the colony's cottages, laid out on a line with even gaps and a
-   * path down the middle — because a settlement reads as a settlement when the
-   * buildings AGREE with each other, and reads as scattered props when they do
-   * not. That is the whole lesson of the reference town: alignment and spacing
-   * before any amount of detail on an individual house.
-   *
-   * They are empty and they stay empty. Rule 4 is not bent by this — there are
-   * no villagers in them and there never will be. A tidy street with nobody in
-   * it says more about what happened here than a ruin would: the rollback did
-   * not knock anything down, it removed everyone and left the doors shut.
-   *
-   * The row runs along +X on the terrace west of the homestead, flipping side
-   * each house so the street has two frontages, and every plot is levelled to
-   * the row's own height so the line of roofs does not stagger.
-   */
-  const STREET_Z = HOME.z - 14
-  const rowH = grid.h(...grid.nearestStandable(HOME.x - 8, STREET_Z))
-  for (let i = 0; i < 7; i++) {
-    const x = HOME.x - 14 + i * 5
-    const side = i % 2 === 0 ? -1 : 1
-    const z = STREET_Z + side * 4
-    // Level the plot to the row, so a street of houses is a street and not a
-    // staircase. Six by six, which is a cottage footprint plus its verge.
-    for (let dz = -3; dz <= 3; dz++) {
-      for (let dx = -3; dx <= 3; dx++) {
-        const nx = x + dx
-        const nz = z + dz
-        if (!Grid.inBounds(nx, nz) || grid.isWater(nx, nz)) continue
-        grid.setH(nx, nz, rowH)
-      }
-    }
-    put('cottage', x, z, i)
-  }
-  // The path between the two frontages, as tilled-looking track rather than
-  // grass: a street with nothing running down it is two rows of houses.
-  for (let x = HOME.x - 18; x <= HOME.x + 20; x++) {
-    for (let dz = -1; dz <= 1; dz++) {
-      const nz = STREET_Z + dz
-      if (!Grid.inBounds(x, nz) || grid.isWater(x, nz)) continue
-      grid.setH(x, nz, rowH)
-      grid.set('ground', x, nz, GROUND_IDS.LOAM)
-      if (grid.get('prop', x, nz) === P.TREE) grid.set('prop', x, nz, P.NONE)
-    }
-  }
-
-  // The village works: a well on the street, a kiln and a shed behind it.
-  put('well', HOME.x - 2, STREET_Z - 4)
-  put('kiln', HOME.x + 9, STREET_Z + 5)
-  put('shed', HOME.x - 20, STREET_Z + 5)
-
-  /**
-   * THE SEISMIC RELAY, at the head of the street.
-   *
-   * The one building that carries the brand, and it is placed where a monument
-   * goes: on the axis, at the end, facing down the row. Everything else in the
-   * valley is somebody's building; this one is the lattice's.
-   */
-  put('relay', HOME.x + 22, STREET_Z)
-  put('vault', HOME.x + 26, STREET_Z + 6)
-  // Waymarkers along the road out, so the street points somewhere.
-  put('waymark', HOME.x + 14, STREET_Z - 3)
-  put('waymark', HOME.x - 16, STREET_Z - 3)
+  buildSettlement(state, grid)
 }
 
 function boot() {
