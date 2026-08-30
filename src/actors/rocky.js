@@ -169,7 +169,10 @@ export function buildRocky({ cut = 'rocky', chest = 'mark', height = 1.9, outlin
     const g = new THREE.Group()
     g.position.set(...at)
     parent.add(g)
-    if (key) parts[key] = g
+    // Named as well as recorded, so a joint can be identified from the scene
+    // graph alone — by the inspector, and by `tools/overlap.mjs seams`, which
+    // otherwise reports that something has floated off without saying what.
+    if (key) { parts[key] = g; g.name = key }
     return g
   }
 
@@ -321,14 +324,20 @@ export function buildRocky({ cut = 'rocky', chest = 'mark', height = 1.9, outlin
      * shoulder: it moves when the arm moves, and it stops the torso claiming
      * space it does not occupy.
      */
-    const upper = pivot(chestG, [side * 0.30, 0.225, 0], `arm${L}`)
-    plate(upper, { geo: BLOCK, at: [0, 0.05, 0], size: [0.145, 0.13, 0.155], mat: MAT.lit })
-    plate(upper, { geo: BLOCK, at: [0, -0.02, 0], size: [0.125, 0.03, 0.135], mat: MAT.joint, ink: false })
-    plate(upper, { geo: BLOCK, at: [0, -0.14, 0], size: [0.125, 0.235, 0.135], mat: MAT.stone })
-    plate(upper, { geo: BLOCK, at: [0, -0.235, 0], size: [0.115, 0.025, 0.125], mat: MAT.joint, ink: false })
+    /**
+     * 0.266 out, which is where the shoulder MEETS the torso — measured, not
+     * chosen. It was 0.30 to stop the arm burying itself in a chest that was
+     * secretly 32% too wide; with `chamferBox` honest the same offset left the
+     * arms floating 0.024 clear of the body, so it came back in.
+     */
+    const upper = pivot(chestG, [side * 0.266, 0.225, 0], `arm${L}`)
+    plate(upper, { geo: BLOCK, at: [0.0, 0.05, 0], size: [0.175, 0.13, 0.175], mat: MAT.lit })
+    plate(upper, { geo: BLOCK, at: [0.0, -0.02, 0], size: [0.155, 0.03, 0.155], mat: MAT.joint, ink: false })
+    plate(upper, { geo: BLOCK, at: [0.0, -0.14, 0], size: [0.155, 0.235, 0.16], mat: MAT.stone })
+    plate(upper, { geo: BLOCK, at: [0.0, -0.235, 0], size: [0.145, 0.025, 0.15], mat: MAT.joint, ink: false })
 
     const lower = pivot(upper, [0, -0.225, 0], `fore${L}`)
-    plate(lower, { geo: BLOCK, at: [0, -0.1, 0], size: [0.135, 0.21, 0.14], mat: MAT.lit })
+    plate(lower, { geo: BLOCK, at: [0.0, -0.1, 0], size: [0.165, 0.21, 0.165], mat: MAT.lit })
 
     /**
      * And it ends in a blunt slab. He has no fingers anywhere on the sheet —
@@ -336,7 +345,7 @@ export function buildRocky({ cut = 'rocky', chest = 'mark', height = 1.9, outlin
      * end of the arm.
      */
     const hand = pivot(lower, [0, -0.185, 0], `hand${L}`)
-    plate(hand, { geo: BLOCK, at: [0, -0.04, 0], size: [0.155, 0.105, 0.15], mat: MAT.stone })
+    plate(hand, { geo: BLOCK, at: [0.0, -0.04, 0], size: [0.185, 0.115, 0.18], mat: MAT.stone })
     const socket = pivot(hand, [0, -0.05, 0.05], `hold${L}`)
     socket.rotation.x = -0.3
   }
@@ -351,12 +360,18 @@ export function buildRocky({ cut = 'rocky', chest = 'mark', height = 1.9, outlin
      * shin are separate slabs with a dark knee seam between them, which is how
      * every drawing on the sheet builds them.
      */
-    const thigh = pivot(body, [side * 0.125, 0.445, 0], `thigh${L}`)
-    plate(thigh, { geo: BLOCK, at: [0, -0.08, 0], size: [0.17, 0.155, 0.175], mat: MAT.stone })
-    plate(thigh, { geo: BLOCK, at: [0, -0.16, 0], size: [0.15, 0.03, 0.155], mat: MAT.joint, ink: false })
+    /**
+     * Every offset below is SOLVED from the scan rather than nudged, now that a
+     * plate is the size it says it is. Bands, as a fraction of his height, over
+     * 1.16 for the pitch stretch, gives the local y each joint has to sit at:
+     * ankle 0.128, knee 0.293, hip 0.452.
+     */
+    const thigh = pivot(body, [side * 0.125, 0.452, 0], `thigh${L}`)
+    plate(thigh, { geo: BLOCK, at: [0, -0.0675, 0], size: [0.17, 0.135, 0.175], mat: MAT.stone })
+    plate(thigh, { geo: BLOCK, at: [0, -0.147, 0], size: [0.15, 0.024, 0.155], mat: MAT.joint, ink: false })
 
-    const shin = pivot(thigh, [0, -0.145, 0], `shin${L}`)
-    plate(shin, { geo: BLOCK, at: [0, -0.08, 0], size: [0.155, 0.16, 0.16], mat: MAT.lit })
+    const shin = pivot(thigh, [0, -0.159, 0], `shin${L}`)
+    plate(shin, { geo: BLOCK, at: [0, -0.0825, 0], size: [0.155, 0.165, 0.16], mat: MAT.lit })
 
     /**
      * The FOOT is a wide splayed slab, not a stump.
@@ -365,8 +380,8 @@ export function buildRocky({ cut = 'rocky', chest = 'mark', height = 1.9, outlin
      * it — that flare is what makes him look planted. It was a small rounded
      * lump and he looked like he was standing on two pegs.
      */
-    const foot = pivot(shin, [0, -0.145, 0], `foot${L}`)
-    plate(foot, { geo: BLOCK, at: [0, -0.06, 0.012], size: [0.21, 0.115, 0.245], mat: MAT.stone })
+    const foot = pivot(shin, [0, -0.165, 0], `foot${L}`)
+    plate(foot, { geo: BLOCK, at: [0, -0.064, 0.012], size: [0.21, 0.128, 0.245], mat: MAT.stone })
   }
 
   root.scale.setScalar(height)

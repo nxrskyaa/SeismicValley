@@ -63,17 +63,40 @@ export const ROD = new THREE.CylinderGeometry(0.5, 0.5, 1, 8)
  * — a proportional bevel makes a long thin block look like a lozenge.
  */
 export function chamferBox(w, h, d, cut = 0.08) {
-  const c = Math.min(cut, w * 0.4, h * 0.4, d * 0.4)
+  /**
+   * THE SHAPE IS INSET BY THE BEVEL, because the bevel grows OUTWARD.
+   *
+   * `bevelSize` pushes the extruded outline out by `c` in the shape plane, so a
+   * shape drawn at w x h comes back measuring (w + 2c) x (h + 2c). The depth is
+   * unaffected — the extrusion is shortened by exactly what the two bevel caps
+   * add back. Nobody noticed for the life of the project because it is not a
+   * uniform scale: X and Y grew and Z did not.
+   *
+   * `BLOCK`, the unit cube every rig is plated with, was therefore
+   * 1.32 x 1.32 x 1.00 — every part in the game 32% too wide and too tall and
+   * the right depth, which is why figures kept reading as bloated side-on and
+   * flat front-on however carefully their proportions were measured off the
+   * reference. Thin plates had it far worse: a 0.065 seam came back 0.117, near
+   * double, since the 2c is a constant and not a fraction.
+   *
+   * So the outline is drawn inset and the bevel puts it back. `chamferBox(w, h,
+   * d)` now measures w x h x d, and the numbers written at every call site are
+   * the numbers you get.
+   */
+  const c = Math.min(cut, w * 0.2, h * 0.2, d * 0.4)
   const shape = new THREE.Shape()
-  const hw = w / 2, hh = h / 2
-  shape.moveTo(-hw + c, -hh)
-  shape.lineTo(hw - c, -hh)
-  shape.lineTo(hw, -hh + c)
-  shape.lineTo(hw, hh - c)
-  shape.lineTo(hw - c, hh)
-  shape.lineTo(-hw + c, hh)
-  shape.lineTo(-hw, hh - c)
-  shape.lineTo(-hw, -hh + c)
+  const hw = w / 2 - c, hh = h / 2 - c
+  // The corner cut, kept inside the inset rectangle so the outline stays convex
+  // on parts too thin to carry the full chamfer.
+  const k = Math.min(c, hw * 0.8, hh * 0.8)
+  shape.moveTo(-hw + k, -hh)
+  shape.lineTo(hw - k, -hh)
+  shape.lineTo(hw, -hh + k)
+  shape.lineTo(hw, hh - k)
+  shape.lineTo(hw - k, hh)
+  shape.lineTo(-hw + k, hh)
+  shape.lineTo(-hw, hh - k)
+  shape.lineTo(-hw, -hh + k)
   shape.closePath()
   const geo = new THREE.ExtrudeGeometry(shape, {
     depth: d - c * 2, bevelEnabled: true, bevelSize: c, bevelThickness: c, bevelSegments: 1, curveSegments: 1,

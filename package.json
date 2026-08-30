@@ -13,7 +13,9 @@
     "shoot": "node tools/shoot.mjs",
     "mark": "node tools/mark.mjs",
     "soak": "node tools/soak.mjs",
-    "overlap": "node tools/overlap.mjs"
+    "overlap": "node tools/overlap.mjs",
+    "proportion": "node tools/proportion.mjs",
+    "verify": "node tools/checks.js && node tools/overlap.mjs rig && node tools/overlap.mjs buildings && node tools/overlap.mjs seams && node tools/proportion.mjs"
   },
   "dependencies": {
     "three": "^0.185.1"

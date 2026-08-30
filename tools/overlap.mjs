@@ -13,6 +13,7 @@
  *
  *   node tools/overlap.mjs rig        the constructs and the player
  *   node tools/overlap.mjs buildings  every structure the generator places
+ *   node tools/overlap.mjs seams      assemblies that have come apart
  */
 
 import * as THREE from 'three'
@@ -142,6 +143,126 @@ if (MODE === 'buildings') {
     }
     if (clashes.length) fail(`seed ${seed}: buildings overlap`, clashes.slice(0, 6).join(', '))
     else ok(`seed ${seed}: ${claims.length} structures, none overlapping`)
+  }
+}
+
+if (MODE === 'seams') {
+  /**
+   * IS EACH ASSEMBLY STILL ONE MASS?
+   *
+   * The opposite failure to the other two modes, and it appeared the moment
+   * `chamferBox` stopped inflating: parts positioned by eye to overlap a
+   * constructor that was quietly 32% generous now merely touch, or miss. A tree
+   * whose canopy cubes have drifted apart stops reading as a canopy and starts
+   * reading as a pile of boxes, and nothing throws.
+   *
+   * So: build the assembly, take every mesh box, and join boxes that touch.
+   * More than one island left over means it has come apart.
+   */
+  const { treeParts } = await import('../src/world/props.js')
+  const { buildRocky } = await import('../src/actors/rocky.js')
+  const { buildPlayer } = await import('../src/actors/player.js')
+
+  /**
+   * Buildings are absent on purpose: they are `bake`d into one buffer, so by the
+   * time anything can be measured there are no parts left to be apart. Covering
+   * them would mean either exporting parts from ten builders or rasterising the
+   * baked geometry, and there is no evidence of the defect there — the captures
+   * show walls, roofs and chimneys attached. Trees earned their place here by
+   * actually coming apart.
+   */
+
+  const subjects = []
+  for (let kind = 0; kind < 3; kind++) {
+    // Trees are baked, so their parts are measured before the bake: positions
+    // and geometries, assembled into throwaway meshes.
+    const g = new THREE.Group()
+    for (const part of treeParts(kind)) {
+      const m = new THREE.Mesh(part.geometry)
+      m.position.fromArray(part.position)
+      if (part.scale) m.scale.fromArray(part.scale)
+      g.add(m)
+    }
+    subjects.push([`tree ${kind}`, g, 5])
+  }
+  subjects.push(['Rocky', buildRocky({ cut: 'rocky', chest: 'mark', height: 1 }).root, 1.19])
+  subjects.push(['the settler', buildPlayer('apprentice').root, 1.0])
+
+  for (const [name, node, height] of subjects) {
+    node.updateWorldMatrix(true, true)
+    const boxes = []
+    const labels = []
+    node.traverse((c) => {
+      if (!c.isMesh || c.material?.side === THREE.BackSide) return
+      c.updateWorldMatrix(true, false)
+      c.geometry.computeBoundingBox()
+      boxes.push(c.geometry.boundingBox.clone().applyMatrix4(c.matrixWorld))
+      // The nearest named ancestor, so a failure says WHICH piece floated off
+      // rather than how many did.
+      let p = c
+      while (p && !p.name) p = p.parent
+      labels.push(p?.name ?? '?')
+    })
+    if (boxes.length < 2) { ok(`${name}: one piece`); continue }
+
+    // Union-find over "these two boxes touch". A hair of slack, because two
+    // faces meeting exactly is contact and floating-point will not say so.
+    const parent = boxes.map((_, i) => i)
+    const find = (i) => (parent[i] === i ? i : (parent[i] = find(parent[i])))
+    const SLACK = 1e-3
+    for (let i = 0; i < boxes.length; i++) {
+      for (let j = i + 1; j < boxes.length; j++) {
+        const a = boxes[i]
+        const b = boxes[j]
+        const gap = Math.max(
+          a.min.x - b.max.x, b.min.x - a.max.x,
+          a.min.y - b.max.y, b.min.y - a.max.y,
+          a.min.z - b.max.z, b.min.z - a.max.z,
+        )
+        if (gap <= SLACK) parent[find(i)] = find(j)
+      }
+    }
+    const groups = new Map()
+    boxes.forEach((_, i) => {
+      const r = find(i)
+      if (!groups.has(r)) groups.set(r, new Set())
+      groups.get(r).add(labels[i])
+    })
+    if (groups.size > 1) {
+      /**
+       * HOW WIDE IS THE GAP, not just that there is one.
+       *
+       * A hairline where two plates were meant to butt up is a different defect
+       * from a foot hanging below a shin, and only the size tells them apart. So
+       * each adrift island reports the shortest distance back to the main mass —
+       * which is also exactly how far something has to move to fix it.
+       */
+      const roots = [...groups.keys()].sort((a, b) => groups.get(b).size - groups.get(a).size)
+      const main = boxes.map((_, i) => i).filter((i) => find(i) === roots[0])
+      const adrift = roots.slice(1).map((r) => {
+        const mine = boxes.map((_, i) => i).filter((i) => find(i) === r)
+        let best = Infinity
+        for (const i of mine) {
+          for (const j of main) {
+            const a = boxes[i]
+            const b = boxes[j]
+            const g = Math.max(
+              a.min.x - b.max.x, b.min.x - a.max.x,
+              a.min.y - b.max.y, b.min.y - a.max.y,
+              a.min.z - b.max.z, b.min.z - a.max.z,
+            )
+            if (g < best) best = g
+          }
+        }
+        return { what: [...groups.get(r)].join('+'), gap: best }
+      })
+      const worst = Math.max(...adrift.map((a) => a.gap))
+      const detail = adrift.map((a) => `${a.what} ${a.gap.toFixed(4)} clear`).join(', ')
+      // A gap under a thousandth of the figure is a rounding artefact between
+      // plates that were meant to butt up, not a limb hanging off.
+      if (worst > (height ?? 1) * 0.004) fail(`${name}: has come apart`, detail)
+      else ok(`${name}: one mass, hairline joins only (${detail})`)
+    } else ok(`${name}: one connected mass (${boxes.length} meshes)`)
   }
 }
 

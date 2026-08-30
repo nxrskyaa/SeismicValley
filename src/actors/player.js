@@ -139,7 +139,10 @@ export function buildPlayer(lookKey = 'apprentice') {
     const g = new THREE.Group()
     g.position.set(...at)
     parent.add(g)
-    if (key) parts[key] = g
+    // Named as well as recorded, so a joint can be identified from the scene
+    // graph alone — by the inspector, and by `tools/overlap.mjs seams`, which
+    // otherwise reports that something has floated off without saying what.
+    if (key) { parts[key] = g; g.name = key }
     return g
   }
 
@@ -151,7 +154,10 @@ export function buildPlayer(lookKey = 'apprentice') {
     const thigh = pivot(body, [side * 0.13, 0.6, 0], `thigh${L}`)
     box(thigh, [0.2, 0.44, 0.22], [0, -0.22, 0], MAT.trouser)
     const shin = pivot(thigh, [0, -0.44, 0], `shin${L}`)
-    const foot = pivot(shin, [0, -0.02, 0], `foot${L}`)
+    // Seated on the trouser hem, not 0.005 below it. Both offsets here closed by
+    // exactly the gap `tools/overlap.mjs seams` measured, once `chamferBox`
+    // stopped inflating every plate into its neighbour.
+    const foot = pivot(shin, [0, -0.015, 0], `foot${L}`)
     box(foot, [0.23, 0.15, 0.32], [0, -0.06, 0.04], MAT.boot)
   }
 
@@ -167,7 +173,7 @@ export function buildPlayer(lookKey = 'apprentice') {
   // --- head ----------------------------------------------------------------
   // Big, and wider than it is tall. The cap IS the head; there is no separate
   // skull under it at this size.
-  const head = pivot(chest, [0, 0.52, 0], 'head')
+  const head = pivot(chest, [0, 0.5, 0], 'head')
   box(head, [0.62, 0.42, 0.52], [0, 0.21, 0], MAT.cap, 0.04)
   // The hood roll at the back of the crown — the one piece of asymmetry, and
   // what tells you which way the figure is facing from directly above.

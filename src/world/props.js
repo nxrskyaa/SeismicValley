@@ -70,7 +70,15 @@ const CANOPY_PLANS = [
   [[0, 0, 0], [1, 0, 0], [0, 0, 1], [1, 0, 1]],
 ]
 
-function treeGeometry(kind) {
+/**
+ * The parts of a tree, before they are baked into one geometry.
+ *
+ * Exported so `tools/overlap.mjs seams` can ask whether the canopy is still one
+ * mass. Once `bake` has run there are no cubes left to measure — the whole
+ * canopy is a single buffer, and a canopy that has drifted apart looks exactly
+ * like one that has not.
+ */
+export function treeParts(kind) {
   const plan = CANOPY_PLANS[kind % CANOPY_PLANS.length]
   const cube = 1.25 // one canopy cube, in world units — the reference's are BIG
   const trunkH = [4.2, 3.6, 3.0][kind % 3]
@@ -86,11 +94,19 @@ function treeGeometry(kind) {
     const col = tone
     parts.push({
       geometry: chamferBox(cube, cube, cube, 0.05),
-      position: [dx * cube * 0.94, trunkH + cube * (0.2 + dy * 0.86), dz * cube * 0.94],
+      // 0.86 both ways. It was 0.94 across and 0.86 up, which put a 14%
+      // overlap between stacked cubes and only 6% between neighbouring ones —
+      // fine while `chamferBox` was quietly adding 0.1 to every cube, and a
+      // visible seam the moment it stopped. The canopy is meant to be a SLAB.
+      position: [dx * cube * 0.86, trunkH + cube * (0.2 + dy * 0.86), dz * cube * 0.86],
       color: col,
     })
   }
-  return bake(parts)
+  return parts
+}
+
+function treeGeometry(kind) {
+  return bake(treeParts(kind))
 }
 
 function rockGeometry(kind) {

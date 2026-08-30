@@ -33,6 +33,48 @@ feel.
    Slabs get a Z-axis prism (`FLAT`/`POINT`) and are never rotated; limbs get a
    Y-axis one (`COLUMN`/`TAPER`) and are never rotated.
 
+## Geometry is measured, not eyeballed
+
+`chamferBox(w, h, d)` spent most of this project returning a box that was
+**(w + 2c) x (h + 2c) x d** — `bevelSize` grows an extruded outline OUTWARD, and
+the depth was the only axis compensated. `BLOCK`, the unit cube every rig is
+plated with, was therefore 1.32 x 1.32 x 1.00. Every part in the game was 32%
+too wide and too tall and the right depth, and thin plates had it far worse: a
+seam declared 0.065 came back 0.117.
+
+It survived so long because it is **not a uniform scale**. A uniform error would
+have cancelled out of every proportion; this one did not, so figures read as
+bloated side-on and flat front-on however carefully their bands were measured off
+the reference — and the measuring was never the problem. Two consequences to
+remember:
+
+- **Numbers at a call site are now real.** If a part is the wrong size, the
+  number is wrong; do not add a fudge factor.
+- **Anything tuned by eye before the fix was tuned against the inflation.** The
+  tree canopy is the example: its cubes were spaced to overlap by 14% of a cube
+  and dropped to 6%, so a canopy that had read as one slab came apart into a
+  pile of boxes. `props.js` now spaces it 0.86 both ways.
+
+Three tools measure what a screenshot cannot. `npm run verify` runs all of them.
+
+- `tools/overlap.mjs rig` — does a limb pass through the body? An arm is allowed
+  to sit AGAINST a torso; it is not allowed to be buried in one.
+- `tools/overlap.mjs seams` — has an assembly come apart? The opposite failure,
+  and it reports how far each adrift piece is from the main mass, because a
+  hairline between two plates meant to butt up is a different defect from a head
+  floating above a neck.
+- `tools/overlap.mjs buildings` — do two structures share ground? Layout lives in
+  `world/settlement.js`, where a building CLAIMS a rectangle and an intersecting
+  claim is refused, so a street is correct by construction.
+- `tools/proportion.mjs` — is the construct built to the bands scanned off the
+  reference sheet? Feet at 0, crown at 1, five bands, and it is the spec.
+
+**Prove a new check fails on the broken code before keeping it.** Every one of
+these was written against a defect that was live, watched to fail with a real
+number, and only then fixed. An assertion that encodes a mistake is worse than
+no assertion, because it makes the mistake load-bearing — which is how the mark
+stayed wrong for months behind two checks that required the wrong shape.
+
 ## The visual target is the reference video
 
 `C:\Users\xywal\Downloads\sssx.io_1787567672903.mp4` — the footage the user gave
