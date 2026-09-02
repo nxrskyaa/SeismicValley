@@ -70,12 +70,59 @@ export const BELT = [
   { id: 'pewter', label: 'Pewter', belt: '#9a97a6' },
 ]
 
-const TABLES = { skin: SKIN, cap: CAP, shirt: SHIRT, trouser: TROUSER, belt: BELT }
+/**
+ * THE SHAPE OF THE HEAD, which at this camera is the shape of the person.
+ *
+ * Everything above was a colour, and colour alone left every settler the same
+ * silhouette — which is what "hardly any customisation" means on a figure a
+ * hundred pixels tall seen from thirty-seven degrees up. Nobody will ever see a
+ * face, so a face is not the thing to offer; the outline is.
+ *
+ * Rule 4 is untouched. There is still exactly one person in the valley. What
+ * changes is how much say you have in what she looks like, and none of these
+ * are a step toward a village.
+ */
+export const HEADGEAR = [
+  { id: 'cap', label: 'Field cap' },
+  { id: 'hood', label: 'Hood' },
+  { id: 'brim', label: 'Wide brim' },
+  { id: 'band', label: 'Headband' },
+  { id: 'bare', label: 'Bare-headed' },
+]
+
+/** Hair, which the headband and the bare head actually show. */
+export const HAIR = [
+  { id: 'soot', label: 'Soot', hair: '#2f2620' },
+  { id: 'coffee', label: 'Coffee', hair: '#4a3226' },
+  { id: 'chestnut', label: 'Chestnut', hair: '#6d4126' },
+  { id: 'copper', label: 'Copper', hair: '#a5552a' },
+  { id: 'wheat', label: 'Wheat', hair: '#c2a15e' },
+  { id: 'ash', label: 'Ash grey', hair: '#9a948c' },
+]
+
+/** What rides on your back. The second most visible thing from overhead, and
+ *  the reason two settlers in the same colours still read apart. */
+export const PACK = [
+  { id: 'satchel', label: 'Satchel' },
+  { id: 'roll', label: 'Bedroll' },
+  { id: 'basket', label: 'Basket' },
+  { id: 'none', label: 'Nothing' },
+]
+
+const TABLES = {
+  skin: SKIN, cap: CAP, shirt: SHIRT, trouser: TROUSER, belt: BELT,
+  headgear: HEADGEAR, hair: HAIR, pack: PACK,
+}
+
+/** The choices that change GEOMETRY rather than colour. The dressing room can
+ *  repaint a rig in place for everything else; these need it rebuilt. */
+export const SHAPE_KEYS = new Set(['headgear', 'pack'])
 
 /** The default is the settler as she has always been drawn. */
 export const DEFAULT_APPEARANCE = {
   name: 'Surveyor',
   skin: 'sand', cap: 'survey', shirt: 'issue', trouser: 'navy', belt: 'tan',
+  headgear: 'cap', hair: 'coffee', pack: 'satchel',
 }
 
 const pickFrom = (table, id) => table.find((e) => e.id === id) ?? table[0]
@@ -92,6 +139,10 @@ export function lookFrom(a = DEFAULT_APPEARANCE) {
     shirt: h.shirt, sleeve: h.sleeve,
     belt: b.belt, skin: s.skin,
     trouser: t.trouser, boot: t.boot,
+    hair: pickFrom(HAIR, a.hair).hair,
+    // Shape, not colour — `buildPlayer` branches on these.
+    headgear: pickFrom(HEADGEAR, a.headgear).id,
+    pack: pickFrom(PACK, a.pack).id,
   }
 }
 

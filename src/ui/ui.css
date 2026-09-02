@@ -583,6 +583,18 @@ body.is-title .hud { opacity: 0; pointer-events: none; }
   transition: border-color 0.12s, transform 0.12s;
 }
 .swatch i { flex: 1; display: block; }
+/* A shape row has no colour to show, so its buttons carry a word instead of
+   chips — and a word needs room a 1.5u colour square does not have. */
+.swatch:has(.swatch-word) { width: auto; padding: 0 calc(var(--u) * 0.5); }
+.swatch-word {
+  align-self: center;
+  font-size: calc(var(--u) * 0.56);
+  font-weight: 500;
+  letter-spacing: 0.02em;
+  color: var(--cream-deep);
+  white-space: nowrap;
+}
+.swatch.is-on .swatch-word { color: var(--cream); }
 .swatch:hover { border-color: var(--line-strong); }
 /* The chosen one gets the cream rule and a hair of scale. No checkmark: a tick
    over a colour hides the colour, which is the one thing the control shows. */
@@ -726,9 +738,17 @@ body.is-touch .hud .meters { bottom: calc(var(--u) * 10.5); }
   z-index: 44;
   display: grid;
   place-items: center;
-  /* Heavier than the title scrim. The valley is still moving behind it and it
-     is supposed to be, but nothing in it should compete with five lines. */
-  background: linear-gradient(180deg, rgba(12, 8, 7, 0.72), rgba(12, 8, 7, 0.88));
+  /* A VIGNETTE, not a blackout.
+     At 0.72–0.88 flat this buried the valley: the opening was five lines of
+     text over a brown rectangle, which is the opposite of what a staged camera
+     move is for. The world is the shot — it is what the words are about — so
+     the scrim now darkens the edges and the band the text sits in, and leaves
+     the middle of the frame legible. */
+  background:
+    linear-gradient(180deg, rgba(12, 8, 7, 0.82) 0%, rgba(12, 8, 7, 0.16) 26%,
+                    rgba(12, 8, 7, 0.5) 50%, rgba(12, 8, 7, 0.16) 74%,
+                    rgba(12, 8, 7, 0.82) 100%),
+    radial-gradient(ellipse 78% 62% at 50% 50%, rgba(12, 8, 7, 0) 40%, rgba(12, 8, 7, 0.6) 100%);
   transition: opacity 0.6s;
   padding: calc(var(--u) * 2);
   cursor: pointer;
@@ -736,6 +756,9 @@ body.is-touch .hud .meters { bottom: calc(var(--u) * 10.5); }
 .prologue.is-out { opacity: 0; pointer-events: none; }
 .prologue-card { width: min(calc(var(--u) * 38), 92vw); text-align: center; }
 .prologue-lines {
+  /* The scrim is a vignette now, so the type carries its own contrast rather
+     than relying on the panel behind it being nearly black. */
+  text-shadow: 0 1px 10px rgba(8, 5, 4, 0.95), 0 0 26px rgba(8, 5, 4, 0.7);
   margin: 0 0 calc(var(--u) * 2.4);
   min-height: calc(var(--u) * 7);
   opacity: 0;
@@ -859,3 +882,23 @@ body.is-touch .hud .meters {
   left: calc(var(--u) * 1.1);
   width: calc(var(--u) * 9);
 }
+
+/* --- the opening ---------------------------------------------------------- */
+/* Letterbox over the live valley. The bars are the whole reason the prologue
+   reads as staged rather than as a dialogue box that will not go away. */
+.prologue-bar {
+  position: fixed;
+  left: 0;
+  right: 0;
+  height: 9vh;
+  background: #0d0a09;
+  z-index: 1;
+  pointer-events: none;
+  transition: transform 0.9s cubic-bezier(0.22, 0.61, 0.36, 1);
+}
+.prologue-bar.is-top { top: 0; transform: translateY(-100%); }
+.prologue-bar.is-bot { bottom: 0; transform: translateY(100%); }
+.prologue .prologue-bar.is-top,
+.prologue .prologue-bar.is-bot { transform: translateY(0); }
+.prologue.is-out .prologue-bar.is-top { transform: translateY(-100%); }
+.prologue.is-out .prologue-bar.is-bot { transform: translateY(100%); }

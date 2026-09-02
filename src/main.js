@@ -128,6 +128,34 @@ function reshade() {
   terrain.rebuildAll()
 }
 
+/**
+ * WHERE THE OPENING LOOKS.
+ *
+ * The prologue names a shot; this is the only place that knows where anything
+ * in the valley actually is, so the mapping lives here rather than in the UI.
+ * Setting `app.cinematic` takes the camera off the player for the duration —
+ * see the loop, which feeds the rig this target and withholds the player's
+ * input while it is set.
+ */
+function cinematicShot(name) {
+  if (!name) { app.cinematic = null; return }
+  const { grid } = app
+  const at = (x, z, size, yawIndex) => {
+    const [cx, cz] = grid.nearestStandable(Math.round(x), Math.round(z), 20)
+    return { pos: new THREE.Vector3(cx + 0.5, grid.y(cx, cz), cz + 0.5), size, yawIndex }
+  }
+  const spots = {
+    // Tight on the homestead door, which is where she is standing.
+    door: () => at(HOME.x, HOME.z - 2, 9, 0),
+    home: () => at(HOME.x + 2, HOME.z + 3, 15, 1),
+    // Down the length of the ruined street, wide enough to see it is a row.
+    street: () => at(HOME.x - 2, (app.state?.streetZ ?? HOME.z - 16), 22, 0),
+    relay: () => at(HOME.x + 30, (app.state?.streetZ ?? HOME.z - 16), 17, 3),
+    water: () => at(HOME.x - 6, HOME.z + 14, 20, 2),
+  }
+  app.cinematic = (spots[name] ?? spots.home)()
+}
+
 /** Everything the generator plants that is not terrain. Rebuilt wholesale
  *  whenever the player builds: a structure list is a dozen entries long, and
  *  rebuilding it is both simpler and cheaper than diffing it. */
@@ -485,7 +513,7 @@ function runGame() {
           audio.chime()
           showTask()
         }
-        if (!load && !prologueSeen()) showPrologue(root, begin)
+        if (!load && !prologueSeen()) showPrologue(root, begin, { onShot: cinematicShot })
         else begin()
       },
     })
@@ -558,9 +586,23 @@ function runGame() {
         state.hour += dt * HOURS_PER_SECOND
         if (state.hour >= 26) doSleep(true)
       }
-      control.update(dt, input, app.rig.inputYaw)
+      // While the opening is running the camera is on rails and the body is
+      // not taking orders — a settler who wanders off during her own prologue
+      // is the fastest way to make a staged shot look like a bug.
+      if (!app.cinematic) control.update(dt, input, app.rig.inputYaw)
       talking = handleInteraction(talking)
-      focus.copy(app.rig.update(dt, control.pos, app.panels.isOpen ? null : input))
+      if (app.cinematic) {
+        /**
+         * On rails. The rig's own damping does the move, so a cut between cards
+         * is a slow drift rather than a jump — the same trailing that makes the
+         * camera feel weighted in play is exactly what a staged move wants.
+         */
+        app.rig.targetSize = app.cinematic.size
+        app.rig.yawIndex = app.cinematic.yawIndex
+        focus.copy(app.rig.update(dt, app.cinematic.pos, null))
+      } else {
+        focus.copy(app.rig.update(dt, control.pos, app.panels.isOpen ? null : input))
+      }
     } else {
       // Title: a slow drift over the homestead, so the first thing anyone sees
       // is the valley and not a menu on a flat colour.

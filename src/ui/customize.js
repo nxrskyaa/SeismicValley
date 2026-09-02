@@ -3,7 +3,7 @@ import { buildPlayer } from '../actors/player.js'
 import { PITCH } from '../world/camera.js'
 import { skyAt } from '../core/palette.js'
 import {
-  BELT, CAP, SHIRT, SKIN, TROUSER,
+  BELT, CAP, HAIR, HEADGEAR, PACK, SHIRT, SHAPE_KEYS, SKIN, TROUSER,
   DEFAULT_APPEARANCE, lookFrom, randomAppearance,
 } from '../game/appearance.js'
 
@@ -32,6 +32,9 @@ const el = (tag, cls, html) => {
  *  so a shirt reads as a shirt and a sleeve rather than as an average. */
 function chipsFor(entry) {
   const keys = Object.keys(entry).filter((k) => k !== 'id' && k !== 'label')
+  // A shape entry carries no colours, so an empty swatch is all it would draw.
+  // Those rows name themselves instead.
+  if (!keys.length) return `<b class="swatch-word">${entry.label}</b>`
   return keys.map((k) => `<i style="background:${entry[k]}"></i>`).join('')
 }
 
@@ -67,7 +70,7 @@ export function buildCustomizer(appearance = { ...DEFAULT_APPEARANCE }) {
 
   const turntable = new THREE.Group()
   scene.add(turntable)
-  const rig = buildPlayer(lookFrom(state))
+  let rig = buildPlayer(lookFrom(state))
   turntable.add(rig.root)
 
   // A low plate under the boots. Without it the figure floats, and a floating
@@ -83,7 +86,25 @@ export function buildCustomizer(appearance = { ...DEFAULT_APPEARANCE }) {
    *  of geometry on the floor four times a second. */
   function repaint() {
     const look = lookFrom(state)
-    for (const [k, hex] of Object.entries(look)) rig.materials[k]?.color.setStyle(hex, THREE.SRGBColorSpace)
+    for (const [k, hex] of Object.entries(look)) {
+      // Shape choices come through the same object and are ids, not hexes.
+      if (typeof hex === 'string' && hex.startsWith('#')) rig.materials[k]?.color.setStyle(hex, THREE.SRGBColorSpace)
+    }
+  }
+
+  /**
+   * A shape change needs the figure built again — a hood is not a repainted cap.
+   *
+   * Rebuilding on every click would drop a whole figure of geometry on the floor
+   * four times a second, which is why the colour path repaints in place. This
+   * runs only when a `SHAPE_KEYS` row is clicked, so it is a handful of rebuilds
+   * in a session, and the old rig is disposed rather than leaked.
+   */
+  function reshape() {
+    turntable.remove(rig.root)
+    rig.root.traverse((o) => { o.geometry?.dispose?.() })
+    rig = buildPlayer(lookFrom(state))
+    turntable.add(rig.root)
   }
 
   let raf = 0
@@ -132,7 +153,8 @@ export function buildCustomizer(appearance = { ...DEFAULT_APPEARANCE }) {
       b.addEventListener('click', () => {
         state[key] = entry.id
         sync()
-        repaint()
+        if (SHAPE_KEYS.has(key)) reshape()
+        else repaint()
       })
       strip.append(b)
       return { entry, b }
@@ -143,10 +165,13 @@ export function buildCustomizer(appearance = { ...DEFAULT_APPEARANCE }) {
   }
 
   row('skin', 'Skin', SKIN)
+  row('headgear', 'Head', HEADGEAR)
+  row('hair', 'Hair', HAIR)
   row('cap', 'Cap', CAP)
   row('shirt', 'Shirt', SHIRT)
   row('trouser', 'Trousers', TROUSER)
   row('belt', 'Strap', BELT)
+  row('pack', 'Pack', PACK)
 
   function sync() {
     for (const r of rows) {
