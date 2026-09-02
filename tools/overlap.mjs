@@ -14,6 +14,7 @@
  *   node tools/overlap.mjs rig        the constructs and the player
  *   node tools/overlap.mjs buildings  every structure the generator places
  *   node tools/overlap.mjs seams      assemblies that have come apart
+ *   node tools/overlap.mjs looks      every appearance the player can choose
  */
 
 import * as THREE from 'three'
@@ -263,6 +264,111 @@ if (MODE === 'seams') {
       if (worst > (height ?? 1) * 0.004) fail(`${name}: has come apart`, detail)
       else ok(`${name}: one mass, hairline joins only (${detail})`)
     } else ok(`${name}: one connected mass (${boxes.length} meshes)`)
+  }
+}
+
+if (MODE === 'looks') {
+  /**
+   * EVERY LOOK, not just the default one.
+   *
+   * Five headgear shapes and four packs went in and only one combination was
+   * ever built by any tool here — the default — because `rig` mode builds the
+   * settler with `buildPlayer('apprentice')` and nothing else. The wide brim
+   * shipped as a slab through the middle of the head and the headband shipped
+   * across the eyes like a blindfold, and both were invisible to a suite of two
+   * hundred and twenty-eight checks.
+   *
+   * The rule is not "nothing touches" — a hat is SUPPOSED to sit on a head. It
+   * is that nothing may be put in front of the face: anything crossing the head
+   * where the eyes are has to sit above them.
+   */
+  const { buildPlayer } = await import('../src/actors/player.js')
+  const { lookFrom, HEADGEAR, PACK, DEFAULT_APPEARANCE } = await import('../src/game/appearance.js')
+
+  for (const gear of HEADGEAR) {
+    for (const pack of PACK) {
+      const rig = buildPlayer(lookFrom({ ...DEFAULT_APPEARANCE, headgear: gear.id, pack: pack.id }))
+      rig.root.updateWorldMatrix(true, true)
+      const name = `${gear.label} + ${pack.label}`
+
+      const eyes = new THREE.Box3()
+      for (const e of rig.eyes ?? []) {
+        e.updateWorldMatrix(true, false)
+        e.geometry.computeBoundingBox()
+        eyes.union(e.geometry.boundingBox.clone().applyMatrix4(e.matrixWorld))
+      }
+      if (eyes.isEmpty()) { fail(`${name}: the rig has no eyes to check against`); continue }
+
+      /**
+       * The head block itself is exempt, and has to be: the cap IS the head at
+       * this size and the eyes are set into its front face, so a rule that did
+       * not exempt it flagged all twenty looks including the ones that are
+       * fine. It is the largest piece under the head pivot, every time.
+       */
+      const pieces = rig.head.children.filter(
+        (c) => c.isMesh && c.material?.side !== THREE.BackSide
+          && !(rig.eyes ?? []).includes(c) && c !== rig.face,
+      )
+      const volume = (c) => {
+        c.geometry.computeBoundingBox()
+        const s = c.geometry.boundingBox.getSize(new THREE.Vector3())
+        return s.x * s.y * s.z
+      }
+      const skull = pieces.reduce((a, b) => (volume(a) >= volume(b) ? a : b), pieces[0])
+
+      let worst = null
+      for (const child of pieces) {
+        if (child === skull) continue
+        child.updateWorldMatrix(true, false)
+        child.geometry.computeBoundingBox()
+        const b = child.geometry.boundingBox.clone().applyMatrix4(child.matrixWorld)
+
+        // Only pieces that reach across the front of the head can hide a face.
+        const acrossX = b.min.x < eyes.max.x && b.max.x > eyes.min.x
+        const reachesFront = b.max.z > eyes.min.z - 0.02
+        if (!acrossX || !reachesFront) continue
+
+        // It has to clear the eyes, or sit behind/below the chin entirely.
+        const overEyes = b.min.y >= eyes.max.y - 0.01
+        const underChin = b.max.y <= eyes.min.y + 0.01
+        if (!overEyes && !underChin) {
+          const bury = Math.min(eyes.max.y, b.max.y) - Math.max(eyes.min.y, b.min.y)
+          if (!worst || bury > worst.bury) worst = { bury, y: [b.min.y.toFixed(3), b.max.y.toFixed(3)] }
+        }
+      }
+      /**
+       * And nothing may be wider than the shoulders.
+       *
+       * The face rule alone missed the wide brim, which sat just BELOW the eye
+       * line rather than across it — technically clear of the face and still a
+       * slab through the middle of the head. Measured against the torso is the
+       * honest limit: a hat may be the widest thing on the head, it may not be
+       * the widest thing on the person.
+       */
+      // OWN meshes, not traversed — the head is a CHILD of the chest, so a
+      // traversed torso silhouette includes the hat and every brim measured as
+      // exactly 1.00x itself. Same trap as the ink hulls in `rig` mode.
+      const span = (n) => {
+        const b = ownBox(n)
+        return b ? b.max.x - b.min.x : 0
+      }
+      const ratio = span(rig.head) / span(rig.chest)
+      /**
+       * The head is MEANT to be wider than the shoulders in this rig — the cap
+       * measures 1.15x the torso and that is the chunky proportion the whole
+       * figure is built on. The limit is what separates a hat from a table: the
+       * shipped brim was 1.70x.
+       */
+      if (ratio > 1.55) {
+        fail(`${name}: the headgear is wider than the figure`,
+          `${ratio.toFixed(2)}x the torso — a plain cap is 1.15x`)
+      }
+
+      if (worst) {
+        fail(`${name}: something is across the face`,
+          `a piece spanning y ${worst.y[0]}..${worst.y[1]} crosses the eyes at y ${eyes.min.y.toFixed(3)}..${eyes.max.y.toFixed(3)}`)
+      } else ok(`${name}: the face is clear`)
+    }
   }
 }
 

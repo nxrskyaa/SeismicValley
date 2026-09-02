@@ -246,22 +246,38 @@ export function buildPlayer(lookKey = 'apprentice') {
       box(head, [0.66, 0.2, 0.2], [0, 0.02, -0.16], MAT.capDark, 0.05)
       break
     case 'brim':
-      // A disc, and it is the widest thing on the figure — unmistakable from
-      // overhead, which is the whole point of offering it.
-      box(head, [0.92, 0.06, 0.86], [0, 0.1, -0.02], MAT.capDark, 0.1)
-      box(head, [0.5, 0.14, 0.44], [0, 0.42, 0], MAT.cap, 0.05)
+      /**
+       * ABOVE THE FACE, and no wider than the shoulders.
+       *
+       * It shipped at 0.92 x 0.86 sitting at y 0.10 — which is INSIDE the head
+       * block, below the top of the face — so it read as a slab driven through
+       * the middle of the character, and it made the head as wide as the whole
+       * torso (1.00x, against 0.81x for the cap). A hat wider than the shoulders
+       * stops being clothing and becomes a prop the figure is standing under.
+       *
+       * Now it sits just clear of the face plate, which tops out at 0.23.
+       */
+      box(head, [0.8, 0.05, 0.72], [0, 0.28, 0], MAT.capDark, 0.09)
+      box(head, [0.56, 0.07, 0.48], [0, 0.33, 0], MAT.cap, 0.03)
       break
     case 'band':
-      box(head, [0.64, 0.09, 0.54], [0, 0.15, 0], MAT.cap, 0.02)
+      // On the forehead, not over the eyes. At y 0.15 it ran straight across
+      // them and read as a blindfold with eyes painted on it.
+      box(head, [0.64, 0.08, 0.55], [0, 0.29, 0], MAT.cap, 0.02)
       break
     default:
       // Bare: a short fringe, so the front of the head is not a blank block.
       box(head, [0.5, 0.1, 0.08], [0, 0.3, 0.24], MAT.hair, 0.02)
       break
   }
-  box(head, [0.44, 0.2, 0.05], [0, 0.13, 0.26], MAT.skin)
+  // The face itself, tagged alongside the eyes so the look check knows which
+  // pieces are the FACE and which are things put in front of it.
+  parts.face = box(head, [0.44, 0.2, 0.05], [0, 0.13, 0.26], MAT.skin)
+  // Recorded, because `tools/overlap.mjs looks` needs to know where the face is
+  // to check that no hat has been put across it.
+  parts.eyes = []
   for (const side of [-1, 1]) {
-    box(head, [0.07, 0.07, 0.03], [side * 0.1, 0.16, 0.29], MAT.eye, 0.01)
+    parts.eyes.push(box(head, [0.07, 0.07, 0.03], [side * 0.1, 0.16, 0.29], MAT.eye, 0.01))
   }
 
   // --- arms ----------------------------------------------------------------

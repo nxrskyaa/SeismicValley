@@ -15,7 +15,7 @@
     "soak": "node tools/soak.mjs",
     "overlap": "node tools/overlap.mjs",
     "proportion": "node tools/proportion.mjs",
-    "verify": "node tools/checks.js && node tools/economy.mjs && node tools/direction.mjs && node tools/motion.mjs && node tools/idle.mjs && node tools/overlap.mjs rig && node tools/overlap.mjs buildings && node tools/overlap.mjs seams && node tools/proportion.mjs",
+    "verify": "node tools/checks.js && node tools/economy.mjs && node tools/direction.mjs && node tools/motion.mjs && node tools/idle.mjs && node tools/overlap.mjs rig && node tools/overlap.mjs buildings && node tools/overlap.mjs seams && node tools/overlap.mjs looks && node tools/proportion.mjs",
     "motion": "node tools/motion.mjs",
     "idle": "node tools/idle.mjs",
     "economy": "node tools/economy.mjs",

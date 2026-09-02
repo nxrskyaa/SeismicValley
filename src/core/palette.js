@@ -222,14 +222,33 @@ export const M = {
  * over pale sand — and the terracing stops being visible at all. The palette was
  * the obvious suspect and it was not the problem; the ratio was.
  */
+/**
+ * THE DAWN AND DUSK AMBIENTS AGREE WITH THEIR OWN KEY NOW.
+ *
+ * At 06:00 the key was a saturated orange (#ffb887) and the fill was a cool
+ * purple (#8c8298) — near-complementary hues at similar weight, which do not
+ * read as a warm dawn, they cancel into brown-grey mud. Every surface in the
+ * valley got some of each and came out the colour of neither.
+ *
+ * It mattered far more than an edge case should, because THE DAY STARTS AT
+ * 06:00: those two hours are not a corner of the curve, they are the first
+ * thing every player sees, every time. At 13:00 the same valley is clean, which
+ * is what proved it was the grade and not the palette or the strata.
+ *
+ * The fix is hue agreement, not brightness. This keyframe's own horizon is
+ * #e0a583, a peach, so a fill halfway between that and the blue dome — about
+ * #a69091 — is what the sky at that hour would actually throw. Dusk at 18.2 had
+ * the identical fault and gets the identical correction. Energies came up a
+ * little with them; the shape of the curve is unchanged.
+ */
 const SKY = [
   { t: 0.0, top: '#1d2733', hor: '#2b3540', fog: '#2c3742', sun: '#5d6f8f', energy: 0.16, amb: '#46566e', ambE: 0.62 },
   { t: 4.4, top: '#243046', hor: '#3d4356', fog: '#3a3f52', sun: '#6a7396', energy: 0.22, amb: '#4d5a78', ambE: 0.64 },
-  { t: 6.0, top: '#6d7ba0', hor: '#e0a583', fog: '#c8a496', sun: '#ffb887', energy: 0.72, amb: '#8c8298', ambE: 0.62 },
+  { t: 6.0, top: '#6d7ba0', hor: '#e0a583', fog: '#c8a496', sun: '#ffb887', energy: 0.80, amb: '#a89299', ambE: 0.66 },
   { t: 8.0, top: '#b9c2dc', hor: '#e8d9c4', fog: '#dcd0cc', sun: '#ffeed9', energy: 1.02, amb: '#c9c0b4', ambE: 0.74 },
   { t: 12.0, top: '#c7c6e2', hor: '#e9e2ea', fog: '#cfc6dc', sun: '#fff8ec', energy: 1.18, amb: '#ccc2b8', ambE: 0.80 },
   { t: 16.0, top: '#c2c0dd', hor: '#ecdfd6', fog: '#d3c8d6', sun: '#fff2e4', energy: 1.10, amb: '#cabfb6', ambE: 0.78 },
-  { t: 18.2, top: '#8e88b4', hor: '#e9ab84', fog: '#c9a091', sun: '#ffb073', energy: 0.78, amb: '#9a8ba0', ambE: 0.64 },
+  { t: 18.2, top: '#8e88b4', hor: '#e9ab84', fog: '#c9a091', sun: '#ffb073', energy: 0.82, amb: '#a8919d', ambE: 0.66 },
   { t: 19.6, top: '#4d4a70', hor: '#a3708b', fog: '#7d6a86', sun: '#c98a8c', energy: 0.40, amb: '#6d6a8a', ambE: 0.62 },
   { t: 21.0, top: '#22303a', hor: '#33414a', fog: '#33404a', sun: '#66788f', energy: 0.18, amb: '#495a6e', ambE: 0.62 },
   { t: 24.0, top: '#1d2733', hor: '#2b3540', fog: '#2c3742', sun: '#5d6f8f', energy: 0.16, amb: '#46566e', ambE: 0.62 },
