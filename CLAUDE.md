@@ -23,7 +23,13 @@ feel.
    (9–22), measured off the reference. Perspective makes the terraces read as
    generic low-poly.
 3. **`LEVEL` is 1.0 and `shadowMap.enabled` is false.** A step is a wall, not a
-   kerb, and the reference has no cast shadows anywhere in it.
+   kerb, and the reference has no HARD directional shadows. It was written here
+   as "no cast shadows anywhere in it", and that reading was too strong — it cost
+   the game every shadow it had. Sampled off the footage, ground pixels fall into
+   two modes, lit at 188 and shaded at 164: a **0.87 multiplier**, feathered over
+   several cells, under every canopy. So the shadow map stays off and the
+   occlusion is real — baked into the terrain's vertex colours for anything that
+   stands still (`world/occlusion.js`), one quad for the five things that move.
 4. **You are alone.** One human look in `actors/player.js`. No villagers, no
    market, no quest-giver — the survivors are scattered and do not know about
    each other. The check counts the entries in `LOOKS`.
