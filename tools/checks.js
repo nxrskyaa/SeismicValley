@@ -23,6 +23,7 @@
  * Plain node, no test runner. `npm run check`.
  */
 
+import { buildSettlement } from '../src/world/settlement.js'
 import { readFileSync, readdirSync, statSync } from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -820,6 +821,16 @@ console.log('\ngameplay')
 
   const { grid } = generate(1234)
   const state = new GameState(grid, 1234)
+  /**
+   * The settlement has to be laid out before anything can be hoed.
+   *
+   * Tilling is confined to PLOTS now — it used to be legal on any meadow tile in
+   * the valley, sixty-five per cent of the land, which is why no place in the
+   * game meant anything. The homestead's own plot is opened by
+   * `buildSettlement`, so a check that skips it is testing a world the player
+   * never sees.
+   */
+  buildSettlement(state, grid)
 
   let plot = null
   for (let z = HOME.z - 7; z < HOME.z + 7 && !plot; z++) {
@@ -900,11 +911,19 @@ console.log('\ngameplay')
   state.give('stone', 60)
   state.give('fibre', 30)
   assert(state.build('shed', px + 6, pz) === 'swing', 'a shed can be built')
-  const shed = state.buildings.find((b) => b.kind === 'shed')
+  /**
+   * BY POSITION, not by kind.
+   *
+   * The colony's own shed and kiln stand on the street now — derelict, and
+   * registered, because they were there when the rollback ran. A lookup by kind
+   * alone found THOSE and tested the wrong building entirely.
+   */
+  const at = (kind, x, z) => state.buildings.find((b) => b.kind === kind && b.x === x && b.z === z)
+  const shed = at('shed', px + 6, pz)
   assert(shed && shed.registered === false, 'and it is NOT registered when it is built')
 
   assert(state.build('kiln', px + 6, pz + 4) === 'swing', 'a kiln can be built')
-  const kiln = state.buildings.find((b) => b.kind === 'kiln')
+  const kiln = at('kiln', px + 6, pz + 4)
   assert(state.canAfford(STAKE_COST), 'a stake is affordable')
   assert(state.stake(kiln), 'a stake can be driven')
   assert(kiln.registered === true, 'and the structure goes into the record')
@@ -923,8 +942,8 @@ console.log('\ngameplay')
   const report = pruning.apply()
   assert(report.taken.includes('shed'), 'the pass takes the unregistered shed apart')
   assert(!report.taken.includes('kiln'), 'and goes around the staked kiln')
-  assert(state.buildings.some((b) => b.kind === 'kiln'), 'the kiln is still standing')
-  assert(!state.buildings.some((b) => b.kind === 'shed'), 'the shed is not')
+  assert(!!at('kiln', px + 6, pz + 4), 'the kiln is still standing')
+  assert(!at('shed', px + 6, pz), 'the shed is not')
   assert(state.buildings.some((b) => b.kind === 'homestead'), 'the homestead is never taken — it is where you sleep')
   assert(state.count('wood') > before, 'and the components are stacked where it stood')
   assert(state.buildings.some((b) => b.kind === 'crate'), 'the shipping crate you started with is never taken')

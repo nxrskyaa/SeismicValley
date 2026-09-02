@@ -16,6 +16,7 @@ import { Water_Life } from './world/fish.js'
 import { Weather } from './world/weather.js'
 import { Sky } from './world/sky.js'
 import { CameraRig } from './world/camera.js'
+import { RESTORE, costText } from './game/colony.js'
 import { flagpole, placeStructure } from './world/buildings.js'
 import { buildSettlement } from './world/settlement.js'
 import { PlayerController, buildPlayer } from './actors/player.js'
@@ -120,7 +121,13 @@ function syncStructures() {
   }
   const group = new THREE.Group()
   group.name = 'structures'
-  for (const b of state.buildings) group.add(placeStructure(b.kind, b.level ?? 1, grid, b.x, b.z))
+  for (const b of state.buildings) {
+    const node = placeStructure(b.kind, b.level ?? 1, grid, b.x, b.z, b.derelict)
+    // The record itself, so the prompt can ask whether this thing is a ruin
+    // without searching `state.buildings` by coordinate every frame.
+    node.userData.building = b
+    group.add(node)
+  }
   scene.add(group)
   app.structures = group
 }
@@ -662,7 +669,16 @@ function handleInteraction(talking) {
   const prop = grid.get('prop', tx, tz)
   const crop = grid.get('crop', tx, tz)
   const struct = structureAt(tx, tz)
+  const ruined = struct?.userData.building?.derelict ? struct.userData.building : null
   if (near) prompt = `<b>E</b> — speak to ${near.spec.name}`
+  else if (ruined) {
+    // The whole direction of the game is on this line, so it says the price
+    // rather than making the player open a panel to find out.
+    const spec = RESTORE[ruined.kind]
+    prompt = `<b>E</b> — put ${spec.label} back · ${costText(spec.cost)}`
+  } else if (struct?.userData.kind === 'kiln' && state.unlocked.has('fire')) {
+    prompt = '<b>E</b> — fire cut stone · 3 stone'
+  }
   else if (struct?.userData.kind === 'crate') prompt = '<b>E</b> — the shipping crate'
   else if (struct?.userData.kind === 'homestead') prompt = '<b>E</b> — go inside'
   else if (struct?.userData.kind === 'well') prompt = '<b>E</b> — fill the can'
@@ -724,6 +740,21 @@ function handleInteraction(talking) {
     if (talking) {
       talking = null
       hud.say(null)
+    }
+    if (ruined) {
+      if (state.restore(ruined)) {
+        app.player.play('swing')
+        audio.build?.()
+        syncStructures()
+      }
+      return talking
+    }
+    if (struct?.userData.kind === 'kiln' && state.unlocked.has('fire')) {
+      if (state.fire(1)) {
+        app.player.play('swing')
+        audio.build?.()
+      }
+      return talking
     }
     if (struct?.userData.kind === 'crate') {
       panels.open('crate')

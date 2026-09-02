@@ -58,6 +58,16 @@ export class Grid {
     this.crop = new Uint8Array(N * N) // index into CROP_ORDER + 1; 0 is bare
     this.grown = new Uint8Array(N * N) // watered days accumulated
     this.prop = new Uint8Array(N * N)
+    /**
+     * GROUND YOU ARE ALLOWED TO WORK.
+     *
+     * Without this, `canTill` said yes to any meadow, loam or ash tile in the
+     * whole valley — measured, sixty-five per cent of the land, four thousand
+     * four hundred tiles. When everywhere is a farm, nowhere is, and the street
+     * and the homestead meant nothing because you could just as well hoe the
+     * ridge. A plot is opened by restoring the cottage it belongs to.
+     */
+    this.plot = new Uint8Array(N * N)
     this.propData = new Uint8Array(N * N) // species, growth stage, or geode contents
     /** Chunk indices waiting to be remeshed. A Set, so the same edit landing
      *  twice in one frame does not queue two rebuilds of the same chunk. */
@@ -160,6 +170,7 @@ export class Grid {
     if (!Grid.inBounds(x, z) || this.isWater(x, z)) return false
     if (this.prop[z * N + x] !== P.NONE) return false
     if (this.tilled[z * N + x]) return false
+    if (!this.plot[z * N + x]) return false
     const g = this.ground[z * N + x]
     return g === G.MEADOW || g === G.LOAM || g === G.ASH
   }

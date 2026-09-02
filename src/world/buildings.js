@@ -557,6 +557,76 @@ export function waymark(level = 1) {
   return { geometry: bake(parts), footprint: [4, 3], height: h + 0.4 }
 }
 
+/**
+ * WHAT IS LEFT OF ONE OF THE COLONY'S BUILDINGS.
+ *
+ * The street used to be handed over finished on day one, which is most of the
+ * reason the game had no perceivable direction: everything you were meant to
+ * work toward was already standing as scenery. Derelict, the same street reads
+ * as a to-do list from across the valley — and it has to READ as one, because a
+ * building that is merely a bit darker is a building the player walks past.
+ *
+ * So a ruin is its own mesh rather than the finished building squashed: wall
+ * stubs at the corners and along the courses, broken to different heights,
+ * with the rubble that came off them lying inside the footprint. Deterministic
+ * from the footprint, so a given building looks the same every time the scene
+ * is rebuilt.
+ */
+export function ruin(kind, footprint = [6, 5]) {
+  const [fw, fd] = footprint
+  const w = fw - 1.4
+  const d = fd - 1.4
+  const parts = [
+    // The slab it stood on. This is what survives, always.
+    /**
+     * The slab reads as GROUND, not as a hole.
+     *
+     * At `stoneDark` the footprints came out as flat brown rectangles from the
+     * camera's pitch — the eye read them as pits dug in the meadow rather than
+     * as floors somebody laid, and a street of them looked like damage to the
+     * terrain instead of buildings waiting to be put back.
+     */
+    { geometry: chamferBox(w + 0.5, 0.18, d + 0.5, 0.05), position: [0, 0.09, 0], color: mix(UI.stone, UI.stoneDeep, 0.3) },
+  ]
+
+  /** A stub of wall, broken off at `h`. */
+  const stub = (x, z, sw, sd, h, tone) =>
+    parts.push({ geometry: chamferBox(sw, h, sd, 0.05), position: [x, 0.18 + h / 2, z], color: tone })
+
+  // Four corners, none of them the same height — an even row of stumps reads as
+  // a foundation someone laid, not as something that fell down.
+  const hs = [0.95, 0.5, 0.72, 0.34]
+  const corners = [[-1, -1], [1, -1], [1, 1], [-1, 1]]
+  corners.forEach(([sx, sz], i) => {
+    // Alternating tones so the corners separate from each other and from the
+    // slab. One tone across the whole ruin flattened it into a single mass.
+    stub(sx * w / 2, sz * d / 2, 0.55, 0.55, hs[i], i % 2 ? UI.creamShade : UI.stoneLit)
+  })
+
+  // A course still standing along one long wall, and a gap where the rest went.
+  stub(-w / 6, -d / 2, w * 0.5, 0.38, 0.42, UI.creamWarm)
+  stub(w / 2, d / 6, 0.38, d * 0.4, 0.3, UI.stoneMid)
+
+  // The rubble. Off-centre and uneven, because a tidy pile reads as storage.
+  const spots = [[-0.6, 0.3, 0.5], [0.8, -0.5, 0.38], [0.1, 0.9, 0.3], [-1.1, -0.8, 0.26]]
+  for (const [rx, rz, r] of spots) {
+    parts.push({
+      geometry: stoneLump(Math.round((rx + 2) * 7 + (rz + 2) * 3), { radius: r, height: r * 1.1 }),
+      position: [rx, 0.18 + r * 0.5, rz],
+      color: mix(UI.stoneMid, UI.creamShade, 0.35),
+    })
+  }
+
+  // The relay keeps its mast even in pieces — it is the thing on the skyline
+  // that tells you the street is not finished.
+  if (kind === 'relay') {
+    parts.push({ geometry: COLUMN, position: [0.2, 1.5, -0.3], scale: [0.22, 3.0, 0.22], color: UI.stoneDeep })
+    parts.push({ geometry: chamferBox(0.9, 0.16, 0.5, 0.04), position: [0.2, 2.9, -0.3], color: UI.stoneMid })
+  }
+
+  return { geometry: bake(parts), footprint, height: kind === 'relay' ? 3.2 : 1.2, derelict: true }
+}
+
 export const KINDS = {
   waymark: (lv) => waymark(lv),
   homestead: (lv) => homestead(lv),
@@ -575,8 +645,9 @@ export const KINDS = {
  * A placed structure in the scene: the baked mesh, plus the few things that
  * cannot be baked because they move or glow.
  */
-export function placeStructure(kind, level, grid, x, z) {
-  const built = KINDS[kind](level)
+export function placeStructure(kind, level, grid, x, z, derelict = false) {
+  // A ruin is a different mesh, not a dimmed one — see `ruin` above.
+  const built = derelict ? ruin(kind, KINDS[kind](level).footprint) : KINDS[kind](level)
   const group = new THREE.Group()
   group.name = kind
   const mesh = new THREE.Mesh(built.geometry, applyWrappedLight(bakedMat()))

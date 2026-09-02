@@ -2,6 +2,7 @@ import { KINDS } from './buildings.js'
 import { Grid, N, P } from './grid.js'
 import { G } from '../core/palette.js'
 import { GATE, HOME } from './worldgen.js'
+import { isRestorable, openPlot, plotFor } from '../game/colony.js'
 
 /**
  * WHERE EVERYTHING STANDS.
@@ -140,6 +141,9 @@ export function planSettlement(grid) {
  */
 export function buildSettlement(state, grid) {
   const plan = planSettlement(grid)
+  // Plots are measured relative to the street, so the state has to remember
+  // where it ran long after the generator has finished.
+  state.streetZ = plan.streetZ
 
   // One height for the whole street, so a row of houses is a row and not a
   // staircase.
@@ -158,9 +162,36 @@ export function buildSettlement(state, grid) {
         if (grid.get('prop', nx, nz) === P.TREE) grid.set('prop', nx, nz, P.NONE)
       }
     }
-    state.buildings.push({ kind: c.kind, level: c.level, x: c.x, z: c.z, registered: true })
+    /**
+     * THE COLONY'S BUILDINGS START RUINED.
+     *
+     * They used to be handed over finished on day one — eight cottages, a well,
+     * a kiln, a shed, a vault and the relay, all free — while `BUILD_COST` asked
+     * the player to build a kiln and a well of their own. Everything the game
+     * wanted you to work toward was already standing as scenery, which is most
+     * of why it had no perceivable direction. Derelict, the same street IS the
+     * direction. See `game/colony.js`.
+     *
+     * The footprint travels with the record because the plot a cottage opens is
+     * measured off it, and nothing else at repair time knows how big it was.
+     */
+    state.buildings.push({
+      kind: c.kind, level: c.level, x: c.x, z: c.z, registered: true,
+      derelict: isRestorable(c.kind), fw: c.fw, fd: c.fd,
+    })
     grid.set('prop', c.x, c.z, P.BUILDING)
   }
+
+  /**
+   * YOUR OWN GROUND, open from the start.
+   *
+   * Tilling is now confined to plots, and every other plot is behind a cottage
+   * that has to be repaired first — so without this the player cannot hoe a
+   * single square on day one and the tutorial's third step is impossible. The
+   * homestead's plot is the one piece of the valley that is yours already.
+   */
+  const home = plan.placed.find((c) => c.kind === 'homestead')
+  if (home) openPlot(grid, plotFor({ ...home, z: home.z }, plan.streetZ))
 
   // The path down the middle, once the plots are level.
   for (let x = HOME.x - 28; x <= HOME.x + 34; x++) {

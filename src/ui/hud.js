@@ -3,6 +3,7 @@ import { keycaps } from './keycaps.js'
 import { SEASON_DAYS, SEASON_NAMES, SEASON_SHORT, WEATHER } from '../game/crops.js'
 import { item } from '../game/items.js'
 import { MANIFEST_TOTAL } from '../game/story.js'
+import { restoreProgress } from '../game/colony.js'
 import { MAX_STAMINA, MAX_WATER } from '../game/state.js'
 import { iconFor } from './icons.js'
 
@@ -141,6 +142,7 @@ export class HUD {
     state.on('vitals', () => this.drawMeters())
     state.on('day', () => this.drawAll())
     state.on('manifest', () => this.drawLog())
+    state.on('colony', () => this.drawLog())
     state.on('toast', (t) => this.toast(t.text, t.tone))
     state.on('fragment', (f) => this.showFragment(f))
     state.on('pruning', (p) => this.onPruning(p))
@@ -212,7 +214,20 @@ export class HUD {
     this.logDate.textContent = `${SEASON_SHORT[s.season]} ${dayOfSeason} / ${SEASON_DAYS}`
     this.logDate.title = `${SEASON_NAMES[s.season]}, year ${s.year}`
     this.logWeather.textContent = WEATHER[s.weather].label
-    this.logManifest.textContent = `Manifest ${s.manifestCount} / ${MANIFEST_TOTAL}`
+    /**
+     * THE GOAL, and it has to be a number that can actually be reached.
+     *
+     * This line used to read `Manifest 0 / 406` against the twelve crops the
+     * game contained, ten of which had no seed and could never be planted — so
+     * the only stated objective was a bar with a true ceiling of two out of four
+     * hundred and six, which never visibly moved and never ended. The street is
+     * finite, it is visible from anywhere in the valley, and finishing it ends
+     * the game. The Manifest stays, behind it, as what the street is FOR.
+     */
+    const street = restoreProgress(s)
+    this.logManifest.textContent = street.done >= street.total
+      ? `The street is whole · Manifest ${s.manifestCount}`
+      : `Street ${street.done} / ${street.total} · Manifest ${s.manifestCount} of ${MANIFEST_TOTAL}`
   }
 
   drawMeters() {

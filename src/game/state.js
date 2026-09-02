@@ -1,7 +1,8 @@
 import { G } from '../core/palette.js'
 import { chance, pick, randInt, rng } from '../core/rng.js'
 import { Grid, N, P } from '../world/grid.js'
-import { CROPS, cropForSeed, cropIdAt, cropIndex, isRipe, regrowReset, SEASON_DAYS, SEASON_NAMES, seasonalSeeds, TREES, TREE_ORDER, WEATHER, WEATHER_ODDS, WEATHER_ORDER } from './crops.js'
+import { RESTORE, availableSpecies, isRestorable, openPlot, plotFor, restoreProgress } from './colony.js'
+import { CROPS, SEASON_DAYS, SEASON_NAMES, TREES, TREE_ORDER, WEATHER, WEATHER_ODDS, WEATHER_ORDER, cropForSeed, cropIdAt, cropIndex, isRipe, regrowReset, seasonalSeeds, seedFor } from './crops.js'
 import { STARTING_HOTBAR, item, isTool, valueOf } from './items.js'
 import { PEBBLE_NAMES, TRAIT_KEYS } from '../actors/pebble.js'
 import { LOGS, MANIFEST_TOTAL, TAGS } from './story.js'
@@ -60,6 +61,12 @@ export class GameState {
     this.tomorrow = 'CLEAR'
 
     this.coin = 60
+    /**
+     * Capabilities earned by putting the street back — 'fire', 'water', 'stock',
+     * 'seed', 'relay'. Read by name so `colony.js` stays a description of the
+     * design instead of a pile of reach-ins. See `game/colony.js`.
+     */
+    this.unlocked = new Set()
     this.water = MAX_WATER
     this.stamina = MAX_STAMINA
     this.homeTier = 1
@@ -281,6 +288,21 @@ export class GameState {
       this.say(`${item(id).name} recovered. ${this.recovered.size} of 406.`, 'good')
       this.addJournal(`${item(id).name} carried through to a harvest. Written back onto the chip.`)
     }
+    /**
+     * A HARVEST RETURNS ITS OWN SEED.
+     *
+     * Without this the farming loop was finite and short: the player was handed
+     * fourteen seeds of two species, nothing anywhere gave out another, and the
+     * other ten crops had no source at all — so ten of twelve could never be
+     * planted and the Manifest's true ceiling was two. `tools/economy.mjs` fails
+     * if that is ever true again.
+     *
+     * One seed back per harvest keeps a species alive once you have it and no
+     * more than that; two makes it compound and the plots stop mattering. The
+     * seed VAULT is what hands out the species you have never grown, and it is
+     * on the street waiting to be repaired.
+     */
+    this.give(seedFor(id), 1)
     this.spend(0.7)
     const reset = regrowReset(id)
     if (reset < 0) {
@@ -439,6 +461,83 @@ export class GameState {
     this.emit('build', { kind: building.kind, registered: true })
     this.say('Stake driven. It is in the record now.', 'good')
     return true
+  }
+
+  /**
+   * PUT ONE OF THE COLONY'S BUILDINGS BACK.
+   *
+   * The whole direction of the game runs through this one method: a cottage
+   * gives back a plot you may hoe, the works buildings give back a capability,
+   * and the relay is last because it needs what the kiln makes. Nothing here is
+   * a quest — the costs do the sequencing on their own.
+   */
+  restore(building) {
+    if (!building || !isRestorable(building.kind) || !building.derelict) return false
+    const spec = RESTORE[building.kind]
+    if (!this.canAfford(spec.cost)) {
+      this.say(`Not enough to put ${spec.label} back yet.`, 'warn')
+      return false
+    }
+    this.pay(spec.cost)
+    building.derelict = false
+    building.registered = true
+
+    if (spec.opens) {
+      const opened = openPlot(this.grid, plotFor(building, this.streetZ))
+      this.say(`${opened} squares of plot open again.`, 'good')
+    }
+    if (spec.unlocks) this.unlocked.add(spec.unlocks)
+
+    // The seed vault is the reason ten species were unreachable, and opening it
+    // is the moment the farming half of the game actually starts.
+    if (spec.unlocks === 'seed') {
+      for (const id of availableSpecies(this)) if (!this.has(seedFor(id), 1)) this.give(seedFor(id), 2)
+      this.say('The vault is open. Everything that is left of the four hundred and six.', 'good')
+    }
+
+    this.stats.restored = (this.stats.restored ?? 0) + 1
+    this._pendingRebuild.structures = true
+    this.addJournal(`Put ${spec.label} back on day ${this.day}.`)
+    this.emit('build', { kind: building.kind, restored: true })
+    this.emit('colony', restoreProgress(this))
+
+    const { done, total } = restoreProgress(this)
+    if (done >= total) this.finish()
+    return true
+  }
+
+  /**
+   * Fire stone down to cut stone.
+   *
+   * `cutstone` had NO producer anywhere in the game, and three cost tables asked
+   * for it: the well, the vault, and both homestead upgrades. Two of the four
+   * buildable structures and the entire home progression were unreachable, and
+   * nothing failed — the game simply advertised a route it did not have.
+   */
+  fire(n = 1) {
+    if (!this.unlocked.has('fire')) {
+      this.say('The kiln is a heap of stone. It fires nothing.', 'warn')
+      return false
+    }
+    const cost = { stone: 3 * n }
+    if (!this.canAfford(cost)) {
+      this.say('Three stone to a cut stone.', 'warn')
+      return false
+    }
+    this.pay(cost)
+    this.give('cutstone', n)
+    this.spend(1.2)
+    return 'swing'
+  }
+
+  /** The street is whole. This is the only ending the game has, and until the
+   *  colony existed there was none at all — nothing in the code checked for a
+   *  finish, so the player could do everything and be told nothing. */
+  finish() {
+    if (this.flags.has('finished')) return
+    this.flags.add('finished')
+    this.addJournal('The relay has power. The street is whole, and empty, and it will stay empty.')
+    this.emit('finish', { day: this.day, year: this.year, recovered: this.recovered.size })
   }
 
   upgradeHome() {
@@ -717,6 +816,7 @@ export class GameState {
       nextPruning: this.nextPruning, pruningsSeen: this.pruningsSeen,
       lastPruningDay: this.lastPruningDay,
       recovered: [...this.recovered], tagsFound: this.tagsFound, logsFound: this.logsFound,
+      unlocked: [...this.unlocked],
       stats: this.stats,
       grid: this.grid.serialize(),
     }
@@ -768,6 +868,7 @@ export class GameState {
     this.bag = new Map(data.bag)
     this.recovered = new Set(data.recovered ?? [])
     this.flags = new Set(data.flags ?? [])
+    this.unlocked = new Set(data.unlocked ?? [])
     this._pendingRebuild.props = true
     this._pendingRebuild.crops = true
     this._pendingRebuild.structures = true
