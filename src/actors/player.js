@@ -139,7 +139,7 @@ export function buildPlayer(lookKey = 'apprentice') {
   const parts = { root, materials: MAT }
   // The patch of shadow the body stands in. See `contactShadow` in core/kit —
   // the root already sits at ground level, so it needs no per-frame update.
-  const shadow = contactShadow(0.42)
+  const shadow = contactShadow(0.52)
   if (shadow) root.add(shadow)
 
   /** One box. The only primitive this rig uses. */

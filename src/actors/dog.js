@@ -47,7 +47,7 @@ export function buildSixteen() {
   const root = new THREE.Group()
   // The patch of shadow the body stands in. See `contactShadow` in core/kit —
   // the root already sits at ground level, so it needs no per-frame update.
-  const shadow = contactShadow(0.34)
+  const shadow = contactShadow(0.42)
   if (shadow) root.add(shadow)
   root.name = 'sixteen'
   const parts = { root }

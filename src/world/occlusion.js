@@ -19,9 +19,15 @@ import { Grid, N, P } from './grid.js'
  *
  * A blob quad per tree is hundreds of transparent draws laid over the terrain,
  * sorted every frame, z-fighting on terrace lips. The world is an integer grid
- * and the mesher already writes a colour per top face — so the shadow is just a
- * per-cell multiplier folded into that colour. No draw calls, no sorting, no
- * z-fighting, and it terraces correctly for free because it IS the terrain.
+ * and the mesher already writes vertex colours — so the shadow is a multiplier
+ * folded into those. No draw calls, no sorting, no z-fighting, and it terraces
+ * correctly for free because it IS the terrain.
+ *
+ * The mesher samples this field at the CORNERS of each cell rather than at its
+ * centre, and neighbouring quads share those corners, so what the GPU draws is a
+ * continuous gradient. Sampling per cell — which is how this shipped — gave the
+ * right values and the wrong picture: a mosaic of one-cell squares, because a
+ * flat quad forty pixels across shows a 2% step as an edge.
  *
  * Things that move cannot use this and get a real quad instead; there are five
  * of them, not five hundred.
@@ -91,7 +97,16 @@ export function computeShade(grid, buildings = []) {
     // `acc` is unbounded — a tree in a stand gets deposits from its neighbours
     // too — so it is squashed rather than clamped, which keeps a dense wood
     // darker than a lone tree without ever going past the measured floor.
-    const t = 1 - Math.exp(-blurred[i] * 1.1)
+    /**
+     * The gain is solved, not chosen.
+     *
+     * At 1.1 the deepest cell in a generated valley came out at 0.928 — the
+     * squash saturates slowly, so the 0.87 floor measured off the footage was
+     * never actually reached and every shadow was a little over half the depth
+     * it was supposed to be. 3.2 puts a dense stand on the floor and leaves a
+     * lone tree around 0.90, which is the shape the footage has.
+     */
+    const t = 1 - Math.exp(-blurred[i] * 3.2)
     shade[i] = 1 - (1 - SHADE_FLOOR) * t
   }
   return shade

@@ -304,10 +304,19 @@ function shadowTexture() {
   c.width = c.height = size
   const ctx = c.getContext('2d')
   const g = ctx.createRadialGradient(size / 2, size / 2, 0, size / 2, size / 2, size / 2)
-  // Solid to nothing over the radius, with the falloff weighted outward so the
-  // core reads as contact and the edge never shows a rim.
+  /**
+   * A CORE, then a falloff — not a spike.
+   *
+   * The first version ran 1.0 to 0.72 by 45% of the radius and to nothing at the
+   * edge, so the stated 13% darkening was reached at a single point and the
+   * average over the whole patch was a few per cent: measurably present,
+   * visually absent, which is what it looked like in the game. The footage has
+   * about a tenth off the ground across an area the size of the body, so most of
+   * the patch has to be at full strength and only the rim feathers.
+   */
   g.addColorStop(0, 'rgba(0,0,0,1)')
-  g.addColorStop(0.45, 'rgba(0,0,0,0.72)')
+  g.addColorStop(0.55, 'rgba(0,0,0,0.96)')
+  g.addColorStop(0.78, 'rgba(0,0,0,0.55)')
   g.addColorStop(1, 'rgba(0,0,0,0)')
   ctx.fillStyle = g
   ctx.fillRect(0, 0, size, size)
@@ -316,7 +325,7 @@ function shadowTexture() {
   return SHADOW_TEX
 }
 
-export function contactShadow(radius = 0.5, strength = 0.13) {
+export function contactShadow(radius = 0.5, strength = 0.17) {
   // No canvas in the headless tools, and a rig has to build without a DOM.
   if (typeof document === 'undefined') return null
   const mesh = new THREE.Mesh(

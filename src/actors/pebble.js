@@ -163,7 +163,7 @@ export function buildPebble({ trait = 'waterer', size = 0.5, outline = true, awa
 
   // The patch of shadow the body stands in. See `contactShadow` in core/kit.
 
-  const shadow = contactShadow(0.3)
+  const shadow = contactShadow(0.36)
 
   if (shadow) root.add(shadow)
 

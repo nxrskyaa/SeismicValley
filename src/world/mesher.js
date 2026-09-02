@@ -137,6 +137,26 @@ export function meshChunk(grid, cx, cz) {
   // A quad as two triangles, in the winding its caller already chose.
   const quad = (a, b, c, d, n, colour) => push([a, b, c, a, c, d], n, colour)
 
+  /**
+   * The same quad, but with a colour PER CORNER.
+   *
+   * Every top face was one flat colour, so the ground's soft shadow — which is a
+   * smooth field — was being drawn as a mosaic of one-cell squares. The values
+   * were right and the picture was tiles: a 2.4% step between neighbours is
+   * nothing as a number and a visible edge when each cell is forty pixels of
+   * flat colour.
+   *
+   * Corner values are shared between adjacent cells, so the interpolation the
+   * GPU already does for free turns the field back into a gradient. No extra
+   * vertices, no extra draws — the same six vertices with four colours instead
+   * of one.
+   */
+  const quadC = (a, b, c, d, n, ca, cb, cc, cd) => {
+    for (const p of [a, b, c, a, c, d]) pos.push(p[0], p[1], p[2])
+    for (let i = 0; i < 6; i++) nor.push(n[0], n[1], n[2])
+    for (const col of [ca, cb, cc, ca, cc, cd]) rgb.push(col[0], col[1], col[2])
+  }
+
   const x0 = cx * CHUNK, z0 = cz * CHUNK
 
   for (let z = z0; z < z0 + CHUNK; z++) {
@@ -178,10 +198,32 @@ export function meshChunk(grid, cx, cz) {
        * objects pasted on. See `world/occlusion.js` for where the 0.87 floor
        * comes from.
        */
-      const k = g * furrow * (1 - occ * 0.055) * grid.shade[i]
+      const k = g * furrow * (1 - occ * 0.055)
       const top = linear(bands[0])
-      const topCol = [top[0] * k, top[1] * k, top[2] * k]
-      quad([x, y, z + 1], [x + 1, y, z + 1], [x + 1, y, z], [x, y, z], [0, 1, 0], topCol)
+
+      /**
+       * The shadow is sampled at the CORNERS of the cell, not at its middle.
+       *
+       * A corner is shared by four cells, so neighbouring quads agree on it and
+       * the field comes out continuous across the whole plateau. Sampling the
+       * centre instead is what made it a grid of tiles.
+       */
+      const corner = (ax, az) => {
+        let sum = 0
+        for (let dz = -1; dz <= 0; dz++) {
+          for (let dx = -1; dx <= 0; dx++) {
+            const sx = Math.min(N - 1, Math.max(0, ax + dx))
+            const sz = Math.min(N - 1, Math.max(0, az + dz))
+            sum += grid.shade[sz * N + sx]
+          }
+        }
+        return sum / 4
+      }
+      const tint = (sh) => [top[0] * k * sh, top[1] * k * sh, top[2] * k * sh]
+      quadC(
+        [x, y, z + 1], [x + 1, y, z + 1], [x + 1, y, z], [x, y, z], [0, 1, 0],
+        tint(corner(x, z + 1)), tint(corner(x + 1, z + 1)), tint(corner(x + 1, z)), tint(corner(x, z)),
+      )
 
       // -- cliff faces ------------------------------------------------------
       // Only ever drawn on the DOWNHILL side. Emitting both sides of a seam
@@ -231,7 +273,10 @@ export function meshChunk(grid, cx, cz) {
            * must not: it is what tells you which way the ground is going.
            */
           const facing = dx !== 0 ? FACE_X : FACE_Z
-          const shadeK = g * facing * (band === 3 ? 1 : 1.04)
+          // The riser takes the cell's own shadow too. Without it a wall under a
+          // canopy stayed at full brightness while the ground either side of it
+          // darkened, which drew a bright outline around every shadow.
+          const shadeK = g * facing * (band === 3 ? 1 : 1.04) * grid.shade[i]
           const colour = [c[0] * shadeK, c[1] * shadeK, c[2] * shadeK]
           emit(dx, dz, next, cursor, colour)
         }

@@ -395,7 +395,7 @@ export function buildRocky({ cut = 'rocky', chest = 'mark', height = 1.9, outlin
 
   // The patch of shadow the body stands in. See `contactShadow` in core/kit.
 
-  const shadow = contactShadow(0.55)
+  const shadow = contactShadow(0.62)
 
   if (shadow) root.add(shadow)
 
