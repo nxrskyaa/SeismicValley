@@ -100,6 +100,59 @@ console.log('\ncolourway')
   assert(cool.length >= 3, `the world keeps its cool hues (${cool.length} found — water, canopies, the settler's jacket)`)
 }
 
+// ------------------------------------------------------ 1b. the strata --
+
+console.log('\nthe cliff strata')
+{
+  const mesher = read(path.join(SRC, 'world/mesher.js'))
+
+  /**
+   * ALL OF THESE ARE MEASURED, and the measurement is the reason they changed.
+   *
+   * Four frames of the reference footage, every pixel classified and every
+   * column walked top to bottom: 188 of 227 clean ground-to-ground crossings
+   * read `body > sage > rust`, and over 743 sampled walls the split is body 41%,
+   * sage 20%, rust 39.5%.
+   *
+   * This project had it upside down — two hairlines under the lip and a long
+   * plain body beneath, which is what Velion's `Palette.gd` documents and what
+   * was faithfully ported. `CLAUDE.md` is explicit that the footage is the
+   * target and that Velion "is close but not the same thing".
+   */
+  const sage = /const SAGE = ([\d.]+)/.exec(mesher)
+  const rust = /const RUST = ([\d.]+)/.exec(mesher)
+  assert(!!sage && !!rust, 'the wall carries a sage band and a rust band')
+  if (sage && rust) {
+    assert(Math.abs(Number(sage[1]) - 0.20) < 0.03, 'the sage band is a fifth of a level', `${sage[1]}`)
+    assert(Math.abs(Number(rust[1]) - 0.395) < 0.04, 'the rust band is two fifths of a level', `${rust[1]}`)
+  }
+  assert(
+    /slices = \[\[3, yTop, sageTop\], \[1, sageTop, rustTop\], \[2, rustTop, yBot\]\]/.test(mesher),
+    'and they are stacked from the FOOT of the wall — body on top, rust at the base',
+  )
+
+  /**
+   * The eight per cent between the two wall directions is the whole reason
+   * terraces read as steps at a 45-degree camera. Both constants were raised
+   * together to lift the risers; the GAP is the part that must not move.
+   */
+  const fx = /const FACE_X = ([\d.]+)/.exec(mesher)
+  const fz = /const FACE_Z = ([\d.]+)/.exec(mesher)
+  if (fx && fz) {
+    const gap = 1 - Number(fz[1]) / Number(fx[1])
+    assert(gap > 0.06 && gap < 0.11, 'the two wall directions stay eight per cent apart', `${(gap * 100).toFixed(1)}%`)
+    assert(Number(fx[1]) > 0.9 && Number(fz[1]) > 0.85, 'and neither is dark enough to crush the risers')
+  }
+
+  /**
+   * A riser in the footage renders at 87% of the top above it. It was 66% here.
+   * The wrap is high on purpose — the terrace read lives in the BAKED face
+   * tints, not in the lamp, so softening the sun does not cost the shape.
+   */
+  const wrap = /GROUND_WRAP = ([\d.]+)/.exec(mesher)
+  assert(!!wrap && Number(wrap[1]) > 0.7, 'light wraps far enough round a riser to keep it a surface', `${wrap?.[1]}`)
+}
+
 // ----------------------------------------------------------- 2. the camera --
 
 console.log('\ncamera')

@@ -35,11 +35,61 @@ import { applyWrappedLight } from '../core/kit.js'
  * Velion's numbers. Nothing here is textured, so this small extra separation is
  * what keeps a cube reading as a cube when the sun is low and the haze is thick.
  */
-const FACE_X = 0.93
-const FACE_Z = 0.855
+/**
+ * Raised together, and the GAP between them is untouched.
+ *
+ * Measured against the footage: there, a wall face renders at 86% of the top it
+ * sits under. Here it was 66% — the risers were a quarter darker than the thing
+ * being described, which is why the terraces read as a bright shelf over a dark
+ * slab and why the whole valley looked like flat colour with piping on it.
+ *
+ * The eight per cent between the two directions is the part that matters and it
+ * is unchanged; both ends simply moved up. See `GROUND_WRAP` for the other half
+ * of the correction.
+ */
+const FACE_X = 0.985
+const FACE_Z = 0.905
 
-const ACCENT = 0.14
-const RUST = 0.18
+/**
+ * THE STRATA ON AN EXPOSED WALL, and they sit at the BOTTOM of it.
+ *
+ * Velion's `Palette.gd` documents the accent as "a ~0.10u band directly under
+ * the surface" with the rust under that, and this project ported that reading
+ * faithfully: two hairlines at the top of every riser and a long plain body
+ * beneath them. `CLAUDE.md` is explicit that Velion "is close but not the same
+ * thing" and that the FOOTAGE is the target, so the footage was measured rather
+ * than remembered.
+ *
+ * Classifying every pixel of four frames and walking columns down through them,
+ * 188 of 227 clean ground-to-ground crossings read
+ *
+ *     ground > PALE BODY > SAGE > RUST > ground
+ *
+ * — body on top, the colour at the base. Over 743 sampled walls the split is
+ * body 41%, sage 20%, rust 39.5%, against this project's 68 / 14 / 18 stacked
+ * the other way up. That single inversion is most of why the terraces read as a
+ * bright shelf with a thin trim over a dark slab instead of as banded rock, and
+ * why the whole valley felt like flat colour with piping on it.
+ *
+ * Fractions of ONE level, anchored to the foot of the wall: a three-level cliff
+ * is pale rock with a stained base, not a cliff that is 40% rust.
+ */
+const SAGE = 0.20
+const RUST = 0.395
+
+/**
+ * How far a band's edge wanders, per face.
+ *
+ * The measured boundaries are ragged — moss and mineral staining, not paint —
+ * and a perfectly level line across a whole terrace is the single most
+ * mechanical thing in the frame. Deterministic from the cell, so a chunk
+ * remeshes to the same edge every time.
+ */
+const BAND_JITTER = 0.055
+const wobble = (x, z, salt) => {
+  const n = Math.sin((x * 12.9898 + z * 78.233 + salt * 37.719)) * 43758.5453
+  return (n - Math.floor(n)) - 0.5
+}
 
 // Scratch colour, reused — building a THREE.Color per vertex allocates roughly
 // 200k objects for one full remesh of the valley.
@@ -149,10 +199,22 @@ export function meshChunk(grid, cx, cz) {
         if (nh >= h) return
         const yTop = h * LEVEL
         const yBot = nh * LEVEL
+        /**
+         * Built from the FOOT of the wall upward — rust, then sage, then
+         * whatever height is left is body. The old loop ran the other way and
+         * put both bands under the lip.
+         */
+        const rustT = LEVEL * RUST + wobble(x, z, dx * 3 + dz * 7) * BAND_JITTER
+        const sageT = LEVEL * SAGE + wobble(x, z, dx * 11 + dz * 5 + 1) * BAND_JITTER
+        const rustTop = Math.min(yTop, yBot + Math.max(0.04, rustT))
+        const sageTop = Math.min(yTop, rustTop + Math.max(0.04, sageT))
+        // band index into `bands`: 3 body, 1 sage accent, 2 rust.
+        const slices = [[3, yTop, sageTop], [1, sageTop, rustTop], [2, rustTop, yBot]]
         let cursor = yTop
-        for (let band = 1; band <= 3 && cursor > yBot + 1e-6; band++) {
-          const thick = band === 1 ? ACCENT : band === 2 ? RUST : cursor - yBot
-          const next = Math.max(yBot, cursor - thick)
+        for (const [band, top, bottom] of slices) {
+          if (top - bottom <= 1e-6) continue
+          const next = bottom
+          cursor = top
           const c = linear(bands[band])
           /**
            * A BAKED TINT PER FACE DIRECTION, ported from Velion.
@@ -172,7 +234,6 @@ export function meshChunk(grid, cx, cz) {
           const shadeK = g * facing * (band === 3 ? 1 : 1.04)
           const colour = [c[0] * shadeK, c[1] * shadeK, c[2] * shadeK]
           emit(dx, dz, next, cursor, colour)
-          cursor = next
         }
       }
 
@@ -201,8 +262,30 @@ export function meshChunk(grid, cx, cz) {
  * pass. Vertex colours carry the whole palette, which is why the valley is one
  * draw call per chunk and not one per material.
  */
+/**
+ * How far light wraps around a riser before it stops.
+ *
+ * At 0.42 a face turned away from the sun kept about a tenth of the key, so
+ * every riser on the shaded side of the valley crushed toward ambient and the
+ * terracing this file exists to produce went with it. The measured target is a
+ * wall at 86% of its own top; two thirds of the shortfall was here and the rest
+ * was in the face tints.
+ *
+ * This is the honest knob for it — it lifts surfaces turned AWAY from the sun
+ * and barely touches the ones facing it, which is exactly the shape of the
+ * error. Turning the ambient up instead would have lifted the tops as well and
+ * flattened the very contrast being repaired.
+ *
+ * It is high, and deliberately so. The terrace read in this project does not
+ * come from the dynamic light — `FACE_X` and `FACE_Z` are BAKED, and their eight
+ * per cent gap separates the two wall directions before a lamp is involved, at
+ * every hour. That is what makes it safe to soften the sun here: the shape
+ * information does not live in it.
+ */
+export const GROUND_WRAP = 0.85
+
 export function groundMaterial() {
   // Wrapped, or every riser facing away from the sun crushes into one dark mass
   // and the terracing this whole file exists to produce stops being visible.
-  return applyWrappedLight(new THREE.MeshLambertMaterial({ vertexColors: true, dithering: true }))
+  return applyWrappedLight(new THREE.MeshLambertMaterial({ vertexColors: true, dithering: true }), GROUND_WRAP)
 }

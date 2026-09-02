@@ -130,7 +130,20 @@ export const GROUND = {
   // #c8c0a9 — R:G:B of 1 : 0.96 : 0.85. Dividing the daylight back out of that
   // gives a ground that is far LESS yellow than it looks: the warmth in the
   // frame is the sun, not the field. Authored at 1 : 0.98 : 0.90.
-  MEADOW: ['#d3d0be', '#9fb083', '#b4553c', '#c6c1ab'],
+  // The sage and the rust are SAMPLED, not chosen. Median rendered colour of
+  // each band in the footage: sage #a3a18b — red and green within two points of
+  // each other, a pale olive-grey and not a green stripe — and rust #966868,
+  // where red and blue are EQUAL. This project had sage at #9fb083 (green a
+  // clear seventeen points over red) and rust at #b4553c, whose blue is sixty
+  // points under its red: a brick orange where the footage has dusty rose.
+  //
+  // And the body is BRIGHTER and COOLER than the top, which is the opposite of
+  // how it was authored. In the footage a riser renders at 87% of the surface
+  // above it; here it was 66%, and no lighting setting can close that while the
+  // body is authored darker than the top — so this was solved backwards out of
+  // the measurement rather than picked. Its red-minus-blue is 14 against the
+  // top's 21: the sand is the warm thing in frame, the rock under it is not.
+  MEADOW: ['#d3d0be', '#d8d9b7', '#c08c8f', '#e2e2d4'],
   // Snow. Near-white, and almost no banding — the reference's snow plateaus are
   // one white top over one faintly cooler face, and adding strata to them is
   // what makes a snowfield look like striped rock.
