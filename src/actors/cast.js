@@ -55,6 +55,9 @@ import { G } from '../core/palette.js'
 export const CONSTRUCTS = [
   {
     id: 'rocky',
+    // He is a checkpoint that survived. Mostly he watches the ridge.
+    idle: ['guard', 'idle', 'work', 'guard'],
+    sway: 0.7,
     name: 'Rocky',
     role: 'A Loom construct. Standing at the relay since before you woke up.',
     cut: 'rocky',
@@ -76,6 +79,9 @@ export const CONSTRUCTS = [
   },
   {
     id: 'cairn',
+    // Older and smaller, and never finished tidying the home terrace.
+    idle: ['work', 'work', 'idle', 'guard'],
+    sway: 1.15,
     name: 'Cairn',
     role: 'Smaller, and older than Rocky. Has not moved off the home terrace in forty days.',
     cut: 'cairn',
@@ -91,6 +97,9 @@ export const CONSTRUCTS = [
   },
   {
     id: 'warden',
+    // Barely shifts. Whatever it was set to guard, it is still guarding.
+    idle: ['guard', 'guard', 'idle', 'guard'],
+    sway: 0.4,
     name: 'Warden',
     role: 'The tallest of them, on the high ground, facing the weather.',
     cut: 'basalt',
@@ -106,6 +115,9 @@ export const CONSTRUCTS = [
   },
   {
     id: 'tide',
+    // Faces the water and does very little else.
+    idle: ['idle', 'idle', 'work', 'idle'],
+    sway: 0.95,
     name: 'Tide',
     role: 'Stands in the shallows at the south lake and will not say why.',
     cut: 'sand',
@@ -121,6 +133,9 @@ export const CONSTRUCTS = [
   },
   {
     id: 'ember',
+    // Always in the middle of moving something that is already moved.
+    idle: ['work', 'lift', 'work', 'idle'],
+    sway: 1.3,
     name: 'Ember',
     role: 'Walks the fault, or would, if it ever finished counting.',
     cut: 'ember',
@@ -188,18 +203,52 @@ function scarNear(grid, sx, sz) {
 
 // --- Rocky, standing --------------------------------------------------------
 
+/** A stable 0..1 from a name. Deterministic, so a construct animates the same
+ *  way on every run and in every capture — `Math.random()` here would make the
+ *  screenshot harness produce a different pose every time it ran. */
+function hashId(id) {
+  let h = 2166136261
+  for (let i = 0; i < id.length; i++) {
+    h ^= id.charCodeAt(i)
+    h = Math.imul(h, 16777619)
+  }
+  return ((h >>> 0) % 10000) / 10000
+}
+
 class Construct {
   constructor(spec, grid, scene) {
     this.spec = spec
     this.grid = grid
-    this.rig = buildRocky({ cut: spec.cut, chest: spec.chest, height: spec.height, outline: true })
+    /**
+     * A clock of its own, derived from the name so it is the same every run.
+     *
+     * Every construct used to start at t=0 and run at one rate, so the whole
+     * cast breathed in unison and changed pose on the same frame — five stone
+     * figures doing one animation. `tools/idle.mjs` fails if any two of them
+     * ever move alike again.
+     */
+    const h = hashId(spec.id)
+    this.rig = buildRocky({
+      cut: spec.cut, chest: spec.chest, height: spec.height, outline: true,
+      phase: h * 37.4,
+      // Bigger constructs move slower. Rocky at 2.1 units runs near 0.85, the
+      // small ones nearer 1.15, which is most of what makes them read as
+      // different bodies rather than one body at different scales.
+      tempo: 1.25 - spec.height * 0.19 + (h - 0.5) * 0.12,
+      // How much this one moves at rest. A warden barely shifts; a small
+      // construct fidgets.
+      sway: spec.sway ?? (0.6 + h * 0.9),
+    })
+    this.dwell = 15 + h * 11
+    this.beat = spec.idle ?? ['work', 'idle', 'guard', 'idle']
     const seed = typeof spec.at === 'function' ? spec.at(grid) : spec.at
     const [cx, cz] = grid.nearestStandable(seed.x, seed.z, 18)
     this.pos = new THREE.Vector2(cx + 0.5, cz + 0.5)
     this.facing = spec.face ?? 0
     this.near = Infinity
     this.line = 0
-    this.t = 0
+    // Offset too, so the pose cycles do not line up either.
+    this.t = hashId(spec.id) * 61
     this.rig.root.position.set(this.pos.x, grid.sampleY(this.pos.x, this.pos.y), this.pos.y)
     scene.add(this.rig.root)
   }
@@ -239,7 +288,7 @@ class Construct {
     this.t += dt
     if (this.near < 4) this.rig.anim.pose = 'wave'
     else if (this.near < 11) this.rig.anim.pose = 'guard'
-    else this.rig.anim.pose = ['work', 'idle', 'guard', 'idle'][Math.floor(this.t / 19) % 4]
+    else this.rig.anim.pose = this.beat[Math.floor(this.t / this.dwell) % this.beat.length]
     this.rig.update(dt)
   }
 

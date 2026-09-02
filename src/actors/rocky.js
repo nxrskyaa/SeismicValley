@@ -1,5 +1,5 @@
 import * as THREE from 'three'
-import { bakedMat, chamferBox, DISC, FLAT, glowMat, shardMat, stoneMat } from '../core/kit.js'
+import { bakedMat, chamferBox, contactShadow, DISC, FLAT, glowMat, shardMat, stoneMat } from '../core/kit.js'
 import { markFacetGeometry, shardGeometry } from '../core/mark.js'
 import { mix, shade, sunlit, UI } from '../core/palette.js'
 import { damp } from '../core/rng.js'
@@ -121,7 +121,16 @@ function inkHull(geometry, width) {
  *                to; off for a figure in the middle distance, where the hull
  *                doubles the draw calls to add a line nobody can resolve.
  */
-export function buildRocky({ cut = 'rocky', chest = 'mark', height = 1.9, outline = true } = {}) {
+/**
+ * @param phase  Seconds to start the internal clock at. Constructs built in the
+ *               same frame otherwise breathe, sway and blink on exactly the same
+ *               tick forever — see `tools/idle.mjs`, which measured all ten
+ *               pairs of the cast as byte-identical.
+ * @param tempo  Multiplier on every rate this rig runs at. Offsetting the phase
+ *               alone still leaves five bodies moving at one speed, which reads
+ *               as a copy delayed rather than as five different things.
+ */
+export function buildRocky({ cut = 'rocky', chest = 'mark', height = 1.9, outline = true, phase = 0, tempo = 1, sway = 1 } = {}) {
   const look = typeof cut === 'string' ? (ROCKY_CUTS[cut] ?? ROCKY_CUTS.rocky) : cut
   const T = tones(look.stone)
 
@@ -384,14 +393,22 @@ export function buildRocky({ cut = 'rocky', chest = 'mark', height = 1.9, outlin
     plate(foot, { geo: BLOCK, at: [0, -0.064, 0.012], size: [0.21, 0.128, 0.245], mat: MAT.stone })
   }
 
+  // The patch of shadow the body stands in. See `contactShadow` in core/kit.
+
+  const shadow = contactShadow(0.55)
+
+  if (shadow) root.add(shadow)
+
   root.scale.setScalar(height)
   parts.height = height
 
   // ------------------------------------------------------------ animation --
   const A = {
-    t: 0,
+    t: phase,
+    tempo,
+    sway,
     blink: 0,
-    nextBlink: 1.6 + Math.random() * 3,
+    nextBlink: phase + 1.6 + Math.random() * 3,
     pose: 'idle',
     speed: 0, // 0..1, drives the walk cycle's amplitude
     lookAt: null,
@@ -414,14 +431,15 @@ export function buildRocky({ cut = 'rocky', chest = 'mark', height = 1.9, outlin
     const walking = A.speed > 0.02
 
     // Breath. Even standing still, a stone that never moves is a prop.
-    const breath = Math.sin(t * 1.5) * 0.006
+    // Rate and depth both vary: a big construct breathes slower and deeper.
+    const breath = Math.sin(t * 1.5 * A.tempo) * 0.006 * (2 - A.tempo)
     parts.chest.position.y = 0.545 + breath
     parts.chest.scale.setScalar(1 + breath * 0.35)
 
     // Blink on its own clock so it keeps happening under every other pose.
     if (t > A.nextBlink) {
       A.blink = 1
-      A.nextBlink = t + 2.2 + Math.random() * 3.4
+      A.nextBlink = t + (2.2 + Math.random() * 3.4) / A.tempo
     }
     A.blink = Math.max(0, A.blink - dt * 7)
     const lidDrop = A.blink * 0.058
@@ -449,7 +467,7 @@ export function buildRocky({ cut = 'rocky', chest = 'mark', height = 1.9, outlin
     // Walk. Legs on a sine, arms on the opposite phase, and a small vertical
     // bob at DOUBLE the stride frequency — the bob peaks twice per stride, once
     // per foot, and getting that wrong is what makes a walk look like a limp.
-    const gait = t * 6.4
+    const gait = t * 6.4 * A.tempo
     const s = A.speed
     parts.thighL.rotation.x = Math.sin(gait) * 0.55 * s
     parts.thighR.rotation.x = -Math.sin(gait) * 0.55 * s
@@ -476,7 +494,25 @@ export function buildRocky({ cut = 'rocky', chest = 'mark', height = 1.9, outlin
       fore.rotation.z = rest[`fore${side}`][2]
     }
 
+    /**
+     * THE WEIGHT SHIFT.
+     *
+     * A construct standing at its post had exactly two moving parts: the breath,
+     * and whatever the arm pose was damping toward. That is a statue with a
+     * gesture, and it is why they read as odd rather than as alive — a body at
+     * rest is never still, it is settling from one foot to the other.
+     *
+     * Three slow, incommensurate periods, so the loop never visibly repeats,
+     * scaled by this rig's own tempo and amplitude. `A.sway` differs per
+     * construct, which is what stops two of them at the same height from moving
+     * alike even once their clocks are offset.
+     */
+    const idle = walking ? 0 : 1
+    const w = A.tempo
+    parts.body.rotation.z = Math.sin(t * 0.29 * w) * 0.026 * A.sway * idle
+    parts.body.position.x = Math.sin(t * 0.19 * w + 2.1) * 0.014 * A.sway * idle
     parts.body.rotation.x = A.lean + (walking ? 0.06 * s : 0)
+      + Math.sin(t * 0.23 * w + 0.7) * 0.014 * A.sway * idle
 
     // The head leads. It turns toward whatever it is watching before the body
     // does, which is most of what makes a character look like it has intent.
@@ -488,8 +524,10 @@ export function buildRocky({ cut = 'rocky', chest = 'mark', height = 1.9, outlin
       yaw = Math.max(-0.85, Math.min(0.85, yaw))
       pitch = Math.max(-0.4, Math.min(0.45, -Math.atan2(_v.y - 0.88, Math.hypot(_v.x, _v.z) + 0.001)))
     } else {
-      yaw = Math.sin(t * 0.31) * 0.22
-      pitch = Math.sin(t * 0.23 + 1.1) * 0.06
+      // Scanning, at this construct's own rate. One shared rate here left the
+      // whole cast turning their heads together even with their clocks offset.
+      yaw = Math.sin(t * 0.31 * w) * 0.22 * A.sway
+      pitch = Math.sin(t * 0.23 * w + 1.1) * 0.06
     }
     A.headYaw = damp(A.headYaw, yaw, 5, dt)
     A.headPitch = damp(A.headPitch, pitch, 5, dt)

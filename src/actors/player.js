@@ -1,5 +1,5 @@
 import * as THREE from 'three'
-import { chamferBox, stoneMat } from '../core/kit.js'
+import { chamferBox, contactShadow, stoneMat } from '../core/kit.js'
 import { C, UI } from '../core/palette.js'
 import { clamp, damp } from '../core/rng.js'
 import { Grid, LEVEL, N, WATER_LEVEL } from '../world/grid.js'
@@ -68,6 +68,15 @@ const STEP_UP = 2
  */
 
 /** Where the body floats. Half-submerged, so the cap is always out of water. */
+/**
+ * How fast the PICTURE may climb, in units per second.
+ *
+ * Not how fast the body moves — the body teleports a whole level, because the
+ * world is an integer height grid and that is what standing on a terrace means.
+ * This is the rate the rendered body is allowed to catch up at.
+ */
+const CLIMB_RATE = 5.5
+
 const SWIM_DEPTH = 0.62
 
 /**
@@ -127,6 +136,10 @@ export function buildPlayer(lookKey = 'apprentice') {
   const root = new THREE.Group()
   root.name = 'player'
   const parts = { root, materials: MAT }
+  // The patch of shadow the body stands in. See `contactShadow` in core/kit —
+  // the root already sits at ground level, so it needs no per-frame update.
+  const shadow = contactShadow(0.42)
+  if (shadow) root.add(shadow)
 
   /** One box. The only primitive this rig uses. */
   const box = (parent, [w, h, d], at, mat, cut = 0.03) => {
@@ -505,8 +518,19 @@ export class PlayerController {
           this.pos.y = groundY
           this.vy = 0
           this.onGround = true
+        } else {
+          /**
+           * ONLY when the fall did not end this frame.
+           *
+           * This assignment used to run unconditionally, three lines under the
+           * `onGround = true` above it, so the body reported itself airborne on
+           * the exact frame it touched down. `renderY` is only smoothed while
+           * on the ground, so every single landing in the game handed the player
+           * a hard cut instead of a step — which is most of the "bouncing off a
+           * box" that dropping down a terrace felt like.
+           */
+          this.onGround = false
         }
-        this.onGround = false
       }
     }
 
@@ -522,10 +546,31 @@ export class PlayerController {
      * as floating down, and in water the y IS the surface.
      */
     if (this.onGround && !this.swimming) {
-      this.renderY = damp(this.renderY ?? this.pos.y, this.pos.y, 16, dt)
-      // Never let the picture lag so far that the feet leave the ground behind
-      // — half a level is a step, more than that is a mistake.
-      this.renderY = clamp(this.renderY, this.pos.y - 0.5, this.pos.y + 0.5)
+      /**
+       * Damped, then SPEED-CAPPED.
+       *
+       * Damping alone moves fastest when the gap is biggest, which is exactly
+       * the moment that must not be fast: stepping up a terrace opens a gap of a
+       * whole level, and at the old rate of 16 the first frame closed 0.24 of it
+       * in one go. Worse, the correction was then clamped to half a level, so a
+       * one-level step teleported the picture 0.5 instantly — measured, and it
+       * is the pop the player reads as being bounced off a box.
+       *
+       * Capping the per-frame change at `CLIMB_RATE` fixes the big gaps without
+       * making the small ones sluggish, because the damp still governs those.
+       * At 60fps the cap works out at 0.092 of a unit per frame, against a
+       * walking body's 0.07 — so the rise never outruns the walk that caused it,
+       * and a full level takes about a fifth of a second.
+       *
+       * `tools/motion.mjs` walks a staircase and fails if any frame moves the
+       * picture more than a tenth of a level.
+       */
+      const smoothed = damp(this.renderY ?? this.pos.y, this.pos.y, 14, dt)
+      const cap = CLIMB_RATE * dt
+      this.renderY = (this.renderY ?? this.pos.y) + clamp(smoothed - (this.renderY ?? this.pos.y), -cap, cap)
+      // A backstop, not the mechanism: the picture may trail the body by a step
+      // and a fraction while it catches up, never by more.
+      this.renderY = clamp(this.renderY, this.pos.y - LEVEL * 1.25, this.pos.y + LEVEL * 0.35)
     } else {
       this.renderY = this.pos.y
     }

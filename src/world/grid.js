@@ -68,6 +68,12 @@ export class Grid {
      * ridge. A plot is opened by restoring the cottage it belongs to.
      */
     this.plot = new Uint8Array(N * N)
+    /**
+     * The soft shadow every standing thing casts onto the ground, one
+     * multiplier per cell. Filled by `world/occlusion.js` and folded into the
+     * top-face colour by the mesher; 1.0 until it is computed, so a grid that
+     * nobody has shaded still meshes correctly. */
+    this.shade = new Float32Array(N * N).fill(1)
     this.propData = new Uint8Array(N * N) // species, growth stage, or geode contents
     /** Chunk indices waiting to be remeshed. A Set, so the same edit landing
      *  twice in one frame does not queue two rebuilds of the same chunk. */

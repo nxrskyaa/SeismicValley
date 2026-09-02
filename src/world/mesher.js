@@ -121,7 +121,14 @@ export function meshChunk(grid, cx, cz) {
        */
       const worked = grid.ground[i] === G.TILLED || grid.ground[i] === G.WET
       const furrow = worked ? (z % 2 === 0 ? 1.06 : 0.94) : 1
-      const k = g * furrow * (1 - occ * 0.055)
+      /**
+       * `occ` is the hollow a cell sits in; `shade` is what STANDS on it — a
+       * canopy, a wall, a rock. Both multiply the top tone, and the second is
+       * the one that stops the meadow reading as a single flat sheet with
+       * objects pasted on. See `world/occlusion.js` for where the 0.87 floor
+       * comes from.
+       */
+      const k = g * furrow * (1 - occ * 0.055) * grid.shade[i]
       const top = linear(bands[0])
       const topCol = [top[0] * k, top[1] * k, top[2] * k]
       quad([x, y, z + 1], [x + 1, y, z + 1], [x + 1, y, z], [x, y, z], [0, 1, 0], topCol)

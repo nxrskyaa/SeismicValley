@@ -1,5 +1,5 @@
 import * as THREE from 'three'
-import { chamferBox, DISC, shardMat, stoneLump, stoneMat } from '../core/kit.js'
+import { chamferBox, contactShadow, DISC, shardMat, stoneLump, stoneMat } from '../core/kit.js'
 import { shardGeometry } from '../core/mark.js'
 import { UI } from '../core/palette.js'
 import { damp } from '../core/rng.js'
@@ -160,6 +160,12 @@ export function buildPebble({ trait = 'waterer', size = 0.5, outline = true, awa
   mouth.position.set(0, 0.085, 0.32)
   head.add(mouth)
   parts.mouth = mouth
+
+  // The patch of shadow the body stands in. See `contactShadow` in core/kit.
+
+  const shadow = contactShadow(0.3)
+
+  if (shadow) root.add(shadow)
 
   root.scale.setScalar(size)
 

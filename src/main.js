@@ -8,6 +8,7 @@ import { Input } from './core/input.js'
 import { hashSeed } from './core/rng.js'
 import { LEVEL, N, P } from './world/grid.js'
 import { GATE, HOME, generate } from './world/worldgen.js'
+import { computeShade } from './world/occlusion.js'
 import { Terrain } from './world/terrain.js'
 import { Props } from './world/props.js'
 import { CropView } from './world/cropView.js'
@@ -110,6 +111,23 @@ function makeRenderer() {
   return renderer
 }
 
+/**
+ * Recompute the ground's soft shadow and remesh.
+ *
+ * Called when something starts or stops standing on the valley floor — a tree
+ * felled, a ruin put back. The shadow reaches two cells past whatever casts it
+ * and the blur carries it further, so the change is never confined to the cell
+ * that moved; a full remesh of thirty-six chunks is both simpler and safer than
+ * working out which ones the falloff touched, and this runs on a player action,
+ * never per frame.
+ */
+function reshade() {
+  const { grid, state, terrain } = app
+  if (!grid || !terrain) return
+  grid.shade = computeShade(grid, state?.buildings ?? [])
+  terrain.rebuildAll()
+}
+
 /** Everything the generator plants that is not terrain. Rebuilt wholesale
  *  whenever the player builds: a structure list is a dozen entries long, and
  *  rebuilding it is both simpler and cheaper than diffing it. */
@@ -183,6 +201,10 @@ function boot() {
 
   app.state = new GameState(grid, seed)
   seedStructures(app.state, grid)
+  // The settlement has to exist before the ground can be shaded by it, and the
+  // first mesh happened before either — so the world is reshaded once here
+  // rather than being shown a frame with no shadow under anything.
+  reshade()
   syncStructures()
 
   // The flag on the ridge, from the first reference drawing. It is the one part
@@ -563,6 +585,8 @@ function runGame() {
     if (rebuild.props) app.props.dirty = true
     if (rebuild.crops) app.crops.dirty = true
     if (rebuild.structures) syncStructures()
+    // Anything that stands on the ground changes what the ground is shaded by.
+    if (rebuild.props || rebuild.structures) reshade()
     app.terrain.update()
     app.props.update(dt)
     app.crops.update(dt, stageFor)

@@ -277,3 +277,66 @@ export function applyWrappedLight(material, wrap = 0.42) {
 
 /** A mesh whose colours came from `bake`. */
 export const bakedMat = (extra = {}) => new THREE.MeshLambertMaterial({ vertexColors: true, flatShading: true, ...extra })
+
+/**
+ * THE SOFT PATCH OF SHADOW A BODY STANDS IN.
+ *
+ * The valley's static things are shaded into the terrain itself — see
+ * `world/occlusion.js`, and the 0.87 multiplier measured off the reference
+ * footage. Things that MOVE cannot be baked into the ground, so they carry one
+ * of these instead. There are five of them in the valley, not five hundred, so
+ * a transparent quad each costs nothing worth counting.
+ *
+ * This is not a cast shadow and the shadow map stays off: no direction, no
+ * silhouette, no penumbra that swings with the sun. It is the contact darkening
+ * that stops a body reading as pasted onto the ground — which is exactly how
+ * the player and the dog did read, standing on a flat sheet with nothing under
+ * them at all.
+ *
+ * Parented to a rig's root, which every actor already places at ground level,
+ * so it needs no per-frame update and cannot drift out of step with the body.
+ */
+let SHADOW_TEX = null
+function shadowTexture() {
+  if (SHADOW_TEX) return SHADOW_TEX
+  const size = 64
+  const c = document.createElement('canvas')
+  c.width = c.height = size
+  const ctx = c.getContext('2d')
+  const g = ctx.createRadialGradient(size / 2, size / 2, 0, size / 2, size / 2, size / 2)
+  // Solid to nothing over the radius, with the falloff weighted outward so the
+  // core reads as contact and the edge never shows a rim.
+  g.addColorStop(0, 'rgba(0,0,0,1)')
+  g.addColorStop(0.45, 'rgba(0,0,0,0.72)')
+  g.addColorStop(1, 'rgba(0,0,0,0)')
+  ctx.fillStyle = g
+  ctx.fillRect(0, 0, size, size)
+  SHADOW_TEX = new THREE.CanvasTexture(c)
+  SHADOW_TEX.colorSpace = THREE.SRGBColorSpace
+  return SHADOW_TEX
+}
+
+export function contactShadow(radius = 0.5, strength = 0.13) {
+  // No canvas in the headless tools, and a rig has to build without a DOM.
+  if (typeof document === 'undefined') return null
+  const mesh = new THREE.Mesh(
+    new THREE.PlaneGeometry(1, 1),
+    new THREE.MeshBasicMaterial({
+      map: shadowTexture(),
+      transparent: true,
+      opacity: strength,
+      depthWrite: false,
+      // The ground is drawn first and the quad sits a hair above it; without the
+      // offset the two z-fight along every terrace lip.
+      polygonOffset: true,
+      polygonOffsetFactor: -2,
+      polygonOffsetUnits: -2,
+    })
+  )
+  mesh.rotation.x = -Math.PI / 2
+  mesh.position.y = 0.02
+  mesh.scale.setScalar(radius * 2)
+  mesh.renderOrder = 1
+  mesh.name = 'contact-shadow'
+  return mesh
+}
