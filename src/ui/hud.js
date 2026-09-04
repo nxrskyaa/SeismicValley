@@ -6,6 +6,7 @@ import { MANIFEST_TOTAL } from '../game/story.js'
 import { restoreProgress } from '../game/colony.js'
 import { MAX_STAMINA, MAX_WATER } from '../game/state.js'
 import { iconFor } from './icons.js'
+import { ActionBar } from './actions.js'
 
 /**
  * The heads-up display.
@@ -136,6 +137,14 @@ export class HUD {
     this.paintAudio()
 
     this.node.append(this.log, this.meters, this.hotbar, this.hint, this.toasts, this.dialogue, this.fragment, this.task, this.sound, this.mark)
+
+    /**
+     * The two verbs the game is made of, which the interface used to name
+     * nowhere. See `ui/actions.js` — it is a separate module because it owns its
+     * own state (the seed tray opens and closes) and the HUD is otherwise a
+     * pure readout.
+     */
+    this.acts = new ActionBar(this.node, state, { onFind: (kind) => opts.onFind?.(kind) })
 
     state.on('bag', () => this.drawHotbar())
     state.on('hotbar', () => this.drawHotbar())

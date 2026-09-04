@@ -27,7 +27,7 @@ import { PruningSystem } from './game/pruning.js'
 import { Fishing } from './game/fishing.js'
 import { SEASON_NAMES, stageFor } from './game/crops.js'
 import { KIND, item } from './game/items.js'
-import { G as GROUND_IDS } from './core/palette.js'
+import { G as GROUND_IDS, UI } from './core/palette.js'
 import { HUD } from './ui/hud.js'
 import { Panels } from './ui/panels.js'
 import { showTitle } from './ui/title.js'
@@ -429,6 +429,22 @@ function runGame() {
 
   app.hud = new HUD(root, state, {
     onSelect: () => audio.ui(),
+    /**
+     * Point at the nearest square that wants the verb.
+     *
+     * Not "do the verb": the player still walks there and still swings, because
+     * that is the game. What the interface owes them is WHERE, which they were
+     * otherwise scanning a ninety-six-cell valley for.
+     */
+    onFind: (kind) => {
+      audio.ui()
+      const near = state.nearestField(kind, Math.round(control.pos.x), Math.round(control.pos.z))
+      if (!near) {
+        state.say(kind === 'ripe' ? 'Nothing is ready yet.' : 'No bed is empty. Break ground with the hoe.', 'warn')
+        return
+      }
+      pingCell(near[0], near[1])
+    },
     onSkipTutorial: () => app.tutorial?.skip(),
     sound: prefs.sound,
     music: prefs.music,
@@ -573,6 +589,7 @@ function runGame() {
     const dt = Math.min(clock.getDelta(), 0.06)
 
     if (started) {
+      tickPing(dt)
       app.touch.update(dt)
       input.stick = app.touch.move
       input.poll()
@@ -919,6 +936,45 @@ function useHeld(tx, tz) {
 
 /** Which placed structure covers a cell, if any. Footprints are small and the
  *  list is short, so a linear scan beats maintaining a second index. */
+/**
+ * A RING ON THE GROUND, for a second and a half.
+ *
+ * The two action buttons answer "where", and the honest way to answer that in a
+ * game with a walking body is to mark the spot rather than to teleport, snap the
+ * camera, or farm it remotely. It sits a hair above the cell's own surface so it
+ * terraces correctly, and it is unlit — a marker that dims at dusk is a marker
+ * you cannot find at dusk.
+ */
+let pingMesh = null
+let pingLeft = 0
+
+function pingCell(x, z) {
+  const { scene, grid } = app
+  if (!pingMesh) {
+    const geo = new THREE.RingGeometry(0.34, 0.46, 24)
+    geo.rotateX(-Math.PI / 2)
+    pingMesh = new THREE.Mesh(geo, new THREE.MeshBasicMaterial({
+      color: new THREE.Color(UI.rose), transparent: true, opacity: 0.9, depthWrite: false,
+    }))
+    pingMesh.renderOrder = 3
+    scene.add(pingMesh)
+  }
+  pingMesh.position.set(x + 0.5, grid.h(x, z) * LEVEL + 0.03, z + 0.5)
+  pingMesh.visible = true
+  pingLeft = 1.6
+}
+
+function tickPing(dt) {
+  if (!pingMesh || pingLeft <= 0) return
+  pingLeft -= dt
+  if (pingLeft <= 0) { pingMesh.visible = false; return }
+  // Two pulses over its life, fading out — enough to catch the eye across a
+  // wide shot without becoming another thing blinking on screen.
+  const t = 1.6 - pingLeft
+  pingMesh.scale.setScalar(1 + Math.sin(t * 7) * 0.12)
+  pingMesh.material.opacity = 0.9 * Math.min(1, pingLeft / 0.6)
+}
+
 function structureAt(x, z) {
   if (!app.structures) return null
   for (const node of app.structures.children) {

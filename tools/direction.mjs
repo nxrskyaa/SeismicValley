@@ -24,6 +24,7 @@ import { buildSettlement } from '../src/world/settlement.js'
 import { GameState } from '../src/game/state.js'
 import { RESTORE, isRestorable, restoreProgress } from '../src/game/colony.js'
 import { N } from '../src/world/grid.js'
+import { CROPS, CROP_ORDER, seedFor } from '../src/game/crops.js'
 
 let bad = 0
 const fail = (what, detail) => { bad++; console.error(`  FAIL  ${what}${detail ? `\n        ${detail}` : ''}`) }
@@ -46,6 +47,21 @@ for (const seed of [1, 77, 4242]) {
   if (start === 0) fail('there is nowhere to hoe on day one', 'the tutorial cannot be completed')
   else if (start > 400) fail('the whole valley is a farm', `${start} tiles tillable before anything is earned`)
   else ok(`day one: ${start} tiles of your own ground, and no more`)
+
+  /**
+   * --- and something to put in the ground on day one ------------------------
+   *
+   * The seed tray filters by what the player HOLDS. It first shipped filtering
+   * by `availableSpecies`, which before the vault is repaired means "species you
+   * have already carried through to a harvest" — empty on a new save. So the
+   * planting panel read "No seed" while the player stood there holding fourteen
+   * of them, at the exact moment they most needed it to work.
+   */
+  const startSeeds = CROP_ORDER.filter((id) => state.has(seedFor(id), 1))
+  const inSeason = startSeeds.filter((id) => CROPS[id].seasons.includes(state.season))
+  if (!startSeeds.length) fail('a new game starts with no seed at all')
+  else if (!inSeason.length) fail('nothing the player starts with is in season', startSeeds.join(', '))
+  else ok(`day one: ${inSeason.length} species in hand and in season (${inSeason.join(', ')})`)
 
   // --- a street that is a to-do list ---------------------------------------
   const { done, total } = restoreProgress(state)

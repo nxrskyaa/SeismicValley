@@ -187,6 +187,28 @@ export class GameState {
     }
   }
 
+  /**
+   * Put a specific item in hand, wherever it happens to live.
+   *
+   * The seed tray offers every species you hold, and most of them are not on the
+   * hotbar — there are eight slots and twelve crops. Without this, choosing a
+   * seed from the tray would mean telling the player to go and arrange their own
+   * hotbar first, which is the interface asking the player to do its job.
+   */
+  equip(id) {
+    if (!id || !this.has(id, 1)) return false
+    const at = this.hotbar.indexOf(id)
+    if (at >= 0) { this.select(at); return true }
+    // Nothing free? Take the last slot — tools live at the front and the player
+    // put them there.
+    const free = this.hotbar.indexOf(null)
+    const slot = free >= 0 ? free : this.hotbar.length - 1
+    this.hotbar[slot] = id
+    this.slot = slot
+    this.emit('hotbar')
+    return true
+  }
+
   spend(energy) {
     this.stamina = Math.max(0, this.stamina - energy)
     this.emit('vitals')
@@ -226,6 +248,9 @@ export class GameState {
     // hated writing, and the colony never bothered to collect them. They are
     // still out there, and you find them by accident, while hoeing.
     if (this.tagsFound < TAGS.length && chance(this.rand, 0.055)) this.findTag(x, z)
+    // The action bar counts beds and ripe crops; every verb that moves either
+    // number says so, or the two buttons quietly go stale.
+    this.emit('crops')
     return 'swing'
   }
 
@@ -245,6 +270,7 @@ export class GameState {
     g.set('grown', x, z, 0)
     this.stats.sown++
     this._pendingRebuild.crops = true
+    this.emit('crops')
     return 'swing'
   }
 
@@ -314,6 +340,7 @@ export class GameState {
       g.set('grown', x, z, reset)
     }
     this._pendingRebuild.crops = true
+    this.emit('crops')
     return 'swing'
   }
 
@@ -577,6 +604,59 @@ export class GameState {
       this.emit('coin')
     }
     return total
+  }
+
+  /**
+   * WHAT THE FIELD IS DOING RIGHT NOW: beds free to sow, and crops ready to lift.
+   *
+   * The interface had no way to say either. Farming was "hold the right hotbar
+   * slot and press F on the right square", with nothing on screen telling you
+   * how many squares were waiting or whether anything had come ripe — so the
+   * two verbs the whole game is built on were invisible until you walked onto
+   * them. These are the numbers the action bar puts on its buttons.
+   *
+   * Ninety-six squared is nine thousand cells; counting them costs nothing next
+   * to a frame, and doing it on demand means it can never go stale the way a
+   * cached tally does when some other system writes to the grid.
+   */
+  countField() {
+    const g = this.grid
+    let slots = 0
+    let ripe = 0
+    let growing = 0
+    for (let i = 0; i < g.crop.length; i++) {
+      if (!g.tilled[i]) continue
+      const c = g.crop[i]
+      if (!c) { slots++; continue }
+      if (isRipe(cropIdAt(c), g.grown[i])) ripe++
+      else growing++
+    }
+    return { slots, ripe, growing }
+  }
+
+  /**
+   * The nearest cell that wants the given verb, so a button can point at it.
+   *
+   * A count with nowhere to go is a scoreboard. The player still walks there and
+   * still swings — this only answers "where", which is the part the interface
+   * was making them scan the whole valley for.
+   */
+  nearestField(kind, fromX, fromZ) {
+    const g = this.grid
+    let best = null
+    let bestD = Infinity
+    for (let z = 0; z < N; z++) {
+      for (let x = 0; x < N; x++) {
+        const i = z * N + x
+        if (!g.tilled[i]) continue
+        const c = g.crop[i]
+        const want = kind === 'ripe' ? c && isRipe(cropIdAt(c), g.grown[i]) : !c
+        if (!want) continue
+        const d = (x - fromX) ** 2 + (z - fromZ) ** 2
+        if (d < bestD) { bestD = d; best = [x, z] }
+      }
+    }
+    return best
   }
 
   // ------------------------------------------------------------ requests --

@@ -152,16 +152,25 @@ html, body {
 }
 .hud .meter { display: flex; align-items: center; gap: calc(var(--u) * 0.6); }
 .hud .meter-label {
-  font-size: calc(var(--u) * 0.64);
+  font-size: calc(var(--u) * 0.7);
   letter-spacing: 0.16em;
   text-transform: uppercase;
   color: var(--dim);
   min-width: calc(var(--u) * 4.2);
 }
+/*
+ * Six pixels and a rule around it. At 3px with no border these were two faint
+ * scratches in the corner: the two numbers that decide whether you can keep
+ * working, drawn at the weight of a hairline divider. Still quiet — it is a
+ * meter, not a health bar — but now findable at a glance.
+ */
 .hud .meter-track {
   flex: 1;
-  height: 3px;
-  background: rgba(250, 244, 234, 0.14);
+  height: calc(var(--u) * 0.52);
+  min-height: 6px;
+  background: rgba(250, 244, 234, 0.1);
+  border: 1px solid var(--line);
+  border-radius: 1px;
 }
 .hud .meter-track i {
   display: block;
@@ -182,10 +191,16 @@ html, body {
   background: var(--line);
   border: 1px solid var(--line);
 }
+/*
+ * Bigger, because this is the only way to change what is in your hands and it
+ * was eight small dark squares with faint marks in them. The slot is the hit
+ * target on touch as well, where 3.4u came out under the size a thumb can
+ * reliably land on.
+ */
 .hud .slot {
   position: relative;
-  width: calc(var(--u) * 3.4);
-  height: calc(var(--u) * 3.4);
+  width: calc(var(--u) * 4.2);
+  height: calc(var(--u) * 4.2);
   border: 0;
   background: var(--plate);
   cursor: pointer;
@@ -196,15 +211,18 @@ html, body {
 }
 .hud .slot:hover { background: rgba(60, 44, 36, 0.9); }
 /* The selected slot is the ONE accent on screen. */
-.hud .slot.is-active { background: var(--stone-deep); box-shadow: inset 0 0 0 1px var(--cream-deep); }
+.hud .slot.is-active { background: var(--stone-deep); box-shadow: inset 0 0 0 2px var(--cream-deep); }
 .hud .slot-key {
   position: absolute;
   top: 2px;
   left: 4px;
-  font-size: calc(var(--u) * 0.54);
+  font-size: calc(var(--u) * 0.62);
   font-variant-numeric: tabular-nums;
-  color: rgba(250, 244, 234, 0.34);
+  color: rgba(250, 244, 234, 0.46);
 }
+/* The key numeral on the SELECTED slot comes up to full strength — it is the
+ * one thing on the bar telling you what pressing F will do. */
+.hud .slot.is-active .slot-key { color: var(--cream); }
 .hud .slot-icon { width: 74%; height: 74%; object-fit: contain; }
 .hud .slot.is-empty .slot-icon { display: none; }
 .hud .slot-n {
@@ -669,7 +687,7 @@ kbd {
   .hud .corner { display: none; }
   .hud .toasts { bottom: calc(var(--u) * 9); max-width: 60vw; }
   .hud .hotbar { bottom: calc(var(--u) * 1); }
-  .hud .slot { width: calc(var(--u) * 3); height: calc(var(--u) * 3); }
+  .hud .slot { width: calc(var(--u) * 3.7); height: calc(var(--u) * 3.7); }
   .hud .hint { bottom: calc(var(--u) * 5); }
 }
 
@@ -902,3 +920,141 @@ body.is-touch .hud .meters {
 .prologue .prologue-bar.is-bot { transform: translateY(0); }
 .prologue.is-out .prologue-bar.is-top { transform: translateY(-100%); }
 .prologue.is-out .prologue-bar.is-bot { transform: translateY(100%); }
+
+/* --- the two verbs -------------------------------------------------------- */
+/*
+ * Sowing and lifting are what this game is, and the interface used to say so
+ * nowhere: the whole loop was a hotbar slot and a key you had to be told about.
+ * These carry their own counts so the state of the field is legible without
+ * opening anything.
+ *
+ * Chunky here means HIT AREA and hierarchy, not saturation — the palette is the
+ * same brown and cream as every other plate, and the only colour that moves is
+ * the rose on a harvest that is actually ready.
+ */
+.acts {
+  position: absolute;
+  left: 50%;
+  bottom: calc(var(--u) * 7.4);
+  transform: translateX(-50%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: calc(var(--u) * 0.6);
+  pointer-events: none;
+}
+.acts-row { display: flex; gap: calc(var(--u) * 0.7); pointer-events: auto; }
+
+.act {
+  display: flex;
+  align-items: center;
+  gap: calc(var(--u) * 0.75);
+  min-width: calc(var(--u) * 12.5);
+  padding: calc(var(--u) * 0.62) calc(var(--u) * 0.9);
+  background: var(--plate);
+  border: 1px solid var(--line-strong);
+  border-radius: calc(var(--u) * 0.28);
+  color: var(--cream);
+  font-family: var(--sans);
+  cursor: pointer;
+  text-align: left;
+  transition: background 120ms ease, border-color 120ms ease, transform 120ms ease;
+}
+.act:hover { background: var(--plate-solid); border-color: var(--cream-deep); }
+.act:active { transform: translateY(1px); }
+.act.is-idle { opacity: 0.45; }
+
+.act-text { display: flex; flex-direction: column; line-height: 1.15; }
+.act-label {
+  font-size: calc(var(--u) * 1.02);
+  letter-spacing: 0.055em;
+  text-transform: uppercase;
+}
+.act-sub {
+  font-size: calc(var(--u) * 0.66);
+  color: var(--dim);
+  letter-spacing: 0.04em;
+}
+.act-count {
+  margin-left: auto;
+  min-width: calc(var(--u) * 1.7);
+  padding: calc(var(--u) * 0.12) calc(var(--u) * 0.36);
+  border: 1px solid var(--line);
+  border-radius: calc(var(--u) * 0.2);
+  font-family: var(--mono);
+  font-size: calc(var(--u) * 0.86);
+  text-align: center;
+  color: var(--cream-deep);
+}
+/* The one moving colour in the interface, and it means one thing: go and lift
+ * something. It is off whenever there is nothing ready. */
+.act-harvest.is-ready { border-color: var(--rose); }
+.act-harvest.is-ready .act-count { border-color: var(--rose); color: var(--rose); }
+
+/* A drawn mark rather than an emoji — no font file, no asset, rule 5. */
+.act-glyph {
+  width: calc(var(--u) * 1.5);
+  height: calc(var(--u) * 1.5);
+  flex: none;
+  border: 1px solid var(--line-strong);
+  border-radius: calc(var(--u) * 0.18);
+  position: relative;
+}
+.act-plant .act-glyph::after,
+.act-harvest .act-glyph::after {
+  content: '';
+  position: absolute;
+  inset: 22%;
+  border-left: 1px solid var(--cream-deep);
+  border-bottom: 1px solid var(--cream-deep);
+}
+.act-plant .act-glyph::after { border-radius: 0 0 0 60%; }
+.act-harvest .act-glyph::after { transform: rotate(-38deg); border-radius: 0; }
+
+/* --- the seed tray -------------------------------------------------------- */
+/* `display: flex` beats the browser's own `[hidden] { display: none }`, so the
+ * tray reported itself closed and stayed on screen. Anything with a display
+ * rule needs this said explicitly. */
+.tray[hidden] { display: none; }
+.tray {
+  pointer-events: auto;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: calc(var(--u) * 0.4);
+  max-width: calc(var(--u) * 30);
+  padding: calc(var(--u) * 0.55);
+  background: var(--plate);
+  border: 1px solid var(--line-strong);
+  border-radius: calc(var(--u) * 0.28);
+}
+.tray-empty {
+  margin: 0;
+  padding: calc(var(--u) * 0.3) calc(var(--u) * 0.5);
+  max-width: calc(var(--u) * 22);
+  font-size: calc(var(--u) * 0.74);
+  color: var(--dim);
+  line-height: 1.45;
+}
+.seed {
+  display: flex;
+  align-items: center;
+  gap: calc(var(--u) * 0.4);
+  padding: calc(var(--u) * 0.32) calc(var(--u) * 0.55);
+  background: transparent;
+  border: 1px solid var(--line);
+  border-radius: calc(var(--u) * 0.2);
+  color: var(--cream);
+  font-family: var(--sans);
+  font-size: calc(var(--u) * 0.78);
+  cursor: pointer;
+}
+.seed:hover { border-color: var(--cream-deep); background: rgba(250, 244, 234, 0.06); }
+.seed-icon { width: calc(var(--u) * 1.25); height: calc(var(--u) * 1.25); image-rendering: pixelated; }
+.seed-n { font-family: var(--mono); color: var(--dim); }
+
+@media (max-width: 700px) {
+  .acts { bottom: calc(var(--u) * 6.2); }
+  .act { min-width: calc(var(--u) * 10); }
+  .act-sub { display: none; }
+}
