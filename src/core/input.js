@@ -25,10 +25,11 @@
  * A driven playtest found it: thirty seconds of scripted keys, and the panel was
  * still on screen at the end.
  */
-const ALWAYS = new Set(['cancel', 'homestead', 'journal', 'build', 'pebbles', 'save'])
+const ALWAYS = new Set(['cancel', 'homestead', 'journal', 'build', 'pebbles', 'save', 'market', 'village', 'bag', 'guide'])
 
 const KEY_ACTIONS = {
   KeyF: 'use', KeyE: 'interact', KeyQ: 'rotL', KeyR: 'rotR',
+  KeyM: 'market', KeyV: 'village', KeyI: 'bag', Slash: 'guide',
   Tab: 'homestead', KeyJ: 'journal', KeyB: 'build', KeyP: 'pebbles',
   Escape: 'cancel', Space: 'jump', F5: 'save', Enter: 'confirm',
   Digit1: 'slot1', Digit2: 'slot2', Digit3: 'slot3', Digit4: 'slot4',
@@ -52,7 +53,7 @@ export class Input {
     this.stick = [0, 0]
 
     const onKey = (e, down) => {
-      if (e.code === 'Tab') e.preventDefault()
+      if (['Tab', 'F5', 'Space', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.code) && !/INPUT|TEXTAREA/.test(e.target?.tagName)) e.preventDefault()
       if (e.repeat) return
       if (down) {
         this.keys.add(e.code)

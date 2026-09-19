@@ -1,3 +1,4 @@
+import { villager, marketStock, buyPrice, canSell } from './village.js'
 import { G } from '../core/palette.js'
 import { chance, pick, randInt, rng } from '../core/rng.js'
 import { Grid, N, P } from '../world/grid.js'
@@ -56,7 +57,7 @@ export class GameState {
     this.day = 1
     this.season = 0
     this.year = 1
-    this.hour = 6.4
+    this.hour = 8.0
     this.weather = 'CLEAR'
     this.tomorrow = 'CLEAR'
 
@@ -79,7 +80,11 @@ export class GameState {
      * right about all of them; a counter it can poll cannot be missed, cannot
      * fire twice, and survives a reload for free.
      */
-    this.stats = { tilled: 0, sown: 0, watered: 0, harvested: 0, chopped: 0, mined: 0, caught: 0, slept: 0, walked: 0 }
+    this.friendships = {}
+    this.lastChat = {}
+    this.lastGift = {}
+    this.lastDelivery = {}
+    this.stats = { sold: 0, earned: 0, talked: 0, tilled: 0, sown: 0, watered: 0, harvested: 0, chopped: 0, mined: 0, caught: 0, slept: 0, walked: 0 }
 
     /** The cell the body is standing on, pushed in by the game each frame so
      *  nothing can be built on top of the player. Null until the game runs. */
@@ -117,6 +122,7 @@ export class GameState {
     this.give('seed_palewheat', 6)
     this.give('wood', 12)
     this.give('stone', 8)
+    this.give('fibre', 6)
   }
 
   // ------------------------------------------------------------- events --
@@ -243,6 +249,7 @@ export class GameState {
     g.set('ground', x, z, G.TILLED)
     g.set('tilled', x, z, 1)
     this.stats.tilled++
+    this.emit('farm-action', { x, z, kind: 'till' })
     this._pendingRebuild.props = true
     // Found, never given. Marit used soil-tags as a lab notebook because she
     // hated writing, and the colony never bothered to collect them. They are
@@ -269,6 +276,7 @@ export class GameState {
     g.set('crop', x, z, cropIndex(cropId))
     g.set('grown', x, z, 0)
     this.stats.sown++
+    this.emit('farm-action', { x, z, kind: 'sow' })
     this._pendingRebuild.crops = true
     this.emit('crops')
     return 'swing'
@@ -286,6 +294,7 @@ export class GameState {
     g.set('wet', x, z, 1)
     g.set('ground', x, z, G.WET)
     this.stats.watered++
+    this.emit('farm-action', { x, z, kind: 'water' })
     this.emit('vitals')
     return 'pour'
   }
@@ -306,12 +315,13 @@ export class GameState {
     const c = CROPS[id]
     this.give(id, c.yield)
     this.stats.harvested++
+    this.emit('farm-action', { x, z, kind: 'harvest' })
     // The Manifest. Every species carried through to a harvest writes one line
     // back onto the chip — this is the progress bar, and it is the whole point.
     if (!this.recovered.has(id)) {
       this.recovered.add(id)
       this.emit('manifest', this.recovered.size)
-      this.say(`${item(id).name} recovered. ${this.recovered.size} of 406.`, 'good')
+      this.say(`${item(id).name} recovered. ${this.recovered.size} of ${Object.keys(CROPS).length} crops.`, 'good')
       this.addJournal(`${item(id).name} carried through to a harvest. Written back onto the chip.`)
     }
     /**
@@ -563,7 +573,7 @@ export class GameState {
   finish() {
     if (this.flags.has('finished')) return
     this.flags.add('finished')
-    this.addJournal('The relay has power. The street is whole, and empty, and it will stay empty.')
+    this.addJournal('The relay has power. The street is whole. There is a place here for everyone again.')
     this.emit('finish', { day: this.day, year: this.year, recovered: this.recovered.size })
   }
 
@@ -584,13 +594,71 @@ export class GameState {
     return true
   }
 
+  // The market owns transactions, so UI refreshes cannot bypass their rules.
+  buy(id, n = 1) {
+    if (!Number.isInteger(n) || n < 1 || !marketStock(this.season).includes(id)) return false
+    const cost = buyPrice(id) * n
+    if (this.coin < cost) return false
+    this.coin -= cost
+    this.give(id, n)
+    this.emit('coin')
+    return true
+  }
+
+  sell(id, n = 1) {
+    if (!canSell(id) || !Number.isInteger(n) || n < 1 || !this.take(id, n)) return false
+    const earned = valueOf(id) * n
+    this.coin += earned
+    this.stats.sold += n
+    this.stats.earned += earned
+    this.emit('coin')
+    this.say(`Sold ${n} ${item(id).name} for ${earned} coin.`, 'good')
+    return true
+  }
+
+  chat(id) {
+    const v = villager(id)
+    if (!v) return null
+    if (this.lastChat[id] !== this.day) {
+      this.lastChat[id] = this.day
+      this.friendships[id] = Math.min(100, (this.friendships[id] ?? 0) + 5)
+      this.stats.talked++
+      this.emit('social')
+    }
+    return (this.friendships[id] ?? 0) >= 40 ? v.friendly : v.lines[(this.day - 1) % v.lines.length]
+  }
+
+  gift(id) {
+    const v = villager(id)
+    if (!v || this.lastGift[id] === this.day || !this.take(v.gift, 1)) return false
+    this.lastGift[id] = this.day
+    this.friendships[id] = Math.min(100, (this.friendships[id] ?? 0) + 12)
+    this.emit('social')
+    this.say(`${v.name} loved the ${item(v.gift).name}. +12 friendship`, 'good')
+    return true
+  }
+
+  deliver(id) {
+    const v = villager(id)
+    if (!v || this.lastDelivery[id] === this.day || !this.take(v.request, v.amount)) return false
+    this.lastDelivery[id] = this.day
+    this.coin += v.reward
+    this.friendships[id] = Math.min(100, (this.friendships[id] ?? 0) + 10)
+    this.emit('coin')
+    this.emit('social')
+    this.say(`${v.name}: Thank you! ${v.reward} coin and +10 friendship.`, 'good')
+    return true
+  }
+
   // ------------------------------------------------------------ shipping --
 
   ship(id, n = 1) {
+    if (!canSell(id) || !Number.isInteger(n) || n <= 0) return false
     if (!this.take(id, n)) return false
     const existing = this.shipped.find((s) => s.id === id)
     if (existing) existing.n += n
     else this.shipped.push({ id, n })
+    this.stats.sold += n
     this.emit('shipped')
     return true
   }
@@ -601,6 +669,7 @@ export class GameState {
     this.shipped.length = 0
     if (total) {
       this.coin += total
+      this.stats.earned += total
       this.emit('coin')
     }
     return total
@@ -797,7 +866,7 @@ export class GameState {
       this.say(`${SEASON_NAMES[this.season]} has come.`, 'good')
       this.addJournal(`${SEASON_NAMES[this.season]}, year ${this.year}.`)
     }
-    this.hour = 6.4
+    this.hour = 8.0
     this.stamina = Math.min(MAX_STAMINA, this.stamina + 62 + this.homeTier * 8)
     this.water = MAX_WATER
     this.flags.delete('collapsing')
@@ -898,14 +967,15 @@ export class GameState {
       recovered: [...this.recovered], tagsFound: this.tagsFound, logsFound: this.logsFound,
       unlocked: [...this.unlocked],
       stats: this.stats,
+      friendships: this.friendships, lastChat: this.lastChat, lastGift: this.lastGift, lastDelivery: this.lastDelivery,
       grid: this.grid.serialize(),
     }
   }
 
-  save() {
+  save(silent = false) {
     try {
       localStorage.setItem(SAVE_KEY, JSON.stringify(this.toJSON()))
-      this.say('Saved.')
+      if (!silent) this.say('Saved.')
       return true
     } catch {
       this.say('Could not save — storage is full or blocked.', 'warn')
@@ -934,6 +1004,7 @@ export class GameState {
   load(data) {
     if (!this.grid.deserialize(data.grid)) return false
     Object.assign(this, {
+      seed: data.seed ?? this.seed,
       day: data.day, season: data.season, year: data.year, hour: data.hour,
       weather: data.weather, tomorrow: data.tomorrow,
       coin: data.coin, water: data.water, stamina: data.stamina ?? MAX_STAMINA, homeTier: data.homeTier,
@@ -944,6 +1015,7 @@ export class GameState {
       lastPruningDay: data.lastPruningDay ?? 0,
       tagsFound: data.tagsFound ?? 0, logsFound: data.logsFound ?? [],
       stats: { ...this.stats, ...(data.stats ?? {}) },
+      friendships: data.friendships ?? {}, lastChat: data.lastChat ?? {}, lastGift: data.lastGift ?? {}, lastDelivery: data.lastDelivery ?? {},
     })
     this.bag = new Map(data.bag)
     this.recovered = new Set(data.recovered ?? [])

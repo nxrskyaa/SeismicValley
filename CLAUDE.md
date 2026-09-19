@@ -8,6 +8,16 @@ setting, palette, camera and Pruning mechanic are Velion's and were ported
 deliberately. `Velion/docs/STORY.md` is the story bible and is still the
 authority on anything narrative.
 
+## Current direction — September 2026
+
+The owner explicitly requested a Harvest Moon-inspired village farming game.
+NPCs, commerce, friendship and house progression now take precedence over the
+old solitude premise below. Keep the procedural art and isometric terrain.
+Seismic's current interface reference is white/cream, plum ink and thin rules.
+`game/village.js`, `world/village.js`, and `ui/village.js` own the new village loop.
+Existing version-1 saves must remain readable; new social fields default empty.
+Never commit credentials, local deployment settings or generated test captures.
+
 ## The six rules that keep breaking
 
 Each of these was broken at least once and each is now an assertion in
@@ -30,9 +40,9 @@ feel.
    several cells, under every canopy. So the shadow map stays off and the
    occlusion is real — baked into the terrain's vertex colours for anything that
    stands still (`world/occlusion.js`), one quad for the five things that move.
-4. **You are alone.** One human look in `actors/player.js`. No villagers, no
-   market, no quest-giver — the survivors are scattered and do not know about
-   each other. The check counts the entries in `LOOKS`.
+4. **A living village.** The player rig in `actors/player.js` is shared by three
+   distinct villagers in `game/village.js`. NPC chat, gifts and deliveries persist
+   in the save. Only one reward of each kind is allowed per NPC per day.
 5. **Nothing loads over the network at runtime.** No CDN font, no `.glb`, no
    remote texture, no audio file.
 6. **The rig rule.** Three composes `T * R * S`, so scale lands before rotation.

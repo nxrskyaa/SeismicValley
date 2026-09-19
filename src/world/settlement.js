@@ -1,3 +1,4 @@
+import { cropIndex } from '../game/crops.js'
 import { KINDS } from './buildings.js'
 import { Grid, N, P } from './grid.js'
 import { G } from '../core/palette.js'
@@ -191,7 +192,29 @@ export function buildSettlement(state, grid) {
    * homestead's plot is the one piece of the valley that is yours already.
    */
   const home = plan.placed.find((c) => c.kind === 'homestead')
-  if (home) openPlot(grid, plotFor({ ...home, z: home.z }, plan.streetZ))
+  if (home) {
+    // A continuous yard: no one-cell ridges hiding feet between house and field.
+    for (let z = HOME.z - 1; z <= HOME.z + 9; z++) for (let x = HOME.x - 8; x <= HOME.x + 9; x++) {
+      if (!grid.isWater(x, z) && grid.get('prop', x, z) !== P.BUILDING) grid.setH(x, z, grid.h(home.x, home.z))
+    }
+    const plot = plotFor(home, plan.streetZ)
+    openPlot(grid, plot)
+    for (let z = plot.z0; z <= plot.z1; z++) for (let x = plot.x0; x <= plot.x1; x++) {
+      if (grid.isWater(x, z)) continue
+      grid.setH(x, z, grid.h(home.x, home.z))
+      grid.set('prop', x, z, P.NONE)
+      grid.set('ground', x, z, G.LOAM)
+      // Two example rows: a harvest tomorrow, and room to learn to hoe.
+      if (z <= plot.z0 + 1) {
+        grid.set('tilled', x, z, 1)
+        grid.set('ground', x, z, G.TILLED)
+        if (z === plot.z0) {
+          grid.set('crop', x, z, cropIndex(x % 2 ? 'palewheat' : 'grubwort'))
+          grid.set('grown', x, z, 3)
+        }
+      }
+    }
+  }
 
   // The path down the middle, once the plots are level.
   for (let x = HOME.x - 28; x <= HOME.x + 34; x++) {

@@ -1,3 +1,4 @@
+import { renderVillagePanel, homeOverview, restorationRows } from './village.js'
 import { markSvg } from '../core/mark.js'
 import { cropForSeed, SEASON_DAYS, SEASON_NAMES, seasonalSeeds } from '../game/crops.js'
 import { KIND, item, valueOf } from '../game/items.js'
@@ -40,6 +41,8 @@ export class Panels {
     this.node = el('div', 'panels')
     this.scrim = el('div', 'scrim')
     this.sheet = el('section', 'sheet')
+    this.sheet.setAttribute('role', 'dialog')
+    this.sheet.setAttribute('aria-modal', 'true')
     this.node.append(this.scrim, this.sheet)
     root.append(this.node)
     this.open_ = null
@@ -80,19 +83,26 @@ export class Panels {
     const body = { homestead: 'homestead', build: 'build', journal: 'journal', shop: 'shop', crate: 'crate', pebbles: 'pebbles' }[kind]
     this.sheet.replaceChildren()
     this.sheet.append(this.header(kind))
+    this.sheet.setAttribute('aria-label', this.sheet.querySelector('h2').textContent)
     const content = el('div', 'sheet-body')
     this.sheet.append(content)
     this[`render_${body}`]?.(content, payload)
-    this.sheet.append(el('footer', 'sheet-foot', 'Esc — close'))
+    renderVillagePanel(this, content, kind, payload)
+    this.sheet.append(el('footer', 'sheet-foot', 'Seismic Valley · Esc or × to close'))
   }
 
   header(kind) {
     const titles = {
       homestead: 'Homestead', build: 'Raise', journal: 'Field Journal',
-      shop: 'Seed & Trade', crate: 'Shipping Crate', pebbles: 'Pebbles',
+      market: 'The market', village: 'Your neighbors', npc: 'A little conversation', guide: 'Life in the valley', bag: 'Your bag', morning: 'A new day', shop: 'Seed & Trade', crate: 'Shipping Crate', pebbles: 'Pebbles',
     }
     const h = el('header', 'sheet-head')
     h.append(el('span', 'sheet-mark', markSvg({ className: 'sheet-mark-svg' })), el('h2', null, titles[kind] ?? kind))
+    const close = el('button', 'sheet-close', '×')
+    close.type = 'button'
+    close.setAttribute('aria-label', 'Close panel')
+    close.addEventListener('click', () => this.close())
+    h.append(close)
     return h
   }
 
@@ -100,7 +110,7 @@ export class Panels {
 
   render_homestead(body) {
     const s = this.state
-    body.append(el('p', 'lede', `Tier ${s.homeTier} of 4. A better roof means you wake with more in you.`))
+    homeOverview(body, s)
     const cost = HOME_COST[s.homeTier]
     if (cost) {
       const row = el('div', 'row')
@@ -152,6 +162,7 @@ export class Panels {
     roster.append(rosterBtn)
     body.append(roster)
 
+    restorationRows(this, body)
     body.append(el('h3', null, 'Requests'))
     if (!s.requests.length) body.append(el('p', 'muted', 'Nobody needs anything today.'))
     for (const r of s.requests) {
@@ -169,6 +180,7 @@ export class Panels {
 
   render_build(body, payload) {
     const s = this.state
+    restorationRows(this, body)
     const [x, z] = payload?.cell ?? [0, 0]
     body.append(el('p', 'lede', `Raising on the ground in front of you (${x}, ${z}). Nothing you build is registered until you drive a stake at its corner.`))
 
@@ -278,7 +290,7 @@ export class Panels {
 
   render_crate(body) {
     const s = this.state
-    body.append(el('p', 'lede', 'Whatever is in the crate at dawn goes out on the line, and the line still pays. There is nobody at the other end of it.'))
+    body.append(el('p', 'lede', 'Leave crops here for payment at dawn. For coin right away, sell at Marn’s market. Seeds and tools stay in your bag.'))
 
     /**
      * The requisition, which had no door.
@@ -291,7 +303,7 @@ export class Panels {
     const req = el('div', 'row row-hero')
     req.append(el('div', 'row-main', `<strong>Requisition</strong><span class="muted">What the archive still has in stock. You have ${s.coin} coin.</span>`))
     const reqBtn = el('button', 'btn btn-solid', 'Order')
-    reqBtn.addEventListener('click', () => this.open('shop'))
+    reqBtn.addEventListener('click', () => this.open('market'))
     req.append(reqBtn)
     body.append(req)
     const sellable = [...s.bag.keys()].filter((id) => {

@@ -213,12 +213,13 @@ console.log('the premise')
   const player = read(path.join(SRC, 'actors/player.js'))
   const looks = player.slice(player.indexOf('export const LOOKS = {'))
   const entries = [...looks.matchAll(/^\s{2}(\w+):\s*\{/gm)].map((m) => m[1])
-  assert(entries.length === 1, `exactly one human look exists (${entries.join(', ') || 'none'})`)
+  assert(entries.length === 1, `the farmer has one shared base rig (${entries.join(', ') || 'none'})`)
 
   const cast = read(path.join(SRC, 'actors/cast.js'))
-  assert(!/VILLAGE/.test(cast), 'the cast does not reference a village')
+  const { VILLAGERS } = await import('../src/game/village.js')
+  assert(VILLAGERS.length === 3 && new Set(VILLAGERS.map(v => v.id)).size === 3, 'the village has three distinct neighbors')
   const world = read(path.join(SRC, 'world/worldgen.js'))
-  assert(!/export const VILLAGE/.test(world), 'the generator does not place a village')
+  assert(/export const HOME/.test(world), 'the village is anchored on the existing homestead')
   assert(/Sixteen/.test(cast), 'Sixteen is in the cast')
 
   /**
@@ -468,7 +469,7 @@ console.log('\nthe first morning')
 
   assert(STEPS.length >= 5 && STEPS.length <= 8, `the list is a morning, not a manual (${STEPS.length} jobs)`)
   const ids = STEPS.map((s) => s.id)
-  for (const need of ['chop', 'fish', 'sow']) {
+  for (const need of ['sow', 'harvest', 'sell', 'talk']) {
     assert(ids.includes(need), `the first morning covers ${need}`)
   }
 
@@ -476,7 +477,7 @@ console.log('\nthe first morning')
   // the failure that makes a tutorial actively worse than none: telling the
   // player to press 6 for a seed when 6 is the rod.
   const slotOf = (id) => STARTING_HOTBAR.indexOf(id) + 1
-  const keyed = { chop: slotOf('axe'), till: slotOf('hoe'), sow: slotOf('seed_grubwort'), water: slotOf('can'), fish: slotOf('rod') }
+  const keyed = { till: slotOf('hoe'), sow: slotOf('seed_grubwort'), water: slotOf('can') }
   for (const [id, slot] of Object.entries(keyed)) {
     const step = STEPS.find((x) => x.id === id)
     assert(step && slot > 0 && step.keys.includes(`<kbd>${slot}</kbd>`),

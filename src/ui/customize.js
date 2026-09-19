@@ -56,7 +56,7 @@ export function buildCustomizer(appearance = { ...DEFAULT_APPEARANCE }) {
   const scene = new THREE.Scene()
   // Same pitch as the game, framed close. A preview from a different angle to
   // the one you play at is a preview of a different character.
-  const cam = new THREE.OrthographicCamera(-1.06, 1.06, 1.72, -0.52, -20, 40)
+  const cam = new THREE.OrthographicCamera(-1.06, 1.06, 1.22, -1.22, -20, 40)
   cam.position.set(0, 3, 6)
   cam.rotation.order = 'YXZ'
   cam.rotation.x = PITCH * 0.62
@@ -185,7 +185,7 @@ export function buildCustomizer(appearance = { ...DEFAULT_APPEARANCE }) {
   dice.addEventListener('click', () => {
     Object.assign(state, randomAppearance(state.name))
     sync()
-    repaint()
+    reshape()
   })
   form.append(dice)
 

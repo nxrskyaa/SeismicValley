@@ -270,7 +270,7 @@ async function firstRunPage(page) {
 
   // The tutorial should be up and on its first job.
   const task = await page.evaluate(() => document.querySelector('.task-count')?.textContent ?? '')
-  if (!/1 of/.test(task)) throw new Error(`the first morning did not start (card says "${task}")`)
+  if (!/01 OF/.test(task)) throw new Error(`the first morning did not start (card says "${task}")`)
   await new Promise((r) => setTimeout(r, 400))
 }
 

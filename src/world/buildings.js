@@ -81,7 +81,7 @@ const DARK_TONES = [UI.stoneDeep, UI.stoneDark, UI.stoneMid]
  * stays inside the Seismic warm band — separation is about VALUE and saturation,
  * not about leaving the palette.
  */
-const ROOF_DEFAULT = '#8f4436'
+const ROOF_DEFAULT = '#705363'
 
 /**
  * A plain plastered shell: four walls in one pale tone, with a stone base

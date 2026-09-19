@@ -2,7 +2,7 @@ import { markSvg } from '../core/mark.js'
 import { keycaps } from './keycaps.js'
 import { SEASON_DAYS, SEASON_NAMES, SEASON_SHORT, WEATHER } from '../game/crops.js'
 import { item } from '../game/items.js'
-import { MANIFEST_TOTAL } from '../game/story.js'
+import { CROP_ORDER } from '../game/crops.js'
 import { restoreProgress } from '../game/colony.js'
 import { MAX_STAMINA, MAX_WATER } from '../game/state.js'
 import { iconFor } from './icons.js'
@@ -171,7 +171,7 @@ export class HUD {
     }
     this.task.classList.remove('is-off')
     const closing = step.closing
-    this.taskCount.textContent = closing ? 'The first morning' : `${n} of ${total}`
+    this.taskCount.textContent = closing ? 'A new beginning' : `FIRST ROOTS / ${String(n).padStart(2, '0')} OF ${total}`
     this.taskJob.textContent = step.job
     this.taskNote.textContent = step.note
     this.taskKeys.innerHTML = keycaps(step.keys) ?? ''
@@ -236,7 +236,7 @@ export class HUD {
     const street = restoreProgress(s)
     this.logManifest.textContent = street.done >= street.total
       ? `The street is whole · Manifest ${s.manifestCount}`
-      : `Street ${street.done} / ${street.total} · Manifest ${s.manifestCount} of ${MANIFEST_TOTAL}`
+      : `Village ${street.done} / ${street.total} · Crops ${s.manifestCount} of ${CROP_ORDER.length}`
   }
 
   drawMeters() {
@@ -265,6 +265,8 @@ export class HUD {
       const count = s.count(id)
       n.textContent = count > 1 ? String(count) : ''
       node.title = `${item(id).name} — ${item(id).desc}`
+      node.setAttribute('aria-label', `Slot ${i + 1}: ${item(id).name}`)
+      node.setAttribute('aria-pressed', String(i === s.slot))
     })
   }
 

@@ -40,12 +40,15 @@ export function showTitle(root, { onStart, seed }) {
   left.append(
     el('div', 'title-mark', markSvg({ className: 'title-mark-svg' })),
     el('h1', 'title-word', svgWordmark('SEISMIC VALLEY', { className: 'title-type' })),
-    el('p', 'title-lede', 'You were the only person underground when the world was rolled back. Forty days later a dog stands on your chest and there is a valley outside with four hundred and six species mixed into the soil of it.'),
+    el('div', 'title-edition', 'A LITTLE LIFE ON A LIVING PLANET'),
+    el('p', 'title-lede', 'A patch of earth. A place to call home.'),
+    el('p', 'title-description', 'Plant something. Get to know your neighbors. Turn your first harvest into a home worth coming back to.'),
+    el('div', 'title-features', '<span>01 / Grow</span><span>02 / Trade</span><span>03 / Belong</span>'),
   )
 
   // --- who you are ---------------------------------------------------------
   const dresser = buildCustomizer(loadAppearance())
-  right.append(el('div', 'title-eyebrow', 'The settler'), dresser.node)
+  right.append(el('div', 'title-eyebrow', 'MEET YOUR FARMER'), dresser.node)
 
   // --- the actions ---------------------------------------------------------
   const save = GameState.peek()
@@ -92,9 +95,9 @@ export function showTitle(root, { onStart, seed }) {
     <div><kbd>WASD</kbd> walk <kbd>Shift</kbd> run <kbd>Space</kbd> jump</div>
     <div><kbd>F</kbd> use the tool in hand <kbd>E</kbd> interact, talk, harvest</div>
     <div><kbd>1</kbd>–<kbd>8</kbd> hotbar <kbd>Q</kbd> <kbd>R</kbd> turn the camera <kbd>wheel</kbd> zoom</div>
-    <div><kbd>Tab</kbd> homestead <kbd>B</kbd> build and register <kbd>J</kbd> journal <kbd>F5</kbd> save</div>
+    <div><kbd>Tab</kbd> home <kbd>M</kbd> market <kbd>V</kbd> village <kbd>I</kbd> bag</div>
   `))
-  left.append(el('div', 'title-credit', 'A procedural Three.js game by <a href="https://x.com/nxrskyaa" target="_blank" rel="noopener">Nxrskyaa</a>. Nothing in it is a downloaded asset.'))
+  left.append(el('div', 'title-credit', 'Made with care by <a href="https://x.com/nxrskyaa" target="_blank" rel="noopener">Nxrskyaa</a>. An independent Seismic-inspired farming game.'))
 
   card.append(left, right)
   node.append(card)

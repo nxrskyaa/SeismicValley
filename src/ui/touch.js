@@ -124,10 +124,11 @@ export class TouchControls {
      */
     // The floor is what makes an iPhone SE work: at 320 points the cluster and
     // the stick together need to fit across the screen, and at 0.82 they did not.
-    const s = padScale(innerWidth)
+    const compactLandscape = innerWidth > 700 && innerHeight < 500
+    const s = compactLandscape ? 0.78 : padScale(innerWidth)
     const lift = HOTBAR_CLEARANCE * s
 
-    this.stick.rest = [STICK_R * s + 24, innerHeight - STICK_R * s - lift]
+    this.stick.rest = compactLandscape ? [66, innerHeight - 63] : [STICK_R * s + 24, innerHeight - STICK_R * s - lift]
     if (this.stick.id < 0) {
       this.stick.home = [...this.stick.rest]
       this.stick.at = [...this.stick.rest]
@@ -136,8 +137,8 @@ export class TouchControls {
     // Polar-ish placement around one anchor, so the whole cluster moves and
     // scales together and the gaps between pads are guaranteed by arithmetic
     // rather than by having looked at it once.
-    const ax = innerWidth - 58 * s
-    const ay = innerHeight - lift - 30 * s
+    const ax = innerWidth - (compactLandscape ? 44 : 58 * s)
+    const ay = compactLandscape ? innerHeight - 46 : innerHeight - lift - 30 * s
     const place = PAD_PLACE
     this.pads.forEach((p, i) => {
       p.cx = ax + place[i][0] * s

@@ -3,7 +3,7 @@
   "private": true,
   "version": "1.0.0",
   "type": "module",
-  "description": "Seismic Valley - a procedural farming game on a live fault, built in Three.js. No models, no textures, no fonts.",
+  "description": "An isometric village farming game: grow crops, trade, make friends and build a home.",
   "scripts": {
     "dev": "vite",
     "build": "vite build",
@@ -19,7 +19,9 @@
     "motion": "node tools/motion.mjs",
     "idle": "node tools/idle.mjs",
     "economy": "node tools/economy.mjs",
-    "direction": "node tools/direction.mjs"
+    "direction": "node tools/direction.mjs",
+    "test:village": "node tools/village.mjs",
+    "test:play": "node tools/play-village.mjs"
   },
   "dependencies": {
     "three": "^0.185.1"

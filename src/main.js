@@ -1,5 +1,10 @@
+import { FarmFeedback } from './world/farmFeedback.js'
+import { Village } from './world/village.js'
+import { FarmBar } from './ui/village.js'
+import { cropAt, isRipe } from './game/crops.js'
 import * as THREE from 'three'
 import './ui/ui.css'
+import './ui/farm.css'
 
 import { audio } from './core/audio.js'
 import { Music } from './core/music.js'
@@ -474,8 +479,17 @@ function runGame() {
     onBuilt: () => { audio.build(); syncStructures() },
     onBuy: () => audio.coin(),
     onShip: () => audio.pickup(),
+    onLocate: (id) => locate(id),
   })
   state.on('build', () => syncStructures())
+  app.farmFeedback = new FarmFeedback(app.scene, state)
+  app.village = new Village(app.scene, grid, state, root)
+  app.farmBar = new FarmBar(app.hud.node, state, app.panels, { cancelRoute: () => { app.route = null } })
+  // A softer, local fill separates faces and clothing from the terrain.
+  const fill = new THREE.HemisphereLight('#f8e9ee', '#7b756f', 0.5)
+  app.scene.add(fill)
+  app.autoSave = 0
+  app.player.root.scale.setScalar(1.2)
 
   // A coarse pointer is the only reliable signal. A narrow window on a desktop
   // is still a desktop and should not get a joystick drawn over it.
@@ -501,10 +515,14 @@ function runGame() {
         if (app.audioPrefs.music) app.music.start()
         if (appearance) {
           app.appearance = appearance
-          const look = lookFrom(appearance)
-          for (const [k, hex] of Object.entries(look)) {
-            app.player.materials[k]?.color.setStyle(hex, THREE.SRGBColorSpace)
-          }
+          const next = buildPlayer(lookFrom(appearance))
+          app.scene.remove(app.player.root)
+          // Fishing's held rod belongs to the hand and survives the wardrobe swap.
+          while (app.player.holdR.children.length) next.holdR.add(app.player.holdR.children[0])
+          app.player.root.traverse((o) => { o.geometry?.dispose(); o.material?.dispose?.() })
+          Object.assign(app.player, next)
+          app.player.root.scale.setScalar(1.2)
+          app.scene.add(app.player.root)
         }
         if (seed && seed !== app.seedText) {
           // A different seed is a different valley, and regenerating in place is
@@ -595,7 +613,7 @@ function runGame() {
       input.poll()
       // Time only moves while the game is being played. A player who opened the
       // journal and went to lunch should not come back to a lost season.
-      if (!app.panels.isOpen && !app.pruning.active) {
+      if (!app.panels.isOpen && !app.pruning.active && !app.cinematic && !talking) {
         // A full 06:00 -> 02:00 day in about thirteen real minutes, matching
         // Velion's clock. At 0.28 an hour went by every three and a half
         // seconds: the sun raced, nothing had time to read as morning or
@@ -631,6 +649,19 @@ function runGame() {
     }
 
     app.cast.update(dt, control.pos, state.hour)
+    app.village.update(dt, control.pos, app.camera, started && !app.cinematic && !app.panels.isOpen)
+    app.farmFeedback.update(dt, control.target, started && !app.cinematic && !app.panels.isOpen)
+    if (started && !app.panels.isOpen && !app.cinematic) {
+      app.autoSave += dt
+      if (app.autoSave > 45) { state.save(true); app.autoSave = 0 }
+    }
+    if (app.route && started) {
+      const dx = app.route.x - control.pos.x, dz = app.route.z - control.pos.z
+      const dist = Math.hypot(dx, dz)
+      const angle = Math.atan2(dx, dz) - app.rig.yaw
+      app.farmBar.route.innerHTML = `<b style="display:inline-block;transform:rotate(${-angle * 180 / Math.PI}deg)">↓</b> ${app.route.label} · ${Math.round(dist)} m <span>×</span>`
+      if (dist < 2.3) { app.route = null; app.farmBar.route.hidden = true }
+    }
     app.player.anim.rod = state.held === 'rod'
     // So nothing can be built on the tile the player is standing on.
     state.playerCell = control.cell
@@ -734,6 +765,7 @@ function handleInteraction(talking) {
   if (input.pressed('homestead')) panels.toggle('homestead')
   if (input.pressed('build')) panels.toggle('build', { cell: control.target })
   if (input.pressed('save')) state.save()
+  for (const kind of ['market', 'village', 'bag', 'guide']) if (input.pressed(kind)) panels.toggle(kind)
   if (panels.isOpen) return talking
 
   const slot = input.slotPressed()
@@ -744,6 +776,7 @@ function handleInteraction(talking) {
 
   const [tx, tz] = control.target
   const near = cast.nearest(control.pos)
+  const neighbor = app.village.nearest(control.pos)
   const held = state.held
   const heldItem = held ? item(held) : null
 
@@ -753,7 +786,8 @@ function handleInteraction(talking) {
   const crop = grid.get('crop', tx, tz)
   const struct = structureAt(tx, tz)
   const ruined = struct?.userData.building?.derelict ? struct.userData.building : null
-  if (near) prompt = `<b>E</b> — speak to ${near.spec.name}`
+  if (neighbor) prompt = `<b>E</b> — talk to ${neighbor.spec.name} · ${neighbor.spec.role}`
+  else if (near) prompt = `<b>E</b> — speak to ${near.spec.name}`
   else if (ruined) {
     // The whole direction of the game is on this line, so it says the price
     // rather than making the player open a panel to find out.
@@ -765,7 +799,12 @@ function handleInteraction(talking) {
   else if (struct?.userData.kind === 'crate') prompt = '<b>E</b> — the shipping crate'
   else if (struct?.userData.kind === 'homestead') prompt = '<b>E</b> — go inside'
   else if (struct?.userData.kind === 'well') prompt = '<b>E</b> — fill the can'
-  else if (crop) prompt = '<b>E</b> — harvest'
+  else if (crop) {
+    const c = cropAt(crop)
+    const ready = isRipe(c.id, grid.get('grown', tx, tz))
+    const wet = grid.get('wet', tx, tz)
+    prompt = ready ? `<b>E</b> — harvest ${item(c.id).name}` : `${item(c.id).name} · ${Math.max(0, c.total - grid.get('grown', tx, tz))} watered nights left · ${wet ? 'Watered ✓' : '<b>2</b> then <b>F</b> — needs water'}`
+  }
   else if (prop === P.GEODE) prompt = '<b>F</b> — break the geode'
   else if (prop === P.TREE || prop === P.STUMP) prompt = '<b>F</b> — fell'
   else if (prop === P.ROCK) prompt = '<b>F</b> — break'
@@ -773,7 +812,7 @@ function handleInteraction(talking) {
   else if (held === 'hoe' && grid.canTill(tx, tz)) prompt = '<b>F</b> — break ground'
   else if (heldItem?.kind === KIND.SEED && grid.get('tilled', tx, tz) && !crop) prompt = `<b>F</b> — sow ${item(held.replace('seed_', '')).name}`
   else if (held === 'can' && grid.get('tilled', tx, tz)) prompt = '<b>F</b> — water'
-  else if (prop === P.NONE && !grid.isWater(tx, tz)) prompt = '<b>B</b> — raise a cairn here'
+  else if (prop === P.NONE && !grid.isWater(tx, tz)) prompt = grid.get('plot', tx, tz) ? '<b>1</b> then <b>F</b> — till this garden square' : 'Find your fenced garden · Village → Your garden'
   // A line in the water owns the hint line outright — nothing else the player
   // could be standing next to matters while a fish is deciding.
   if (held === 'rod') {
@@ -798,6 +837,12 @@ function handleInteraction(talking) {
       const r = app.fishing.toggle()
       state.say(r === 'set' ? 'Set the rod down. It will fish while you do something else.' : 'Picked the rod back up.')
       return talking
+    }
+    if (neighbor) {
+      const id = neighbor.spec.id
+      panels.open('npc', { id, line: state.chat(id) })
+      hud.say(null)
+      return null
     }
     if (near) {
       // Rocky's first line is always the forecast, because that is what the
@@ -878,7 +923,7 @@ function handleInteraction(talking) {
   }
 
   // --- F: use the tool -----------------------------------------------------
-  if (input.down('use') && app.player.anim.use <= 0.25) {
+  if ((input.down('use') || input.pressed('use')) && app.player.anim.use <= 0.25) {
     const done = useHeld(tx, tz)
     if (done) app.player.play(done)
     else if (input.pressed('use')) audio.deny()
@@ -987,6 +1032,21 @@ function structureAt(x, z) {
 
 // ------------------------------------------------------------------ sleep --
 
+function locate(id) {
+  const { state, village, grid, farmBar } = app
+  const person = village.people.find((p) => p.spec.id === id)
+  let target = person ? { x: person.pos.x, z: person.pos.z, label: person.spec.name } : null
+  const b = state.buildings.find((b) => b.kind === ({ home: 'homestead', market: 'crate', kiln: 'kiln' }[id]))
+  if (b) target = { x: b.x, z: b.z + (b.fd ?? 4) / 2 + 1, label: id === 'home' ? 'Home' : id === 'market' ? 'Market' : 'Old kiln' }
+  if (id === 'farm') target = { x: (village.plot.x0 + village.plot.x1) / 2, z: village.plot.z1 + 1, label: 'Your garden' }
+  if (id === 'pond') target = { x: HOME.x + 11, z: HOME.z + 2, label: 'Fishing pond' }
+  if (!target) return
+  const [x, z] = grid.nearestStandable(Math.round(target.x), Math.round(target.z))
+  app.route = { x: x + 0.5, z: z + 0.5, label: target.label }
+  farmBar.route.hidden = false
+  pingCell(x, z)
+}
+
 function doSleep(collapsed = false) {
   const { state, hud } = app
   const result = state.sleep()
@@ -1004,7 +1064,9 @@ function doSleep(collapsed = false) {
     setTimeout(() => app.pruning.start(), 1800)
   }
   hud.drawPruning()
+  app.panels.open('morning', result)
 }
+
 
 /** Put a save back. The grid bytes are authoritative; the structures and the
  *  cast are rebuilt from them. */
@@ -1021,6 +1083,11 @@ function restore(data) {
   app.cast.syncPebbles()
   const [sx, sz] = app.grid.nearestStandable(HOME.x, HOME.z + 3)
   app.control.teleport(sx + 0.5, sz + 0.5)
+  app.scene.remove(app.village.group)
+  app.village.labels.remove()
+  app.village.group.traverse((o) => { o.geometry?.dispose(); o.material?.dispose?.() })
+  app.village = new Village(app.scene, app.grid, app.state, document.getElementById('app'))
+  app.farmFeedback.dirty = true
   app.hud.drawAll()
 }
 

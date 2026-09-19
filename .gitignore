@@ -24,3 +24,9 @@ npm-debug.log*
 
 # local editor config
 .claude/
+
+# Private local configuration and encrypted credentials
+.env
+.env.*
+!.env.example
+*.dpapi

@@ -37,68 +37,20 @@
  */
 
 export const STEPS = [
-  {
-    id: 'walk',
-    job: 'Get off the doorstep',
-    note: 'Sixteen is already out in the grass and will not wait.',
-    keys: '<kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> walk · <kbd>Shift</kbd> run',
-    done: (s) => s.stats.walked > 9,
-  },
-  {
-    id: 'chop',
-    job: 'Fell a tree',
-    note: 'Everything that gets built here starts as one of these.',
-    keys: '<kbd>3</kbd> take the axe · <kbd>F</kbd> swing at a trunk',
-    done: (s) => s.stats.chopped > 0,
-  },
-  {
-    id: 'till',
-    job: 'Break ground',
-    note: 'Anywhere flat and clear. Marit left things in the soil.',
-    keys: '<kbd>1</kbd> take the hoe · <kbd>F</kbd> on bare earth',
-    done: (s) => s.stats.tilled > 0,
-  },
-  {
-    id: 'sow',
-    job: 'Sow the broken ground',
-    note: 'Grubwort is ugly and it takes in cold soil, which is the season you have.',
-    keys: '<kbd>6</kbd> take the seed · <kbd>F</kbd> on tilled soil',
-    done: (s) => s.stats.sown > 0,
-  },
-  {
-    id: 'water',
-    job: 'Water what you sowed',
-    note: 'Fill the can at the pond first. Nothing grows on a dry night.',
-    keys: '<kbd>2</kbd> take the can · <kbd>E</kbd> at water · <kbd>F</kbd> on the crop',
-    done: (s) => s.stats.watered > 0,
-  },
-  {
-    id: 'fish',
-    job: 'Take something out of the pond',
-    note: 'Face open water. Strike the moment the float goes under, not before.',
-    keys: '<kbd>5</kbd> take the rod · <kbd>F</kbd> to cast, <kbd>F</kbd> again to strike',
-    done: (s) => s.stats.caught > 0,
-  },
-  {
-    id: 'rocky',
-    job: 'Find out what is on the north ridge',
-    note: 'Something up there is still standing, and it has been watching the valley for forty days.',
-    keys: 'follow the flag north-east · <kbd>E</kbd> to speak',
-    done: (s) => s.flags.has('met-rocky'),
-  },
-  {
-    id: 'sleep',
-    job: 'Go inside before dark',
-    note: 'Crops drink overnight. The day does not end until you do.',
-    keys: '<kbd>E</kbd> at the homestead door · then Sleep',
-    done: (s) => s.stats.slept > 0,
-  },
+  { id: 'walk', job: 'Welcome to your little farm', note: 'The fenced garden is just outside your door. Village → Your garden shows the way.', keys: '<kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> walk · <kbd>Shift</kbd> run', done: (s) => s.stats.walked > 4 },
+  { id: 'till', job: 'Make a place for something good', note: 'Face an empty square inside the fenced garden. The outline shows the tile you will work.', keys: '<kbd>1</kbd> hoe · <kbd>F</kbd> till soil', done: (s) => s.stats.tilled > 0 },
+  { id: 'sow', job: 'Plant your first seed', note: 'Sow on the dark soil you just tilled. The Plant button also lets you choose a seed.', keys: '<kbd>6</kbd> grubwort seed · <kbd>F</kbd> plant', done: (s) => s.stats.sown > 0 },
+  { id: 'water', job: 'A drink before bedtime', note: 'Water your new seed AND the tall starter row. That row is only one watered night away from harvest.', keys: '<kbd>2</kbd> watering can · <kbd>F</kbd> water', done: (s) => s.stats.watered > 0 },
+  { id: 'sleep', job: 'Tomorrow starts at home', note: 'Home → Sleep until dawn. Watered crops grow overnight. Your can refills and energy returns.', keys: '<kbd>Tab</kbd> Home · Sleep', done: (s) => s.stats.slept > 0 },
+  { id: 'harvest', job: 'Your first basketful', note: 'The golden outline means ready. If a crop needs more time, keep watering it each day.', keys: '<kbd>E</kbd> harvest a ripe crop', done: (s) => s.stats.harvested > 0 },
+  { id: 'sell', job: 'Turn your harvest into a home', note: 'Market → Sell pays instantly. Save 250 coin, 30 wood and 18 stone for your first home upgrade.', keys: '<kbd>M</kbd> Market · sell produce', done: (s) => s.stats.sold > 0 },
+  { id: 'talk', job: 'You have neighbors now', note: 'Marn sells seeds. Tace builds houses. Odile knows the pond. Village → Find will point the way.', keys: '<kbd>E</kbd> talk near a neighbor', done: (s) => s.stats.talked > 0 },
 ]
 
 /** What the card says once every job is crossed off. */
 export const CLOSING = {
-  job: 'That is the whole of it',
-  note: 'Everything else in this valley you are going to have to find. Press J for what you have written down.',
+  job: 'Put down some roots',
+  note: 'Grow your farm, make friends, and rebuild your home. Guide has the controls whenever you need them.',
 }
 
 export class Tutorial {
@@ -107,7 +59,7 @@ export class Tutorial {
     this.onStep = onStep
     this.onDone = onDone
     this.index = 0
-    this.finished = false
+    this.finished = state.flags.has('tutorial-skipped')
     this.closingFor = 0
     // Where the player was standing when the tally last ran, so `walked` is a
     // distance and not a position.
@@ -168,6 +120,7 @@ export class Tutorial {
 
   /** Skipped from the card. Marks every job done so it never comes back. */
   skip() {
+    this.state.flags.add('tutorial-skipped')
     this.finished = true
     this.index = STEPS.length
     this.closingFor = 0

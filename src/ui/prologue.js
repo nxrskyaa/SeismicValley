@@ -35,56 +35,10 @@ import { svgWordmark } from '../core/wordmark.js'
  * only place that knows where anything is.
  */
 export const CARDS = [
-  {
-    shot: 'door',
-    lines: [
-      'The vault door opened on the fortieth day.',
-      'Nobody opened it.',
-      'It simply stopped being closed.',
-    ],
-  },
-  {
-    shot: 'home',
-    lines: [
-      'You went up the stairs with a survey dog',
-      'you had never met, and a chip that listed',
-      'four hundred and six species.',
-    ],
-  },
-  {
-    /**
-     * THE STREET, and the card had to change to survive being looked at.
-     *
-     * It used to read "The colony is not out here. Not ruined. Not buried." —
-     * written when the street was scenery the player was not meant to weigh.
-     * The street is a row of ruins now and the camera is pointed straight at it,
-     * so the old line is contradicted by the picture behind it. What is gone is
-     * the people, which is the thing worth saying anyway.
-     */
-    shot: 'street',
-    lines: [
-      'The colony is still out here.',
-      'The street, the kiln, the seed vault.',
-      'Everyone who built them is not.',
-    ],
-  },
-  {
-    shot: 'relay',
-    lines: [
-      'You were underground when it happened.',
-      'That is the whole reason there is enough of you',
-      'left to be standing in a doorway.',
-    ],
-  },
-  {
-    shot: 'water',
-    lines: [
-      'Forty days of rain have put everything the Vault',
-      'held into the soil of this valley, in pieces.',
-      'You have a hoe, and the growing season is short.',
-    ],
-    last: true,
-  },
+  { shot: 'door', lines: ['The vault door opened on the fortieth day.', 'A dog was waiting on the other side.', 'She seemed to think you were late.'] },
+  { shot: 'home', lines: ['A small house. A borrowed hoe.', 'Marn left a row of seedlings by the door.', '“Water these tonight,” the note said.'] },
+  { shot: 'street', lines: ['Not everyone made it back at once.', 'But there is a carpenter, a pond keeper,', 'and somebody who still believes in this soil.'] },
+  { shot: 'water', lines: ['Start with one seed.', 'Make a little room for tomorrow.'], last: true },
 ]
 
 const el = (tag, cls, html) => {

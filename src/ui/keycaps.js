@@ -17,6 +17,9 @@
  */
 
 const RULES = [
+  [/<(kbd|b)>M<\/\1>/g, '<b>Market</b>'],
+  [/<(kbd|b)>V<\/\1>/g, '<b>Village</b>'],
+  [/<(kbd|b)>I<\/\1>/g, '<b>Bag</b>'],
   // The whole walk phrase, which has no per-key equivalent at all.
   [/<kbd>W<\/kbd><kbd>A<\/kbd><kbd>S<\/kbd><kbd>D<\/kbd>\s*walk\s*·\s*<kbd>Shift<\/kbd>\s*run/gi, 'drag the <b>stick</b> to walk'],
   [/<kbd>W<\/kbd><kbd>A<\/kbd><kbd>S<\/kbd><kbd>D<\/kbd>/gi, 'the <b>stick</b>'],

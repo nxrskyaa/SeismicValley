@@ -231,13 +231,17 @@ export function buildPlayer(lookKey = 'apprentice') {
   const gear = look.headgear ?? 'cap'
   const crown = gear === 'bare' || gear === 'band' ? MAT.hair : MAT.cap
   const crownH = gear === 'bare' || gear === 'band' ? 0.38 : 0.42
-  box(head, [0.62, crownH, 0.52], [0, 0.21, 0], crown, 0.04)
+  if (gear === 'cap' || gear === 'brim') {
+    box(head, [0.6, 0.32, 0.5], [0, 0.15, 0], MAT.skin, 0.055)
+    box(head, [0.62, 0.15, 0.53], [0, 0.355, 0], crown, 0.04)
+    box(head, [0.56, 0.17, 0.08], [0, 0.15, -0.245], MAT.hair, 0.02)
+  } else box(head, [0.62, crownH, 0.52], [0, 0.21, 0], crown, 0.04)
 
   switch (gear) {
     case 'cap':
       // The roll at the back of the crown — the one piece of asymmetry, and
       // what tells you which way the figure is facing from directly above.
-      box(head, [0.32, 0.16, 0.24], [0, 0.44, -0.14], MAT.capDark)
+      box(head, [0.61, 0.045, 0.19], [0, 0.285, 0.26], MAT.capDark, 0.025)
       break
     case 'hood':
       // Carries down over the neck and out past the shoulders, so it reads as
@@ -272,13 +276,23 @@ export function buildPlayer(lookKey = 'apprentice') {
   }
   // The face itself, tagged alongside the eyes so the look check knows which
   // pieces are the FACE and which are things put in front of it.
-  parts.face = box(head, [0.44, 0.2, 0.05], [0, 0.13, 0.26], MAT.skin)
+  parts.face = box(head, [0.49, 0.25, 0.05], [0, 0.115, 0.27], MAT.skin)
   // Recorded, because `tools/overlap.mjs looks` needs to know where the face is
   // to check that no hat has been put across it.
   parts.eyes = []
   for (const side of [-1, 1]) {
-    parts.eyes.push(box(head, [0.07, 0.07, 0.03], [side * 0.1, 0.16, 0.29], MAT.eye, 0.01))
+    parts.eyes.push(box(head, [0.075, 0.09, 0.03], [side * 0.115, 0.15, 0.305], MAT.eye, 0.01))
   }
+
+  // Small highlights and a mouth keep the expression readable at play scale.
+  const white = stoneMat('#fff7e4')
+  const cheek = stoneMat('#c27e6c')
+  for (const side of [-1, 1]) {
+    parts.eyes.push(box(head, [0.022, 0.028, 0.01], [side * 0.115 - 0.012, 0.174, 0.325], white, 0.003))
+    box(head, [0.064, 0.027, 0.012], [side * 0.185, 0.084, 0.303], cheek, 0.008)
+  }
+  box(head, [0.08, 0.019, 0.014], [0, 0.037, 0.305], MAT.hair, 0.006)
+  box(chest, [0.055, 0.055, 0.015], [0.12, 0.39, 0.19], MAT.belt, 0.01)
 
   // --- arms ----------------------------------------------------------------
   for (const side of [-1, 1]) {
@@ -299,6 +313,8 @@ export function buildPlayer(lookKey = 'apprentice') {
   parts.update = (dt) => {
     A.t += dt
     const s = A.speed
+    const blink = Math.sin(A.t * 1.4) > 0.997 ? 0.14 : 1
+    for (const eye of parts.eyes) eye.scale.y = blink
     /**
      * THE WALK PHASE IS INTEGRATED, NOT MULTIPLIED.
      *
@@ -363,7 +379,7 @@ export function buildPlayer(lookKey = 'apprentice') {
     parts.footR.rotation.x = -parts.thighR.rotation.x * 0.3 - parts.shinR.rotation.x * 0.5
     // The bob runs at DOUBLE the stride, because it peaks once per foot. At
     // stride frequency it reads as a limp.
-    parts.body.position.y = Math.abs(Math.sin(gait)) * 0.045 * s
+    parts.body.position.y = Math.abs(Math.sin(gait)) * 0.045 * s + Math.sin(A.t * 2) * 0.008 * (1 - s)
     parts.chest.rotation.y = Math.sin(gait) * 0.08 * s
     // The head counter-rotates a little, so the cap stays level while the body
     // turns under it. It is two lines and it is most of the life in the walk.
