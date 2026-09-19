@@ -443,6 +443,7 @@ function runGame() {
      */
     onFind: (kind) => {
       audio.ui()
+      app.panels?.close()
       const near = state.nearestField(kind, Math.round(control.pos.x), Math.round(control.pos.z))
       if (!near) {
         state.say(kind === 'ripe' ? 'Nothing is ready yet.' : 'No bed is empty. Break ground with the hoe.', 'warn')
@@ -473,13 +474,16 @@ function runGame() {
   })
 
   app.panels = new Panels(root, state, {
-    onOpen: () => { input.captured = true },
+    onOpen: () => { input.captured = true; app.touch?.release(); app.hud.acts.close() },
     onClose: () => { input.captured = false },
     onSleep: () => doSleep(),
     onBuilt: () => { audio.build(); syncStructures() },
     onBuy: () => audio.coin(),
     onShip: () => audio.pickup(),
     onLocate: (id) => locate(id),
+    targetCell: () => control.target,
+    actionNode: app.hud.acts.node,
+    soundNode: app.hud.sound,
   })
   state.on('build', () => syncStructures())
   app.farmFeedback = new FarmFeedback(app.scene, state)
@@ -649,7 +653,7 @@ function runGame() {
     }
 
     app.cast.update(dt, control.pos, state.hour)
-    app.village.update(dt, control.pos, app.camera, started && !app.cinematic && !app.panels.isOpen)
+    app.village.update(dt, control.pos, app.camera, started && !app.cinematic && !app.panels.isOpen, app.touch)
     app.farmFeedback.update(dt, control.target, started && !app.cinematic && !app.panels.isOpen)
     if (started && !app.panels.isOpen && !app.cinematic) {
       app.autoSave += dt
@@ -812,7 +816,7 @@ function handleInteraction(talking) {
   else if (held === 'hoe' && grid.canTill(tx, tz)) prompt = '<b>F</b> — break ground'
   else if (heldItem?.kind === KIND.SEED && grid.get('tilled', tx, tz) && !crop) prompt = `<b>F</b> — sow ${item(held.replace('seed_', '')).name}`
   else if (held === 'can' && grid.get('tilled', tx, tz)) prompt = '<b>F</b> — water'
-  else if (prop === P.NONE && !grid.isWater(tx, tz)) prompt = grid.get('plot', tx, tz) ? '<b>1</b> then <b>F</b> — till this garden square' : 'Find your fenced garden · Village → Your garden'
+  else if (prop === P.NONE && !grid.isWater(tx, tz)) prompt = grid.get('plot', tx, tz) ? '<b>1</b> then <b>F</b> — till this garden square' : 'Find your garden · Journal → Village'
   // A line in the water owns the hint line outright — nothing else the player
   // could be standing next to matters while a fish is deciding.
   if (held === 'rod') {

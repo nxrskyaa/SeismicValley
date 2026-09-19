@@ -261,7 +261,10 @@ async function firstRunPage(page) {
   // And it has to be playable, not merely visible.
   const before = await page.evaluate(() => ({ x: window.__app.control.pos.x, z: window.__app.control.pos.z }))
   await page.keyboard.down('KeyW')
-  await new Promise((r) => setTimeout(r, 900))
+  await page.waitForFunction(({ x, z }) => {
+    const p = window.__app.control.pos
+    return Math.hypot(p.x - x, p.z - z) >= 0.5
+  }, { timeout: 8000 }, before)
   await page.keyboard.up('KeyW')
   const after = await page.evaluate(() => ({ x: window.__app.control.pos.x, z: window.__app.control.pos.z }))
   if (Math.hypot(after.x - before.x, after.z - before.z) < 0.5) {
@@ -270,7 +273,7 @@ async function firstRunPage(page) {
 
   // The tutorial should be up and on its first job.
   const task = await page.evaluate(() => document.querySelector('.task-count')?.textContent ?? '')
-  if (!/01 OF/.test(task)) throw new Error(`the first morning did not start (card says "${task}")`)
+  if (!/FIRST ROOTS/.test(task)) throw new Error(`the first morning did not start (card says "${task}")`)
   await new Promise((r) => setTimeout(r, 400))
 }
 
@@ -359,8 +362,8 @@ async function mobilePage(page) {
     }
     return [
       check('.hotbar .slot', 'a hotbar slot'),
-      check('.sound-btn', 'the sound toggle'),
-      check('.task-skip', 'the tutorial skip'),
+      check('.journal-toggle', 'the journal menu'),
+      check('.task-toggle', 'the folded objective'),
     ].filter(Boolean)
   })
   if (tappable.length) throw new Error(`covered on a phone — ${tappable.join('; ')}`)
@@ -372,8 +375,7 @@ async function mobilePage(page) {
 
   const before = await page.evaluate(() => ({ x: window.__app.control.pos.x, z: window.__app.control.pos.z }))
   // Drag the stick and hold it, which is what a thumb does.
-  const cx = box.x + box.width / 2
-  const cy = box.y + box.height / 2
+  const [cx, cy] = await page.evaluate(() => window.__app.touch.stick.rest)
   await page.touchscreen.touchStart(cx, cy)
   await page.touchscreen.touchMove(cx + box.width * 0.4, cy - box.height * 0.4)
   await new Promise((r) => setTimeout(r, 1200))
@@ -503,8 +505,8 @@ async function main() {
       if (dom?.mobileMenu) await mobileMenuPage(page)
       else if (dom?.mobile) await mobilePage(page)
       ok = true
-    } catch {
-      /* fall through to the error dump below */
+    } catch (error) {
+      errors.push(error.message)
     }
 
     const name = `${tag ? `${tag}-` : ''}${pose}.png`

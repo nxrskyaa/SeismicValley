@@ -1,9 +1,10 @@
 import { VILLAGERS, HOME_NAMES, portrait, villager, marketStock, buyPrice, canSell } from '../game/village.js'
 import { item, valueOf, KIND } from '../game/items.js'
-import { CROPS, cropForSeed, CROP_ORDER } from '../game/crops.js'
+import { CROPS, cropForSeed, CROP_ORDER, SEASON_NAMES, SEASON_DAYS } from '../game/crops.js'
 import { iconFor } from './icons.js'
 import { HOME_COST } from '../game/state.js'
 import { RESTORE } from '../game/colony.js'
+import { emblem } from './emblems.js'
 
 const el = (tag, cls, html) => {
   const n = document.createElement(tag)
@@ -22,6 +23,27 @@ const cost = (s, c) => Object.entries(c).map(([id, n]) => `<span class="cost ${s
 
 export function renderVillagePanel(panels, body, kind, payload) {
   const s = panels.state
+  if (kind === 'menu') {
+    const field = s.countField()
+    body.append(el('div', 'journal-opening', `<span>SEISMIC VALLEY / FIELD NOTES</span><h3>${SEASON_NAMES[s.season]}, day ${(s.day - 1) % SEASON_DAYS + 1}.</h3><p>${field.growing} growing · ${field.ripe} ready to harvest</p>`))
+    const nav = el('nav', 'journal-nav')
+    nav.setAttribute('aria-label', 'Farm menu')
+    const entries = [
+      ['homestead', 'Home', 'Rest & make a home', 'Tab'], ['market', 'Market', 'Seeds & your harvest', 'M'],
+      ['village', 'Village', 'People & places', 'V'], ['bag', 'Bag', 'Everything you carry', 'I'],
+      ['build', 'Build', 'Craft & place structures', 'B'], ['journal', 'Field log', 'Your valley, recorded', 'J'],
+      ['guide', 'Guide', 'Find your feet', '?'],
+    ]
+    for (const [target, title, subtitle, key] of entries) {
+      nav.append(button(`${emblem(target)}<span><strong>${title}</strong><small>${subtitle}</small></span><kbd>${key}</kbd><i>↗</i>`, () => panels.open(target, target === 'build' ? { cell: panels.opts.targetCell() } : undefined), false, 'farm-nav-btn'))
+    }
+    nav.append(button(`${emblem('save')}<span><strong>Save</strong><small>Keep this little life</small></span><i>↗</i>`, () => { s.save(); panels.close() }, false, 'farm-nav-btn save-button'))
+    body.append(nav)
+    body.append(el('h3', '', 'In the garden'))
+    if (panels.opts.actionNode) body.append(panels.opts.actionNode)
+    if (panels.opts.soundNode) body.append(panels.opts.soundNode)
+    body.append(el('p', 'journal-save-note', 'Saved on this device · autosaves as you play'))
+  }
   if (kind === 'npc') {
     const v = villager(payload.id)
     const friendship = s.friendships[v.id] ?? 0
@@ -123,8 +145,11 @@ export class FarmBar {
   constructor(root, state, panels, opts) {
     this.node = el('nav', 'farm-nav')
     this.node.setAttribute('aria-label', 'Farm menu')
-    for (const [kind, label, key] of [['homestead', 'Home', 'Tab'], ['market', 'Market', 'M'], ['village', 'Village', 'V'], ['bag', 'Bag', 'I'], ['guide', 'Guide', '?']]) this.node.append(button(`<span>${label}</span><kbd>${key}</kbd>`, () => panels.toggle(kind), false, 'farm-nav-btn'))
-    this.node.append(button('Save', () => state.save(), false, 'farm-nav-btn save-button'))
+    const bag = button(emblem('bag'), () => panels.toggle('bag'), false, 'bag-toggle')
+    bag.setAttribute('aria-label', 'Open bag')
+    const journal = button(`${emblem('journal')}<span>Journal</span>`, () => panels.toggle('menu'), false, 'journal-toggle')
+    journal.setAttribute('aria-label', 'Open valley journal')
+    this.node.append(bag, journal)
     root.append(this.node)
     this.wallet = el('div', 'wallet')
     root.append(this.wallet)
@@ -132,7 +157,7 @@ export class FarmBar {
     root.append(this.held)
     const update = () => {
       this.wallet.innerHTML = `<span class="wallet-glyph">◇</span><b>${state.coin.toLocaleString()}</b><span>coin</span>`
-      this.held.textContent = state.held ? `${item(state.held).name} · ${item(state.held).kind === KIND.TOOL ? 'F to use' : 'F to plant / use'}` : 'Choose a tool'
+      this.held.innerHTML = state.held ? `<span>${item(state.held).name}</span><kbd>F</kbd><small>${item(state.held).kind === KIND.TOOL ? 'use tool' : 'plant / use'}</small>` : 'Choose a tool'
     }
     for (const e of ['coin', 'bag', 'hotbar', 'day']) state.on(e, update)
     update()

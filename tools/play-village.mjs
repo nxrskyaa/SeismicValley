@@ -12,6 +12,7 @@ page.on('console', e => { if (e.type() === 'error') errors.push(e.text()) })
 await mkdir('shots', { recursive: true })
 const pause = (ms = 250) => new Promise(r => setTimeout(r, ms))
 const clickText = async (selector, text) => {
+  if (selector === '.farm-nav-btn' && !(await page.$('.journal-nav'))) await page.click('.journal-toggle')
   const buttons = await page.$$(selector)
   for (const b of buttons) if ((await b.evaluate(n => n.textContent.trim())).includes(text)) { await b.click(); await pause(); return }
   throw new Error(`No ${selector} with text ${text}`)

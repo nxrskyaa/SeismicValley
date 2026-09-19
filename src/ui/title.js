@@ -87,9 +87,9 @@ export function showTitle(root, { onStart, seed }) {
   left.append(el('div', 'title-keys', isTouch()
     ? `
     <div>drag the <b>stick</b> to walk · further to run</div>
-    <div><b>USE</b> the tool in hand · <b>E</b> interact, talk, harvest</div>
+    <div><b>USE</b> the tool in hand · <b>ACT</b> interact, talk, harvest</div>
     <div>tap the bar to change tool · <b>TURN</b> the camera · pinch to zoom</div>
-    <div><b>REST</b> homestead · <b>MAKE</b> build and register · <b>LOG</b> journal</div>
+    <div>open your <b>Journal</b> for home, market, building and help</div>
   `
     : `
     <div><kbd>WASD</kbd> walk <kbd>Shift</kbd> run <kbd>Space</kbd> jump</div>

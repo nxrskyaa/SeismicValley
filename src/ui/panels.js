@@ -57,18 +57,23 @@ export class Panels {
   get isOpen() { return !!this.open_ }
 
   open(kind, payload) {
+    if (!this.open_) this.returnFocus = document.activeElement
     this.open_ = { kind, payload }
     this.node.classList.add('is-on')
+    document.body.classList.add('is-panel')
     this.render()
     this.opts.onOpen?.(kind)
+    this.sheet.querySelector('.sheet-close')?.focus({ preventScroll: true })
   }
 
   close() {
     if (!this.open_) return
     this.open_ = null
     this.node.classList.remove('is-on')
+    document.body.classList.remove('is-panel')
     this.sheet.replaceChildren()
     this.opts.onClose?.()
+    if (this.returnFocus?.isConnected) this.returnFocus.focus({ preventScroll: true })
   }
 
   toggle(kind, payload) {
@@ -80,6 +85,7 @@ export class Panels {
 
   render() {
     const { kind, payload } = this.open_
+    this.sheet.dataset.kind = kind
     const body = { homestead: 'homestead', build: 'build', journal: 'journal', shop: 'shop', crate: 'crate', pebbles: 'pebbles' }[kind]
     this.sheet.replaceChildren()
     this.sheet.append(this.header(kind))
@@ -88,16 +94,23 @@ export class Panels {
     this.sheet.append(content)
     this[`render_${body}`]?.(content, payload)
     renderVillagePanel(this, content, kind, payload)
-    this.sheet.append(el('footer', 'sheet-foot', 'Seismic Valley · Esc or × to close'))
+    this.sheet.append(el('footer', 'sheet-foot', '<span>SEISMIC VALLEY</span><span class="panel-exit-hint">Take your time. The valley is paused.</span>'))
   }
 
   header(kind) {
     const titles = {
-      homestead: 'Homestead', build: 'Raise', journal: 'Field Journal',
+      menu: 'Valley journal', homestead: 'Homestead', build: 'Raise', journal: 'Field Journal',
       market: 'The market', village: 'Your neighbors', npc: 'A little conversation', guide: 'Life in the valley', bag: 'Your bag', morning: 'A new day', shop: 'Seed & Trade', crate: 'Shipping Crate', pebbles: 'Pebbles',
     }
     const h = el('header', 'sheet-head')
-    h.append(el('span', 'sheet-mark', markSvg({ className: 'sheet-mark-svg' })), el('h2', null, titles[kind] ?? kind))
+    if (kind !== 'menu') {
+      const back = el('button', 'sheet-back', '←')
+      back.type = 'button'
+      back.setAttribute('aria-label', 'Back to journal')
+      back.addEventListener('click', () => this.open('menu'))
+      h.append(back)
+    } else h.append(el('span', 'sheet-mark', markSvg({ className: 'sheet-mark-svg' })))
+    h.append(el('h2', null, titles[kind] ?? kind))
     const close = el('button', 'sheet-close', '×')
     close.type = 'button'
     close.setAttribute('aria-label', 'Close panel')

@@ -37,14 +37,14 @@
  */
 
 export const STEPS = [
-  { id: 'walk', job: 'Welcome to your little farm', note: 'The fenced garden is just outside your door. Village → Your garden shows the way.', keys: '<kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> walk · <kbd>Shift</kbd> run', done: (s) => s.stats.walked > 4 },
+  { id: 'walk', job: 'Welcome to your little farm', note: 'The fenced garden is just outside your door. Journal → Village → Your garden shows the way.', keys: '<kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> walk · <kbd>Shift</kbd> run', done: (s) => s.stats.walked > 4 },
   { id: 'till', job: 'Make a place for something good', note: 'Face an empty square inside the fenced garden. The outline shows the tile you will work.', keys: '<kbd>1</kbd> hoe · <kbd>F</kbd> till soil', done: (s) => s.stats.tilled > 0 },
-  { id: 'sow', job: 'Plant your first seed', note: 'Sow on the dark soil you just tilled. The Plant button also lets you choose a seed.', keys: '<kbd>6</kbd> grubwort seed · <kbd>F</kbd> plant', done: (s) => s.stats.sown > 0 },
+  { id: 'sow', job: 'Plant your first seed', note: 'Sow on the dark soil you just tilled. Journal → Plant opens your seed tray.', keys: '<kbd>6</kbd> grubwort seed · <kbd>F</kbd> plant', done: (s) => s.stats.sown > 0 },
   { id: 'water', job: 'A drink before bedtime', note: 'Water your new seed AND the tall starter row. That row is only one watered night away from harvest.', keys: '<kbd>2</kbd> watering can · <kbd>F</kbd> water', done: (s) => s.stats.watered > 0 },
-  { id: 'sleep', job: 'Tomorrow starts at home', note: 'Home → Sleep until dawn. Watered crops grow overnight. Your can refills and energy returns.', keys: '<kbd>Tab</kbd> Home · Sleep', done: (s) => s.stats.slept > 0 },
+  { id: 'sleep', job: 'Tomorrow starts at home', note: 'Journal → Home → Sleep until dawn. Watered crops grow overnight. Your can refills and energy returns.', keys: '<kbd>Tab</kbd> Home · Sleep', done: (s) => s.stats.slept > 0 },
   { id: 'harvest', job: 'Your first basketful', note: 'The golden outline means ready. If a crop needs more time, keep watering it each day.', keys: '<kbd>E</kbd> harvest a ripe crop', done: (s) => s.stats.harvested > 0 },
   { id: 'sell', job: 'Turn your harvest into a home', note: 'Market → Sell pays instantly. Save 250 coin, 30 wood and 18 stone for your first home upgrade.', keys: '<kbd>M</kbd> Market · sell produce', done: (s) => s.stats.sold > 0 },
-  { id: 'talk', job: 'You have neighbors now', note: 'Marn sells seeds. Tace builds houses. Odile knows the pond. Village → Find will point the way.', keys: '<kbd>E</kbd> talk near a neighbor', done: (s) => s.stats.talked > 0 },
+  { id: 'talk', job: 'You have neighbors now', note: 'Marn sells seeds. Tace builds houses. Odile knows the pond. Journal → Village → Find will point the way.', keys: '<kbd>E</kbd> talk near a neighbor', done: (s) => s.stats.talked > 0 },
 ]
 
 /** What the card says once every job is crossed off. */

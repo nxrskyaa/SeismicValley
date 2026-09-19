@@ -21,7 +21,8 @@
     "economy": "node tools/economy.mjs",
     "direction": "node tools/direction.mjs",
     "test:village": "node tools/village.mjs",
-    "test:play": "node tools/play-village.mjs"
+    "test:play": "node tools/play-village.mjs",
+    "test:ui": "node tools/ui-layout.mjs"
   },
   "dependencies": {
     "three": "^0.185.1"

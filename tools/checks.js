@@ -1109,7 +1109,8 @@ console.log('\nthe touch controls')
 
   // Build, on a device with no keyboard. Without a pad for it the stakes, the
   // cairns and the whole registration mechanic were unreachable on a phone.
-  assert(PADS.some((p) => p.action === 'build'), 'there is a pad for building')
+  const villageUI = read(path.join(SRC, 'ui/village.js'))
+  assert(villageUI.includes("['build', 'Build'") && villageUI.includes('targetCell()'), 'building remains reachable through the touch journal')
   assert(main.includes("input.pressed('build')"), 'and something reads it')
 
   // No two pads may touch. Measured, not eyeballed.
@@ -1165,7 +1166,7 @@ console.log('\nthe touch controls')
   const NARROW = 320
   const sc = padScale(NARROW)
   const cluster = (Math.max(...PAD_PLACE.map((q, k) => -q[0] + PADS[k].r)) + 58) * sc
-  const stickEdge = 24 + 2 * 62 * sc
+  const stickEdge = 22 + 2 * 48 * sc
   assert(cluster + stickEdge < NARROW, 'the cluster and the stick both fit on a 320pt screen',
     `${Math.round(cluster)}pt of pads + ${Math.round(stickEdge)}pt of stick`)
 

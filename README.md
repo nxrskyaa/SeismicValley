@@ -15,7 +15,7 @@ The world, characters, crops and music are generated in code with Three.js.
 1. Find the fenced garden outside your house. Use the hoe on an empty square.
 2. Equip a seed, plant it, and water it with the can. Blue dots mark watered soil.
 3. Water the starter row too: those plants need just one more watered night.
-4. Open **Home** and sleep. Crops grow overnight and your watering can refills.
+4. Open **Journal → Home** and sleep. Crops grow overnight and your watering can refills.
 5. Harvest a ready crop with **E**. A gold marker means it is ready.
 6. Sell at **Market** for coin immediately, or use the shipping crate for payment
    the next morning. Every harvest also returns a seed.
@@ -32,7 +32,7 @@ Fishing, trees, mining and the old colony restoration systems remain available.
 
 Walk near a neighbor and press **E**. Daily chats, favorite gifts and deliveries
 build friendship. Each reward can be earned once per neighbor per day; this
-limit survives saving and reloading. **Village → Find** gives a direction and distance.
+limit survives saving and reloading. **Journal → Village → Find** gives a direction and distance.
 
 ![Conversation with Marn](docs/neighbor-update.png)
 
@@ -58,11 +58,15 @@ and protected from the Loom’s pruning; new unregistered structures still need 
 | Select tool | 1–8 or click a slot |
 | Turn / zoom camera | Q and R / scroll |
 | Home / market / village | Tab / M / V |
-| Bag / guide / journal | I / ? / J |
-| Build / save / close | B / F5 / Esc |
+| Bag / guide / field log | I / ? / J |
+| Build / save / close panel | B / F5 / Esc |
 
 On touch devices, use the joystick, labeled action pads and on-screen menu.
-The Plant button opens your seed tray. The Harvest button points toward a ripe crop.
+Open the **Journal** for Home, Market, Village, Bag, Build, Field log, Guide and Save. Plant opens your seed tray; Harvest points toward a ripe crop. Sound and music switches live at the bottom of the journal.
+
+The objective below the date expands when tapped. On phones, swipe the tool roll to reach all eight slots. Four touch pads handle USE, ACT (talk/interact/harvest), JUMP and TURN; movement stays under your left thumb.
+
+<img src="docs/mobile-update.png" width="320" alt="Mobile controls and scrollable tool roll">
 
 ## Saving
 
@@ -95,6 +99,10 @@ For browser tests, start Vite on port 5293, then run `npm run test:play`.
 Set `PLAY_URL` to test another origin. It drives real keys and buttons through
 planting, watering, sleep, harvesting, market trades, NPC interactions, upgrading
 and Continue. It also tests touch actions at 360×800 and 844×390.
+
+`npm run test:ui` checks seven phone, tablet and desktop viewports, including
+320×568 and 844×390. It measures HUD/control overlap, drives real touch swipes,
+opens every journal destination and checks pause, audio, seed selection and focus.
 
 `npm run shoot -- hud menu firstrun audio` renders the actual game and checks
 first-run and sound initialization. Screenshots go into ignored `shots/`.

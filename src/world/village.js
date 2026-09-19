@@ -90,8 +90,14 @@ export class Village {
     return this.people.reduce((best, p) => p.pos.distanceTo(pos) < 2.5 && (!best || p.pos.distanceTo(pos) < best.pos.distanceTo(pos)) ? p : best, null)
   }
 
-  update(dt, player, camera, active) {
+  update(dt, player, camera, active, touch) {
     this.labels.hidden = !active
+    this.labelClock = (this.labelClock ?? 0) - dt
+    if (active && this.labelClock <= 0) {
+      this.labelClock = .2
+      this.hudZones = [...document.querySelectorAll('.hud .log, .farm-nav, .wallet, .task:not(.is-off), .hotbar, .meters, .hint.is-on, .held-label, .route-indicator:not([hidden])')]
+        .map(n => n.getBoundingClientRect())
+    }
     for (const p of this.people) {
       p.phase += dt * 0.35
       const nearby = p.pos.distanceTo(player) < 3.3
@@ -116,7 +122,11 @@ export class Village {
       this.projected.y += t.height
       this.projected.project(camera)
       const v = this.projected
-      t.node.hidden = !active || t.pos.distanceTo(player) > 19 || v.z > 1 || Math.abs(v.x) > 0.95 || Math.abs(v.y) > 0.83
+      const x = (v.x + 1) * innerWidth / 2, y = (1 - v.y) * innerHeight / 2
+      const covered = this.hudZones?.some(r => x + 40 > r.left && x - 40 < r.right && y > r.top && y - 24 < r.bottom)
+      const controls = touch?.enabled ? [...touch.pads, { cx: touch.stick.home[0], cy: touch.stick.home[1], r: touch.stickR }] : []
+      const underThumb = controls.some(p => Math.hypot(p.cx - Math.max(x - 40, Math.min(p.cx, x + 40)), p.cy - Math.max(y - 24, Math.min(p.cy, y))) < p.r + 5)
+      t.node.hidden = !active || covered || underThumb || t.pos.distanceTo(player) > 19 || v.z > 1 || Math.abs(v.x) > 0.95 || Math.abs(v.y) > 0.83
       if (!t.node.hidden) t.node.style.transform = `translate(-50%, -100%) translate(${(v.x + 1) * innerWidth / 2}px, ${(1 - v.y) * innerHeight / 2}px)`
     }
   }

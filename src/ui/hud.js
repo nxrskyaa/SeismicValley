@@ -1,6 +1,7 @@
 import { markSvg } from '../core/mark.js'
 import { keycaps } from './keycaps.js'
-import { SEASON_DAYS, SEASON_NAMES, SEASON_SHORT, WEATHER } from '../game/crops.js'
+import { SEASON_DAYS, SEASON_NAMES, WEATHER } from '../game/crops.js'
+import { emblem } from './emblems.js'
 import { item } from '../game/items.js'
 import { CROP_ORDER } from '../game/crops.js'
 import { restoreProgress } from '../game/colony.js'
@@ -58,7 +59,7 @@ export class HUD {
     row1.append(this.logDate, this.logTime)
     const row2 = el('div', 'log-row log-row-sub')
     row2.append(this.logWeather, this.logManifest)
-    this.log.append(row1, row2)
+    this.log.append(el('div', 'season-seal', emblem('sun')), row1, row2)
 
     // --- the relay's forecast ----------------------------------------------
     // One line, and it only says anything when there is something to say.
@@ -67,8 +68,8 @@ export class HUD {
 
     // --- meters -------------------------------------------------------------
     this.meters = el('div', 'meters')
-    this.stamina = this.meter('Stamina')
-    this.water = this.meter('Can')
+    this.stamina = this.meter('Energy', 'leaf')
+    this.water = this.meter('Water', 'water')
     this.meters.append(this.stamina.node, this.water.node)
 
     // --- hotbar -------------------------------------------------------------
@@ -79,6 +80,7 @@ export class HUD {
       s.append(el('span', 'slot-key', String(i + 1)), el('img', 'slot-icon'), el('span', 'slot-n'))
       s.addEventListener('click', () => {
         state.select(i)
+        s.scrollIntoView({ block: 'nearest', inline: 'nearest', behavior: 'smooth' })
         opts.onSelect?.(i)
       })
       this.hotbar.append(s)
@@ -116,7 +118,16 @@ export class HUD {
     this.taskSkip = el('button', 'task-skip', 'skip')
     this.taskSkip.type = 'button'
     this.taskSkip.addEventListener('click', () => opts.onSkipTutorial?.())
-    this.task.append(this.taskCount, this.taskJob, this.taskNote, this.taskKeys, this.taskSkip)
+    this.taskToggle = el('button', 'task-toggle')
+    this.taskToggle.type = 'button'
+    this.taskToggle.setAttribute('aria-expanded', 'false')
+    this.taskToggle.append(el('span', 'task-leaf', emblem('leaf')), this.taskJob, el('span', 'task-chevron', '+'))
+    this.taskToggle.addEventListener('click', () => {
+      const open = this.task.classList.toggle('is-expanded')
+      this.taskToggle.setAttribute('aria-expanded', String(open))
+      this.taskToggle.querySelector('.task-chevron').textContent = open ? '−' : '+'
+    })
+    this.task.append(this.taskCount, this.taskToggle, this.taskNote, this.taskKeys, this.taskSkip)
     this.task.classList.add('is-off')
 
     this.mark = el('div', 'corner', markSvg({ className: 'corner-mark' }))
@@ -171,7 +182,7 @@ export class HUD {
     }
     this.task.classList.remove('is-off')
     const closing = step.closing
-    this.taskCount.textContent = closing ? 'A new beginning' : `FIRST ROOTS / ${String(n).padStart(2, '0')} OF ${total}`
+    this.taskCount.textContent = closing ? 'A new beginning' : `FIRST ROOTS  ·  ${n} / ${total}`
     this.taskJob.textContent = step.job
     this.taskNote.textContent = step.note
     this.taskKeys.innerHTML = keycaps(step.keys) ?? ''
@@ -187,6 +198,8 @@ export class HUD {
   paintAudio() {
     this.sfxBtn.classList.toggle('is-off', !this.sfxOn)
     this.musBtn.classList.toggle('is-off', !this.musOn)
+    this.sfxBtn.setAttribute('aria-pressed', String(this.sfxOn))
+    this.musBtn.setAttribute('aria-pressed', String(this.musOn))
   }
 
   setSound(on) {
@@ -201,12 +214,16 @@ export class HUD {
     this.opts.onMusic?.(on)
   }
 
-  meter(label) {
+  meter(label, icon) {
     const node = el('div', 'meter')
     const track = el('div', 'meter-track')
     const fillEl = el('i')
     track.append(fillEl)
-    node.append(el('span', 'meter-label', label), track)
+    node.append(el('span', 'meter-symbol', emblem(icon)), el('span', 'meter-label', label), track)
+    node.setAttribute('role', 'meter')
+    node.setAttribute('aria-label', label)
+    node.setAttribute('aria-valuemin', '0')
+    node.setAttribute('aria-valuemax', '100')
     return { node, fill: fillEl }
   }
 
@@ -220,7 +237,7 @@ export class HUD {
   drawLog() {
     const s = this.state
     const dayOfSeason = ((s.day - 1) % SEASON_DAYS) + 1
-    this.logDate.textContent = `${SEASON_SHORT[s.season]} ${dayOfSeason} / ${SEASON_DAYS}`
+    this.logDate.textContent = `${SEASON_NAMES[s.season]} ${dayOfSeason}`
     this.logDate.title = `${SEASON_NAMES[s.season]}, year ${s.year}`
     this.logWeather.textContent = WEATHER[s.weather].label
     /**
@@ -245,6 +262,10 @@ export class HUD {
     this.stamina.node.classList.toggle('is-low', s.stamina < MAX_STAMINA * 0.25)
     this.water.fill.style.width = `${(s.water / MAX_WATER) * 100}%`
     this.water.node.classList.toggle('is-low', s.water < 6)
+    for (const [meter, value] of [[this.stamina, s.stamina / MAX_STAMINA], [this.water, s.water / MAX_WATER]]) {
+      meter.node.setAttribute('aria-valuenow', String(Math.round(value * 100)))
+      meter.node.title = `${meter.node.getAttribute('aria-label')} ${Math.round(value * 100)}%`
+    }
   }
 
   drawHotbar() {

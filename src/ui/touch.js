@@ -21,11 +21,11 @@ import { UI } from '../core/palette.js'
  * hotbar sat under the acting half.
  */
 
-const STICK_R = 62
-const KNOB_R = 26
+const STICK_R = 48
+const KNOB_R = 21
 /** How far above the bottom edge both clusters sit, so neither lands on the
  *  hotbar. The hotbar is about sixty points tall at the smallest type scale. */
-const HOTBAR_CLEARANCE = 96
+const HOTBAR_CLEARANCE = 103
 const DEAD = 0.16
 const REPEAT = 0.34
 
@@ -33,7 +33,7 @@ const REPEAT = 0.34
  *  checks can prove none of them overlap at a phone width. */
 /** Offsets from the anchor, one per pad, in unscaled points. */
 export const PAD_PLACE = [
-  [0, 0], [-86, 4], [-8, -80], [-78, -66], [-150, -14], [-2, -148], [-150, -88],
+  [0, 0], [-80, 0], [0, -78], [-72, -72],
 ]
 
 /**
@@ -43,19 +43,14 @@ export const PAD_PLACE = [
  * side by side on the narrowest phone worth supporting rather than taking the
  * word of whoever last looked at one.
  */
-export const padScale = (w) => Math.max(0.7, Math.min(1.15, w / 430))
+export const padScale = (w) => Math.max(0.92, Math.min(1, w / 390))
 
 export const PADS = [
-  { action: 'use', label: 'USE', r: 38, repeat: true, accent: true },
-  { action: 'interact', label: 'E', r: 27, repeat: false },
-  { action: 'jump', label: 'JUMP', r: 25, repeat: false },
+  { action: 'use', label: 'USE', r: 32, repeat: true, accent: true },
+  { action: 'interact', label: 'ACT', r: 24, repeat: false },
+  { action: 'jump', label: 'JUMP', r: 23, repeat: false },
   { action: 'rotR', label: 'TURN', r: 22, repeat: false },
-  { action: 'journal', label: 'LOG', r: 20, repeat: false },
-  { action: 'homestead', label: 'REST', r: 20, repeat: false },
-  // Without this pad the build panel — stakes, cairns, sheds, the whole
-  // registration mechanic the game is named around — had no way to open at all
-  // on a device with no keyboard.
-  { action: 'build', label: 'MAKE', r: 20, repeat: false },
+  // Home, building and records live in the journal, outside the thumb zone.
 ]
 
 export class TouchControls {
@@ -125,10 +120,10 @@ export class TouchControls {
     // The floor is what makes an iPhone SE work: at 320 points the cluster and
     // the stick together need to fit across the screen, and at 0.82 they did not.
     const compactLandscape = innerWidth > 700 && innerHeight < 500
-    const s = compactLandscape ? 0.78 : padScale(innerWidth)
+    const s = compactLandscape ? 1 : padScale(innerWidth)
     const lift = HOTBAR_CLEARANCE * s
 
-    this.stick.rest = compactLandscape ? [66, innerHeight - 63] : [STICK_R * s + 24, innerHeight - STICK_R * s - lift]
+    this.stick.rest = compactLandscape ? [74, innerHeight - 72] : [STICK_R * s + 22, innerHeight - 144]
     if (this.stick.id < 0) {
       this.stick.home = [...this.stick.rest]
       this.stick.at = [...this.stick.rest]
@@ -137,8 +132,8 @@ export class TouchControls {
     // Polar-ish placement around one anchor, so the whole cluster moves and
     // scales together and the gaps between pads are guaranteed by arithmetic
     // rather than by having looked at it once.
-    const ax = innerWidth - (compactLandscape ? 44 : 58 * s)
-    const ay = compactLandscape ? innerHeight - 46 : innerHeight - lift - 30 * s
+    const ax = innerWidth - (compactLandscape ? 48 : 44 * s)
+    const ay = compactLandscape ? innerHeight - 52 : innerHeight - lift - 30 * s
     const place = PAD_PLACE
     this.pads.forEach((p, i) => {
       p.cx = ax + place[i][0] * s
@@ -151,7 +146,7 @@ export class TouchControls {
   }
 
   onPointer(e) {
-    if (!this.enabled) return
+    if (!this.enabled || document.body.classList.contains('is-panel')) return
     const x = e.clientX
     const y = e.clientY
 
@@ -170,7 +165,7 @@ export class TouchControls {
       }
       // Anything in the left half that is not a pad grabs the stick, and the
       // stick re-homes under the thumb.
-      if (x < innerWidth * 0.55 && this.stick.id < 0) {
+      if (x < innerWidth * 0.48 && y > innerHeight * 0.5 && this.stick.id < 0) {
         e.preventDefault()
         this.stick.id = e.pointerId
         this.stick.home = [x, y]
@@ -216,6 +211,20 @@ export class TouchControls {
     return null
   }
 
+  release() {
+    this.stick.id = -1
+    this.stick.vec = [0, 0]
+    this.stick.home = [...this.stick.rest]
+    this.stick.at = [...this.stick.rest]
+    for (const p of this.pads) {
+      p.id = -1
+      p.down = false
+      this.input.held.delete(p.action)
+      this.input.edges.delete(p.action)
+    }
+    this.draw()
+  }
+
   /** Called once a frame, before anything reads the input. */
   update(dt) {
     if (!this.enabled) return
@@ -254,11 +263,18 @@ export class TouchControls {
     // The stick: a ring where the thumb went down, and a knob where it is now.
     const [hx, hy] = this.stick.home
     const live = this.stick.id >= 0
-    ctx.globalAlpha = live ? 0.85 : 0.4
-    ctx.strokeStyle = UI.cream
+    ctx.globalAlpha = live ? 0.95 : 0.7
+    ctx.strokeStyle = '#f2e6ce'
+    ctx.fillStyle = '#49334036'
     ctx.beginPath()
     ctx.arc(hx, hy, this.stickR ?? STICK_R, 0, Math.PI * 2)
+    ctx.fill()
     ctx.stroke()
+    for (let i = 0; i < 4; i++) {
+      const a = i * Math.PI / 2, r = (this.stickR ?? STICK_R) - 8
+      ctx.beginPath(); ctx.moveTo(hx + Math.cos(a) * r, hy + Math.sin(a) * r)
+      ctx.lineTo(hx + Math.cos(a) * (r - 4), hy + Math.sin(a) * (r - 4)); ctx.stroke()
+    }
 
     let kx = hx
     let ky = hy
@@ -270,7 +286,7 @@ export class TouchControls {
       kx = hx + (dx / len) * clampLen
       ky = hy + (dy / len) * clampLen
     }
-    ctx.fillStyle = 'rgba(28, 20, 17, 0.72)'
+    ctx.fillStyle = '#493340'
     ctx.beginPath()
     ctx.arc(kx, ky, this.knobR ?? KNOB_R, 0, Math.PI * 2)
     ctx.fill()
@@ -280,14 +296,14 @@ export class TouchControls {
     ctx.textAlign = 'center'
     ctx.textBaseline = 'middle'
     for (const p of this.pads) {
-      ctx.globalAlpha = p.down ? 0.95 : 0.5
-      ctx.fillStyle = p.down ? UI.stoneDeep : 'rgba(28, 20, 17, 0.72)'
-      ctx.strokeStyle = p.accent ? UI.creamDeep : UI.cream
+      ctx.globalAlpha = p.down ? 1 : 0.88
+      ctx.fillStyle = p.accent ? (p.down ? '#ead4ac' : '#f3e6cf') : '#493340'
+      ctx.strokeStyle = p.accent ? '#6a4b5a' : '#e0cebf'
       ctx.beginPath()
       ctx.arc(p.cx, p.cy, p.r, 0, Math.PI * 2)
       ctx.fill()
       ctx.stroke()
-      ctx.fillStyle = UI.cream
+      ctx.fillStyle = p.accent ? '#493340' : UI.cream
       ctx.font = `600 ${Math.round(p.r * 0.42)}px ui-sans-serif, system-ui, sans-serif`
       ctx.fillText(p.label, p.cx, p.cy + 1)
     }
