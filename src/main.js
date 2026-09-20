@@ -5,6 +5,8 @@ import { cropAt, isRipe } from './game/crops.js'
 import * as THREE from 'three'
 import './ui/ui.css'
 import './ui/farm.css'
+import './ui/front.css'
+import { bootStage, finishLoading, failLoading } from './ui/loading.js'
 
 import { audio } from './core/audio.js'
 import { Music } from './core/music.js'
@@ -198,7 +200,9 @@ function seedStructures(state, grid) {
   buildSettlement(state, grid)
 }
 
-function boot() {
+async function boot() {
+  if (params.has('nomenu') || params.has('shot')) document.getElementById('boot-screen')?.remove()
+  await bootStage('Preparing the valley', .12)
   // The capture harness reads this to drive the real game and to assert on its
   // state afterwards. Nothing in the game itself touches it.
   window.__app = app
@@ -209,6 +213,7 @@ function boot() {
   const seedText = params.get('seed') || 'seismic-valley'
   const seed = hashSeed(seedText)
   const { grid } = generate(seed)
+  await bootStage('Valley mapped', .32)
 
   app.grid = grid
   app.seedText = seedText
@@ -231,6 +236,7 @@ function boot() {
   app.weather = new Weather(grid)
   app.sky = new Sky(app.scene)
   app.scene.add(app.terrain.group, app.props.group, app.crops.group, app.water.mesh, app.life.group, app.weather.group)
+  await bootStage('Fields & rivers ready', .57)
 
   app.state = new GameState(grid, seed)
   seedStructures(app.state, grid)
@@ -239,6 +245,7 @@ function boot() {
   // rather than being shown a frame with no shadow under anything.
   reshade()
   syncStructures()
+  await bootStage('Homes & paths ready', .76)
 
   // The flag on the ridge, from the first reference drawing. It is the one part
   // of the valley that is always moving, which is why it stands where the
@@ -276,6 +283,7 @@ function boot() {
 
   const shot = POSES[params.get('shot')]
   if (shot) return runCapture(shot)
+  await bootStage('Opening the view', .92)
   return runGame()
 
 }
@@ -512,9 +520,17 @@ function runGame() {
     if (t.step) app.hud.setTask(t.step, t.index + 1, t.total)
   }
   if (!started) {
-    showTitle(root, {
+    app.frontMenu = showTitle(root, {
       seed: app.seedText,
+      sound: () => app.hud.sfxOn,
+      music: () => app.hud.musOn,
+      onSound: on => app.hud.setSound(on),
+      onMusic: on => app.hud.setMusic(on),
+      onMotion: paused => { app.frontPaused = paused },
       onStart: ({ load, seed, appearance }) => {
+        app.frontMenu = null
+        app.rig.targetSize = 13
+        app.rig.yawIndex = 0
         audio.unlock()
         if (app.audioPrefs.music) app.music.start()
         if (appearance) {
@@ -606,6 +622,8 @@ function runGame() {
   const idleTarget = new THREE.Vector3()
   let talking = null
   let playFrames = 0
+  let frontTime = 0
+  let loadingFinished = false
 
   app.renderer.setAnimationLoop(() => {
     const dt = Math.min(clock.getDelta(), 0.06)
@@ -643,13 +661,19 @@ function runGame() {
         focus.copy(app.rig.update(dt, control.pos, app.panels.isOpen ? null : input))
       }
     } else {
-      // Title: a slow drift over the homestead, so the first thing anyone sees
-      // is the valley and not a menu on a flat colour.
-      // A slow turn over the homestead through the real rig, so the first thing
-      // anyone sees is the game's own camera on the valley.
-      app.rig.yawIndex = performance.now() * 0.00004
-      idleTarget.set(HOME.x, app.grid.y(HOME.x, HOME.z), HOME.z)
-      focus.copy(app.rig.update(dt, idleTarget, null))
+      if (app.cinematic) {
+        app.rig.targetSize = app.cinematic.size
+        app.rig.yawIndex = app.cinematic.yawIndex
+        focus.copy(app.rig.update(dt, app.cinematic.pos, null))
+      } else {
+        // Real game footage: the same valley, neighbors, water and renderer.
+        if (!app.frontPaused) frontTime += dt
+        const wide = innerWidth > 700
+        app.rig.yawIndex = -.12 + Math.sin(frontTime * .055) * .15
+        app.rig.targetSize = (wide ? 19 : 15) - Math.min(frontTime / 9, 1) * 2
+        idleTarget.set(HOME.x - (wide ? 3 : 0) + Math.sin(frontTime * .09), app.grid.y(HOME.x, HOME.z), HOME.z + 2)
+        focus.copy(app.rig.update(dt, idleTarget, null))
+      }
     }
 
     app.cast.update(dt, control.pos, state.hour)
@@ -721,6 +745,10 @@ function runGame() {
     if (started) app.hud.tick(state.hour)
     app.renderer.render(app.scene, app.camera)
     window.__shotFrames++
+    if (app.frontMenu && !loadingFinished && window.__shotFrames >= 4) {
+      loadingFinished = true
+      finishLoading(() => app.frontMenu?.reveal())
+    }
     input.endFrame()
     if (playShot && ++playFrames > 90 && !app.grid.dirty.size) window.__shotReady = true
   })
@@ -1095,4 +1123,4 @@ function restore(data) {
   app.hud.drawAll()
 }
 
-boot()
+boot().catch(error => { console.error(error); failLoading() })

@@ -1,0 +1,132 @@
+import puppeteer from 'puppeteer-core'
+import assert from 'node:assert/strict'
+import { mkdir } from 'node:fs/promises'
+const base = process.env.PLAY_URL || 'http://127.0.0.1:5293'
+const browser = await puppeteer.launch({ executablePath: process.env.CHROME_PATH || 'C:/Program Files/Google/Chrome/Application/chrome.exe', headless: true, args: ['--no-sandbox'] })
+const page = await browser.newPage()
+const errors = []
+page.on('pageerror', e => errors.push(e.message))
+page.on('console', e => { if(e.type()==='error') errors.push(e.text()) })
+await mkdir('shots', { recursive: true })
+const pause = ms => new Promise(r => setTimeout(r,ms))
+const clickText = async (selector,text) => {
+  for(const b of await page.$$(selector)) if((await b.evaluate(n=>n.textContent)).includes(text)) { await b.click(); return }
+  throw Error(`Missing ${text}`)
+}
+async function enter() {
+  await page.goto(base, {waitUntil:'load'})
+  await page.waitForSelector('#boot-screen.has-world', {timeout:30000})
+  assert.equal(await page.$eval('.boot-track', n=>n.getAttribute('aria-valuenow')), '100')
+  await page.screenshot({path:`shots/front-loading-${page.viewport().width}.png`})
+  await page.click('.boot-skip')
+  await page.waitForSelector('.front-door:not([hidden])')
+  await page.waitForSelector('#boot-screen', {hidden:true})
+}
+try {
+ for(const [width,height,touch] of [[1440,900,false],[360,800,true],[844,390,true],[320,568,true]]) {
+  await page.setViewport({width,height,isMobile:touch,hasTouch:touch,deviceScaleFactor:1})
+  await enter()
+  assert.equal(await page.$('.dress'),null,'main menu must precede customization')
+  assert.ok(await page.$('.new-game'))
+  const focused = await page.evaluate(()=>document.activeElement?.className)
+  await page.keyboard.press('Tab')
+  assert.notEqual(await page.evaluate(()=>document.activeElement?.className),focused,'keyboard can navigate the main menu')
+  const geometry=await page.evaluate(()=>{
+    const selectors=['.front-top','.front-wordmark','.front-actions','.front-footer']
+    const boxes=selectors.map(s=>({s,r:document.querySelector(s).getBoundingClientRect()}))
+    const failures=[]
+    for(const a of boxes){
+      if(a.r.left<0||a.r.right>innerWidth+1||a.r.top<0||a.r.bottom>innerHeight+1)failures.push(`outside ${a.s}`)
+      for(const b of boxes.slice(boxes.indexOf(a)+1))if(a.r.left<b.r.right&&a.r.right>b.r.left&&a.r.top<b.r.bottom&&a.r.bottom>b.r.top)failures.push(`${a.s} overlaps ${b.s}`)
+    }
+    return failures
+  })
+  assert.deepEqual(geometry,[])
+  await pause(800)
+  await page.screenshot({path:`shots/front-menu-${width}.png`})
+  const before=await page.evaluate(()=>({h:window.app.state.hour,p:window.app.camera.position.toArray()}))
+  await pause(700)
+  const after=await page.evaluate(()=>({h:window.app.state.hour,p:window.app.camera.position.toArray()}))
+  assert.equal(before.h,after.h,'menu does not advance the saved day')
+  assert.notDeepEqual(before.p,after.p,'menu shows moving in-game footage')
+  await clickText('.front-action','About the builder')
+  const links=await page.$$eval('.builder-links a',nodes=>nodes.map(n=>({url:n.href,target:n.target,rel:n.rel})))
+  assert.deepEqual(links.map(n=>n.url),['https://x.com/nxrskyaa','https://x.com/nxrlabs','https://x.com/nxrlabs'])
+  assert.ok(links.every(n=>n.target==='_blank'&&n.rel.includes('noopener')))
+  assert.equal(await page.$eval('.front-sheet',n=>n.scrollWidth>n.clientWidth),false)
+  await page.screenshot({path:`shots/front-about-${width}.png`})
+  await page.click('.front-back')
+  await clickText('.front-action','Settings')
+  const music=await page.evaluate(()=>window.app.hud.musOn)
+  await page.click('.front-switch[aria-label="Music"]')
+  assert.equal(await page.evaluate(()=>window.app.hud.musOn),!music)
+  await page.click('.front-switch[aria-label="Music"]')
+  await page.click('.front-switch[aria-label="Moving scenery"]')
+  assert.equal(await page.evaluate(()=>window.app.frontPaused),true)
+  await page.click('.front-switch[aria-label="Moving scenery"]')
+  await page.click('.front-back')
+  await page.click('.new-game')
+  assert.ok(await page.$('.dress canvas'))
+  await page.click('.dress-dice')
+  assert.equal(await page.$eval('.front-sheet',n=>n.scrollWidth>n.clientWidth),false)
+  await page.screenshot({path:`shots/front-create-${width}.png`})
+  await page.click('.front-back')
+  assert.equal(await page.$('.dress'),null,'leaving creation disposes the preview')
+  console.log(`ok ${width}x${height}: loading footage → main menu → about/settings → separate creation, no overlap`)
+ }
+ await page.setViewport({width:1440,height:900,isMobile:false,hasTouch:false})
+ await page.evaluate(()=>localStorage.clear())
+ await enter()
+ await page.click('.new-game')
+ await page.click('.front-begin')
+ await page.waitForSelector('.prologue-lines')
+ await page.keyboard.press('Escape')
+ await page.waitForSelector('.prologue',{hidden:true})
+ assert.equal(await page.$('.front-door'),null)
+ const start=await page.evaluate(()=>({x:window.app.control.pos.x,z:window.app.control.pos.z}))
+ await page.keyboard.down('KeyW')
+ await page.waitForFunction(p=>Math.hypot(window.app.control.pos.x-p.x,window.app.control.pos.z-p.z)>.5,{timeout:8000},start)
+ await page.keyboard.up('KeyW')
+ await page.click('.journal-toggle')
+ await page.click('.return-to-menu')
+ await page.waitForSelector('.front-door:not([hidden])')
+ await page.waitForSelector('#boot-screen',{hidden:true})
+ assert.ok(await page.$('.continue-game'))
+ await page.click('.continue-game')
+ await page.waitForSelector('.front-door',{hidden:true})
+ const saved=await page.evaluate(()=>({day:window.app.state.day,coin:window.app.state.coin}))
+ await enter()
+ assert.ok(await page.$('.continue-game'))
+ await page.click('.continue-game')
+ await page.waitForSelector('.front-door',{hidden:true})
+ assert.equal(await page.$('.dress'),null)
+ assert.equal(await page.$('.prologue'),null)
+ assert.deepEqual(await page.evaluate(()=>({day:window.app.state.day,coin:window.app.state.coin})),saved)
+ for(const [width,height,touch] of [[320,568,true],[360,800,true],[844,390,true]]) {
+  await page.setViewport({width,height,isMobile:touch,hasTouch:touch,deviceScaleFactor:1})
+  await enter()
+  assert.ok(await page.$('.continue-game'))
+  const separation = await page.evaluate(()=>{
+    const a=document.querySelector('.front-actions').getBoundingClientRect()
+    const f=document.querySelector('.front-footer').getBoundingClientRect()
+    const w=document.querySelector('.front-wordmark').getBoundingClientRect()
+    return a.bottom<=f.top && (w.bottom<=a.top || w.right<=a.left)
+  })
+  assert.ok(separation,`saved-game main menu fits ${width}x${height}`)
+  await page.click('.new-game')
+  await page.keyboard.press('Escape')
+  assert.equal(await page.$('.dress'),null)
+  await page.click('.new-game')
+  page.once('dialog',d=>d.dismiss())
+  await page.click('.front-begin')
+  assert.ok(await page.$('.dress'),'cancelling New Game keeps the existing save')
+  console.log(`ok ${width}x${height}: Continue fits, Escape returns, cancelling New Game preserves save`)
+ }
+ assert.deepEqual(errors,[])
+ console.log('ok new game → story → movement → save → Continue without wardrobe or replay; no browser errors')
+} catch(error) {
+ console.error(error.message)
+ await page.screenshot({path:'shots/front-failure.png'}).catch(()=>{})
+ console.error(errors)
+ throw error
+} finally { await browser.close() }

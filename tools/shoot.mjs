@@ -39,7 +39,7 @@ const ALL = ['valley', 'home', 'gate', 'rocky', 'sheet', 'rig', 'house', 'street
  * path is impossible by construction: that path exists precisely to skip it.
  */
 const DOM_POSES = {
-  menu: { query: '', wait: '.title-card', settle: 1400 },
+  menu: { query: '', wait: '.front-door:not([hidden])', settle: 1400 },
   hud: { query: '?nomenu=1', wait: '.hotbar', settle: 2200 },
   // Not a picture — a smoke test. The score builds its whole WebAudio graph and
   // books several phrases of notes; anything wrong in it throws, and the harness
@@ -63,13 +63,13 @@ const DOM_POSES = {
    * of those is a different code path and the handover between them is where a
    * first run breaks.
    */
-  firstrun: { query: '', wait: '.title-card', settle: 900, firstRun: true },
+  firstrun: { query: '', wait: '.front-door:not([hidden])', settle: 900, firstRun: true },
   /** Play, save, reload, and assert the valley came back the way it was left. */
   reload: { query: '?nomenu=1', wait: '.hotbar', settle: 400, reload: true },
   /** The same game on a phone: coarse pointer, touch controls, a narrow card. */
   mobile: { query: '?nomenu=1', wait: '.hotbar', settle: 1400, mobile: true },
   /** The title card on a phone, which is the first thing anybody touches. */
-  mobilemenu: { query: '', wait: '.title-card', settle: 1400, mobile: true, mobileMenu: true },
+  mobilemenu: { query: '', wait: '.front-door:not([hidden])', settle: 1400, mobile: true, mobileMenu: true },
 }
 
 const argv = process.argv.slice(2)
@@ -237,7 +237,9 @@ async function firstRunPage(page) {
   // of this pose is skipped with it.
   await page.evaluate(() => localStorage.clear())
   await page.reload({ waitUntil: 'load' })
-  await page.waitForSelector('.title-card', { timeout: 20000 })
+  await page.waitForSelector('.front-door:not([hidden])', { timeout: 20000 })
+  await page.waitForSelector('#boot-screen', { hidden: true })
+  await page.click('.new-game')
 
   // Dress somebody, because the swatches repaint a live rig and that is a code
   // path a screenshot of the card does not exercise.
@@ -246,7 +248,7 @@ async function firstRunPage(page) {
   await page.click('.dress-dice')
   await new Promise((r) => setTimeout(r, 300))
 
-  const [begin] = await page.$$('.title-actions .btn')
+  const begin = await page.$('.front-begin')
   if (!begin) throw new Error('the title card has no button to press')
   await begin.click()
 
@@ -401,7 +403,7 @@ async function mobilePage(page) {
  */
 async function mobileMenuPage(page) {
   const covered = await page.evaluate(() => {
-    const btn = document.querySelector('.title-actions .btn')
+    const btn = document.querySelector('.new-game')
     if (!btn) return 'the title card has no button'
     const r = btn.getBoundingClientRect()
     const hit = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2)
@@ -410,13 +412,15 @@ async function mobileMenuPage(page) {
   })
   if (covered) throw new Error(covered)
 
-  // And the swatches, which are the other half of what the card is for.
+  await page.tap('.new-game')
+
+  // Character creation is a separate screen after the main menu.
   const swatch = await page.$('.swatch')
   if (!swatch) throw new Error('no swatches on the title card')
   await swatch.tap()
 
   // Now actually start the game with a tap, the way a phone does.
-  const [begin] = await page.$$('.title-actions .btn')
+  const begin = await page.$('.front-begin')
   await begin.tap()
   await page.waitForFunction(() => !document.querySelector('.title'), { timeout: 15000 })
   await new Promise((r) => setTimeout(r, 800))

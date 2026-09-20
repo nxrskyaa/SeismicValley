@@ -98,6 +98,8 @@ try {
   await clickText('.farm-nav-btn', 'Save')
   const expected = await page.evaluate(() => ({ coin: window.app.state.coin, day: window.app.state.day, home: window.app.state.homeTier, friends: window.app.state.friendships, sown: window.app.state.stats.sown }))
   await page.goto(base, { waitUntil: 'networkidle0' })
+  await page.waitForSelector('.front-door:not([hidden])')
+  await page.waitForSelector('#boot-screen', { hidden: true })
   await clickText('.title-actions button', 'Continue')
   await pause(700)
   const actual = await page.evaluate(() => ({ coin: window.app.state.coin, day: window.app.state.day, home: window.app.state.homeTier, friends: window.app.state.friendships, sown: window.app.state.stats.sown }))

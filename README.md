@@ -8,6 +8,21 @@ An isometric farming game inspired by Seismic’s visual identity. Grow a garden
 sell your harvest, get to know the neighbors and turn a field cabin into a home.
 The world, characters, crops and music are generated in code with Three.js.
 
+![Main menu over the live valley](docs/menu-update.png)
+
+## Opening the valley
+
+World preparation shows its completed stages, then reveals a short cinematic
+view rendered from the actual game. Enter the menu immediately when ready,
+or let the opening finish. The main menu has New Game, Continue (when a save
+exists), Settings and About the builder. Character creation only opens after
+New Game; Continue goes straight back to the saved farm.
+
+The About page credits [Nxrskyaa](https://x.com/nxrskyaa) and
+[NxrLabs](https://x.com/nxrlabs). Audio preferences and menu-camera motion are
+adjustable. Reduced-motion preferences are respected on first visit.
+In-game, Journal → Save & return to main menu saves before leaving.
+
 ![The farm](docs/farm-update.png)
 
 ## Your first harvest
@@ -99,6 +114,10 @@ For browser tests, start Vite on port 5293, then run `npm run test:play`.
 Set `PLAY_URL` to test another origin. It drives real keys and buttons through
 planting, watering, sleep, harvesting, market trades, NPC interactions, upgrading
 and Continue. It also tests touch actions at 360×800 and 844×390.
+
+`npm run test:menu` verifies the loading/main-menu flow, builder links, settings,
+character creation, save return, Continue and new-game cancellation on desktop
+and mobile.
 
 `npm run test:ui` checks seven phone, tablet and desktop viewports, including
 320×568 and 844×390. It measures HUD/control overlap, drives real touch swipes,

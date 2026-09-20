@@ -20,6 +20,21 @@
     <meta name="twitter:description" content="Grow crops, make friends and build a home in a cozy Seismic-inspired valley." />
   </head>
   <body>
+    <style>
+      #boot-screen{position:fixed;inset:0;z-index:100;background:#2d222b;color:#f5ecda;display:flex;flex-direction:column;justify-content:space-between;padding:clamp(24px,6vw,80px);font-family:Georgia,serif;transition:opacity .65s,background 1.2s;box-sizing:border-box}
+      #boot-screen.has-world{background:linear-gradient(90deg,#241922a6,transparent 80%),linear-gradient(0deg,#241922d9,transparent 45%)}
+      #boot-screen.is-out{opacity:0;pointer-events:none}.boot-top{font:10px monospace;letter-spacing:.22em;display:flex;justify-content:space-between}.boot-title{font-size:clamp(46px,8vw,112px);line-height:.85;font-weight:400;letter-spacing:-.06em;margin:0}.boot-title span{display:block;font-style:italic;font-weight:400}.boot-bottom{width:min(360px,100%)}.boot-line{display:flex;justify-content:space-between;gap:20px;font:11px monospace;margin-bottom:14px}.boot-track{height:2px;background:#f5ecda33}.boot-track i{display:block;height:100%;background:#d9b98f;transform:scaleX(var(--progress,0));transform-origin:left;transition:transform .35s}.boot-skip{margin-top:20px;border:1px solid #f5ecda55;padding:12px 18px;background:#39273380;color:#f5ecda;cursor:pointer;font:12px monospace}.boot-skip[hidden]{display:none}
+    </style>
+    <div id="boot-screen" aria-label="Opening Seismic Valley">
+      <div class="boot-top"><span>NXR LABS PRESENTS</span><span>SEISMIC VALLEY</span></div>
+      <h1 class="boot-title">Seismic<span>Valley.</span></h1>
+      <div class="boot-bottom">
+        <div class="boot-line"><span class="boot-status" role="status">Opening the valley</span><span class="boot-number">0</span></div>
+        <div class="boot-track" role="progressbar" aria-label="Preparing game" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><i></i></div>
+        <button class="boot-skip" type="button" hidden>Enter the menu →</button>
+      </div>
+    </div>
+    <noscript><style>#boot-screen{display:none}</style><p>Seismic Valley needs JavaScript to run.</p></noscript>
     <div id="app"></div>
     <script type="module" src="/src/main.js"></script>
   </body>

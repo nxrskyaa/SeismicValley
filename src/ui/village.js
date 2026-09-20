@@ -43,6 +43,9 @@ export function renderVillagePanel(panels, body, kind, payload) {
     if (panels.opts.actionNode) body.append(panels.opts.actionNode)
     if (panels.opts.soundNode) body.append(panels.opts.soundNode)
     body.append(el('p', 'journal-save-note', 'Saved on this device · autosaves as you play'))
+    body.append(button('Save & return to main menu ↗', () => {
+      if (s.save(true)) location.assign(location.pathname)
+    }, false, 'btn return-to-menu'))
   }
   if (kind === 'npc') {
     const v = villager(payload.id)

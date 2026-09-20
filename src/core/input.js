@@ -53,6 +53,8 @@ export class Input {
     this.stick = [0, 0]
 
     const onKey = (e, down) => {
+      // The main menu and wardrobe use normal browser focus and text input.
+      if (document.body.classList.contains('is-title')) return
       if (['Tab', 'F5', 'Space', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.code) && !/INPUT|TEXTAREA/.test(e.target?.tagName)) e.preventDefault()
       if (e.repeat) return
       if (down) {

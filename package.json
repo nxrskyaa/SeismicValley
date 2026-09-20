@@ -22,7 +22,8 @@
     "direction": "node tools/direction.mjs",
     "test:village": "node tools/village.mjs",
     "test:play": "node tools/play-village.mjs",
-    "test:ui": "node tools/ui-layout.mjs"
+    "test:ui": "node tools/ui-layout.mjs",
+    "test:menu": "node tools/front-menu.mjs"
   },
   "dependencies": {
     "three": "^0.185.1"
